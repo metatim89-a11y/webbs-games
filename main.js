@@ -10,9 +10,36 @@ window.onload = () => {
         loginSuccess(persistedPlayer);
     }
     
+    renderPlayerSelect();
     renderMessages();
     checkAdminNotifications();
 };
+
+/* --- Player Selection Rendering --- */
+function renderPlayerSelect() {
+    const grid = document.getElementById('player-select');
+    if (!grid) return;
+
+    // Standard players
+    const defaults = [
+        { id: 'arieal', name: 'Arieal' },
+        { id: 'az', name: 'AZ' },
+        { id: 'cassie', name: 'Cassie' },
+        { id: 'tim', name: 'Tim' }
+    ];
+
+    // Approved dynamic players
+    const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+    
+    // Combine and add Guest last
+    const allPlayers = [...defaults, ...approved, { id: 'guest', name: 'Guest' }];
+
+    grid.innerHTML = allPlayers.map(p => `
+        <div class="player-card" onclick="initLogin('${p.id}')">
+            <h3>${p.name}</h3>
+        </div>
+    `).join('');
+}
 
 /* --- Admin Notifications --- */
 function checkAdminNotifications() {
@@ -59,6 +86,7 @@ function closeSignup() {
 }
 
 function submitSignup() {
+    console.log("submitSignup called");
     const name = document.getElementById('signup-name').value.trim();
     const animal = document.getElementById('signup-animal').value.trim();
     const game = document.getElementById('signup-game').value.trim();

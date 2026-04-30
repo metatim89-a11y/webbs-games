@@ -2,13 +2,20 @@ let activePlayer = null;
 let currentPinInput = "";
 let pinVisible = false;
 
-const PIN_CONFIG = {
+const DEFAULT_PIN_CONFIG = {
     tim: { name: "Tim", theme: "theme-tim" },
     arieal: { name: "Arieal", theme: "theme-arieal" },
     az: { name: "AZ", theme: "theme-az" },
     cassie: { name: "Cassie", theme: "theme-cassie" },
     guest: { name: "Guest", theme: "theme-guest" }
 };
+
+function getPinConfig(playerID) {
+    if (DEFAULT_PIN_CONFIG[playerID]) return DEFAULT_PIN_CONFIG[playerID];
+    const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+    const player = approved.find(p => p.id === playerID);
+    return player || { name: playerID, theme: `theme-${playerID}` };
+}
 
 function initLogin(playerID) {
     activePlayer = playerID;
@@ -24,8 +31,9 @@ function initLogin(playerID) {
     const overlay = document.getElementById('pin-overlay');
     const msg = document.getElementById('pin-msg');
     const storedPin = localStorage.getItem(`pin_${playerID}`);
+    const config = getPinConfig(playerID);
     
-    msg.innerText = !storedPin ? `Create PIN for ${PIN_CONFIG[playerID].name}` : `Enter PIN for ${PIN_CONFIG[playerID].name}`;
+    msg.innerText = !storedPin ? `Create PIN for ${config.name}` : `Enter PIN for ${config.name}`;
     overlay.style.display = 'flex';
 }
 
@@ -88,7 +96,8 @@ function submitPin() {
 function loginSuccess(playerID) {
     activePlayer = playerID;
     sessionStorage.setItem('webbs_active_player', playerID);
-    document.body.className = PIN_CONFIG[playerID].theme;
+    const config = getPinConfig(playerID);
+    document.body.className = config.theme;
     closePinOverlay();
     
     // Call the central UI transition from main.js

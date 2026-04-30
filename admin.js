@@ -113,7 +113,6 @@ function approveGuest(index) {
     const guest = pending[index];
     
     // Save their preferences to their profile (using their name as ID for now)
-    // In a real system, we'd assign an ID, but here we'll use name
     const playerID = guest.name.toLowerCase().replace(/\s+/g, '');
     
     const prefs = {
@@ -130,6 +129,17 @@ function approveGuest(index) {
         localStorage.setItem(`prefs_${playerID}`, JSON.stringify(prefs));
     }
 
+    // Add to approved players list for login screen
+    const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+    if (!approved.some(p => p.id === playerID)) {
+        approved.push({
+            id: playerID,
+            name: guest.name,
+            theme: `theme-${playerID}`
+        });
+        localStorage.setItem('webbs_approved_players', JSON.stringify(approved));
+    }
+
     alert(`Approved ${guest.name}! They can now log in as "${playerID}" and set a PIN.`);
     
     pending.splice(index, 1);
@@ -137,6 +147,9 @@ function approveGuest(index) {
     
     if (typeof checkAdminNotifications === "function") checkAdminNotifications();
     renderApprovalQueue();
+    
+    // Refresh player selection if on login screen
+    if (typeof renderPlayerSelect === "function") renderPlayerSelect();
 }
 
 function denyGuest(index) {
