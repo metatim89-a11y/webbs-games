@@ -12,52 +12,212 @@
 </head>
 <body>
     <div id="lobby-container">
-        <button onclick="location.href='../../index.html'">← Back</button>
-        <h1 id="game-status">Tic-Tac-Toe</h1>
-        <div class="grid" id="board">
-            <div class="cell" onclick="makeMove(0)"></div>
-            <div class="cell" onclick="makeMove(1)"></div>
-            <div class="cell" onclick="makeMove(2)"></div>
-            <div class="cell" onclick="makeMove(3)"></div>
-            <div class="cell" onclick="makeMove(4)"></div>
-            <div class="cell" onclick="makeMove(5)"></div>
-            <div class="cell" onclick="makeMove(6)"></div>
-            <div class="cell" onclick="makeMove(7)"></div>
-            <div class="cell" onclick="makeMove(8)"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <button onclick="location.href='../../index.html'">← Back</button>
+            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
-        <button onclick="resetGame()">Reset</button>
+
+        <h1 id="game-status">Tic-Tac-Toe</h1>
+        <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
+            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+        </div>
+
+        <div class="grid" id="board">
+            <div class="cell" onclick="handleCellClick(0)"></div>
+            <div class="cell" onclick="handleCellClick(1)"></div>
+            <div class="cell" onclick="handleCellClick(2)"></div>
+            <div class="cell" onclick="handleCellClick(3)"></div>
+            <div class="cell" onclick="handleCellClick(4)"></div>
+            <div class="cell" onclick="handleCellClick(5)"></div>
+            <div class="cell" onclick="handleCellClick(6)"></div>
+            <div class="cell" onclick="handleCellClick(7)"></div>
+            <div class="cell" onclick="handleCellClick(8)"></div>
+        </div>
+        <button id="reset-btn" onclick="resetGame()">Reset</button>
+
+        <!-- Table Chat -->
+        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            <h3 style="margin-top: 0;">Table Chat</h3>
+            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
+                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
+            </div>
+        </div>
     </div>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="../../network.js"></script>
     <script src="../../profile.js"></script>
     <script>
         let board = ["","","","","","","","",""], currentPlayer = "X", active = true;
+        let myRole = 'local'; // 'local', 'host', or 'player2'
+        let isSpectator = false;
+        let player2ID = null;
+
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
+        const gameType = urlParams.get('type'); // 'online', 'cpu', 'local'
+        const networkRole = urlParams.get('role'); // 'host', 'client'
+        const hostPIN = urlParams.get('host');
+
         document.body.classList.add('theme-' + playerID);
-        function makeMove(idx) {
-            if (board[idx] === "" && active) {
-                board[idx] = currentPlayer; render();
-                if (!checkWin()) { currentPlayer = currentPlayer === "X" ? "O" : "X"; }
+
+        // --- Initialization ---
+        window.onload = () => {
+            if (gameType === 'online') {
+                setupMultiplayer();
+            }
+            render();
+        };
+
+        function setupMultiplayer() {
+            if (networkRole === 'host') {
+                myRole = 'host';
+                NetworkManager.init('host');
+                NetworkManager.onPlayerJoined = (id, conn) => {
+                    if (!player2ID) {
+                        player2ID = id;
+                        conn.send({ type: 'JOIN_ACCEPTED' });
+                        NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
+                        updateStatus();
+                    }
+                };
+                NetworkManager.onMoveReceived = (idx) => {
+                    if (currentPlayer === "O") executeMove(idx);
+                };
+                NetworkManager.onChatMessage = (payload) => {
+                    renderTableMessage(payload);
+                };
+                
+                // Display PIN when ready
+                NetworkManager.peer.on('open', (id) => {
+                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                });
+            } else {
+                isSpectator = true;
+                document.getElementById('multiplayer-controls').style.display = 'block';
+                NetworkManager.init('client', hostPIN);
+                NetworkManager.onStateUpdate = (state) => {
+                    board = state.board;
+                    currentPlayer = state.currentPlayer;
+                    active = state.active;
+                    player2ID = state.player2ID;
+                    if (player2ID === playerID) {
+                        isSpectator = false;
+                        myRole = 'player2';
+                        document.getElementById('multiplayer-controls').style.display = 'none';
+                    }
+                    render();
+                };
+                NetworkManager.onJoinAccepted = () => {
+                    isSpectator = false;
+                    myRole = 'player2';
+                    document.getElementById('multiplayer-controls').style.display = 'none';
+                };
+                NetworkManager.onChatMessage = (payload) => {
+                    renderTableMessage(payload);
+                };
+                document.getElementById('network-status').innerText = `Spectating PIN: ${hostPIN}`;
             }
         }
+
+        function requestToJoin() {
+            NetworkManager.requestJoin();
+        }
+
+        // --- Table Chat Logic ---
+        function sendTableChat() {
+            const input = document.getElementById('table-msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+            NetworkManager.sendChatMessage(text);
+            input.value = "";
+        }
+
+        function renderTableMessage(payload) {
+            const container = document.getElementById('table-messages');
+            const div = document.createElement('div');
+            div.style.marginBottom = "5px";
+            div.style.padding = "5px";
+            div.style.borderRadius = "5px";
+            div.style.fontSize = "0.9em";
+            div.style.background = "rgba(255,255,255,0.05)";
+            
+            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
+            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Allow Enter key to send chat
+        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendTableChat();
+        });
+
+        function handleCellClick(idx) {
+            if (isSpectator) return;
+            
+            // In online mode, restrict who can move
+            if (myRole === 'host' && currentPlayer !== "X") return;
+            if (myRole === 'player2' && currentPlayer !== "O") return;
+
+            if (board[idx] === "" && active) {
+                if (myRole === 'player2') {
+                    NetworkManager.sendMove(idx);
+                } else {
+                    executeMove(idx);
+                }
+            }
+        }
+
+        function executeMove(idx) {
+            board[idx] = currentPlayer;
+            if (!checkWin()) {
+                currentPlayer = currentPlayer === "X" ? "O" : "X";
+            }
+            if (myRole === 'host') {
+                NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
+            }
+            render();
+        }
+
         function render() {
             const cells = document.querySelectorAll('.cell');
             board.forEach((val, i) => cells[i].innerText = val);
+            updateStatus();
         }
+
+        function updateStatus() {
+            const statusEl = document.getElementById('game-status');
+            if (!active) return;
+
+            let turnText = `Turn: ${currentPlayer}`;
+            if (myRole === 'host' && currentPlayer === "X") turnText += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === "O") turnText += " (YOU)";
+            if (isSpectator) turnText += " (Spectating)";
+            
+            statusEl.innerText = turnText;
+        }
+
         function checkWin() {
             const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
             for (let c of wins) {
                 if (board[c[0]] && board[c[0]] === board[c[1]] && board[c[0]] === board[c[2]]) {
                     document.getElementById('game-status').innerText = board[c[0]] + " Wins!";
-                    active = false; logMatch(playerID, "Tic-Tac-Toe", board[c[0]] === "X" ? "Win" : "Loss");
+                    active = false;
                     return true;
                 }
             }
-            if (!board.includes("")) { document.getElementById('game-status').innerText = "Draw!"; return true; }
+            if (!board.includes("")) { document.getElementById('game-status').innerText = "Draw!"; active = false; return true; }
             return false;
         }
+
         function resetGame() {
+            if (isSpectator || myRole === 'player2') return; // Only host/local can reset
             board = ["","","","","","","","",""]; currentPlayer = "X"; active = true;
-            document.getElementById('game-status').innerText = "Tic-Tac-Toe"; render();
+            if (myRole === 'host') NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
+            render();
         }
     </script>
 </body>

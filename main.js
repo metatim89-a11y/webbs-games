@@ -30,6 +30,17 @@ function showGameSelection(mode) {
     window.location.href = `games.html?player=${activePlayer}&mode=${mode}`;
 }
 
+function joinTablePrompt() {
+    const pin = prompt("Enter the 4-digit Table PIN to join:");
+    if (pin && pin.length === 4) {
+        // For simplicity, we ask which game they want to join. 
+        // In a more advanced version, we could auto-detect the game.
+        window.location.href = `games.html?player=${activePlayer}&mode=join&host=${pin}`;
+    } else if (pin) {
+        alert("Please enter a valid 4-digit PIN.");
+    }
+}
+
 /* --- Message Board / Chat Logic --- */
 function postMessage() {
     const input = document.getElementById('msg-input');

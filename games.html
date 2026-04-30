@@ -31,13 +31,17 @@
     <script>
         const params = new URLSearchParams(window.location.search);
         const player = params.get('player');
-        const mode = params.get('mode'); // 'online' or 'local'
+        const mode = params.get('mode'); // 'online', 'local', or 'join'
+        const hostPIN = params.get('host');
         document.body.classList.add('theme-' + player);
 
         function selectGame(game) {
             if (mode === 'online') {
-                // Skip sub-mode, go straight to table creation
-                window.location.href = `games/${game}/index.html?player=${player}&type=online`;
+                // Host a new table
+                window.location.href = `games/${game}/index.html?player=${player}&type=online&role=host`;
+            } else if (mode === 'join') {
+                // Join an existing table as spectator
+                window.location.href = `games/${game}/index.html?player=${player}&type=online&role=client&host=${hostPIN}`;
             } else {
                 // Show choice for CPU or Local
                 document.getElementById('sub-mode').style.display = 'block';
