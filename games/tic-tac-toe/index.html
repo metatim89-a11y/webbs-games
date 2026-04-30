@@ -53,6 +53,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="../../firebase-init.js"></script>
     <script src="../../network.js"></script>
     <script src="../../profile.js"></script>
     <script>
@@ -81,6 +84,23 @@
             if (networkRole === 'host') {
                 myRole = 'host';
                 NetworkManager.init('host');
+                
+                // Display PIN and Register with Firebase when Peer is ready
+                NetworkManager.peer.on('open', (id) => {
+                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    const hostDisplay = document.getElementById('host-pin-display');
+                    const pinValue = document.getElementById('table-pin-value');
+                    if (hostDisplay && pinValue) {
+                        hostDisplay.style.display = 'block';
+                        pinValue.innerText = id;
+                    }
+
+                    // REGISTER TABLE GLOBALLY
+                    if (typeof FirebaseManager !== 'undefined') {
+                        FirebaseManager.registerTable(id, "Tic-Tac-Toe", playerID);
+                    }
+                });
+
                 NetworkManager.onPlayerJoined = (id, conn) => {
                     if (!player2ID) {
                         player2ID = id;
@@ -95,17 +115,6 @@
                 NetworkManager.onChatMessage = (payload) => {
                     renderTableMessage(payload);
                 };
-                
-                // Display PIN when ready
-                NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
-                    const hostDisplay = document.getElementById('host-pin-display');
-                    const pinValue = document.getElementById('table-pin-value');
-                    if (hostDisplay && pinValue) {
-                        hostDisplay.style.display = 'block';
-                        pinValue.innerText = id;
-                    }
-                });
             } else {
                 isSpectator = true;
                 document.getElementById('multiplayer-controls').style.display = 'block';

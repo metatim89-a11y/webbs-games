@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby | Webbs Games</title>
     <link rel="stylesheet" href="style.css">
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
     <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
@@ -23,10 +26,23 @@
         </div>
 
         <div id="main-menu" style="display:none;">
-            <div class="menu-actions" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <div class="menu-actions" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
                 <button onclick="showGameSelection('online')">Create Table</button>
-                <button onclick="joinTablePrompt()">Join Table</button>
+                <button onclick="showViewTables()">View Tables</button>
+                <button onclick="joinTablePrompt()">Join PIN</button>
                 <button onclick="showGameSelection('local')">Play Games</button>
+            </div>
+
+            <!-- View Tables Section -->
+            <div id="view-tables-container" style="display: none; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px; border: 1px solid gold; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0;">Active Game Tables</h3>
+                    <button onclick="hideViewTables()" style="padding: 5px 10px; font-size: 0.8em;">Close</button>
+                </div>
+                <div id="active-tables-list">
+                    <p style="opacity: 0.6;">Searching for tables...</p>
+                    <!-- Tables will be injected here -->
+                </div>
             </div>
             
             <div id="message-board-container">
@@ -58,6 +74,7 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="firebase-init.js"></script>
     <script src="auth.js"></script>
     <script src="main.js"></script>
 </body>
