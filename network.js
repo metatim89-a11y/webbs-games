@@ -1,24 +1,26 @@
 /**
  * NetworkManager handles browser-to-browser communication using PeerJS.
+ * Support for up to 4 players (Host + 3 Clients).
  */
 const NetworkManager = {
     peer: null,
-    conn: null, // For Client: connection to Host. For Host: latest connection.
-    connections: [], // For Host: list of all connected peers.
+    conn: null, // For Client: connection to Host.
+    connections: [], // For Host: list of all connected peer connections.
     role: null, // 'host' or 'client'
     roomID: null,
+    
+    // Callbacks for game logic
     onStateUpdate: null,
     onMoveReceived: null,
     onPlayerJoined: null,
+    onChatMessage: null,
+    onJoinAccepted: null,
 
     init(role, roomID = null) {
         this.role = role;
         this.roomID = roomID || this.generateShortID();
         
-        // Initialize Peer with the short ID if Host, or random if Client
-        this.peer = new Peer(role === 'host' ? this.roomID : undefined, {
-            debug: 1
-        });
+        this.peer = new Peer(role === 'host' ? this.roomID : undefined, { debug: 1 });
 
         this.peer.on('open', (id) => {
             console.log(`My peer ID is: ${id}`);
@@ -42,7 +44,6 @@ const NetworkManager = {
     },
 
     generateShortID() {
-        // Generate a 4-digit PIN for easy sharing
         return Math.floor(1000 + Math.random() * 9000).toString();
     },
 
@@ -70,7 +71,8 @@ const NetworkManager = {
     },
 
     sendChatMessage(text) {
-        const msg = { type: 'CHAT', payload: { text, sender: sessionStorage.getItem('webbs_active_player') } };
+        const sender = sessionStorage.getItem('webbs_active_player') || 'guest';
+        const msg = { type: 'CHAT', payload: { text, sender } };
         if (this.role === 'host') {
             this.handleMessage(msg); // Local display
             this.connections.forEach(conn => {
@@ -107,12 +109,12 @@ const NetworkManager = {
 
     requestJoin() {
         if (this.role !== 'client' || !this.conn) return;
-        this.conn.send({ type: 'REQUEST_JOIN', playerID: sessionStorage.getItem('webbs_active_player') });
+        const playerID = sessionStorage.getItem('webbs_active_player') || 'guest';
+        this.conn.send({ type: 'REQUEST_JOIN', playerID });
     },
 
     // --- Message Handling ---
     handleMessage(data, senderConn = null) {
-        console.log("Message received:", data);
         switch (data.type) {
             case 'STATE_UPDATE':
                 if (this.onStateUpdate) this.onStateUpdate(data.payload);
@@ -124,12 +126,12 @@ const NetworkManager = {
                 if (this.onPlayerJoined) this.onPlayerJoined(data.playerID, senderConn);
                 break;
             case 'JOIN_ACCEPTED':
-                alert("You are now Player 2!");
-                if (this.onJoinAccepted) this.onJoinAccepted();
+                const pos = data.assignedPosition || '2';
+                alert(`You are now Player ${pos}!`);
+                if (this.onJoinAccepted) this.onJoinAccepted(pos);
                 break;
             case 'CHAT':
                 if (this.onChatMessage) this.onChatMessage(data.payload);
-                // Host relays chat to all other peers
                 if (this.role === 'host') {
                     this.connections.forEach(conn => {
                         if (conn !== senderConn && conn.open) conn.send(data);

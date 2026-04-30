@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lobby | Webbs Games</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Firebase SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
 </head>
 <body>
     <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
@@ -31,6 +28,7 @@
                 <button onclick="showViewTables()">View Tables</button>
                 <button onclick="joinTablePrompt()">Join PIN</button>
                 <button onclick="showGameSelection('local')">Play Games</button>
+                <button onclick="logout()" style="border-color: #800; color: #ff5555;">Logout</button>
             </div>
 
             <!-- View Tables Section -->
@@ -74,7 +72,7 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="firebase-init.js"></script>
+    <script src="admin.js"></script>
     <script src="auth.js"></script>
     <script src="main.js"></script>
 </body>

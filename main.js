@@ -9,13 +9,7 @@ window.onload = () => {
         loginSuccess(persistedPlayer);
     }
     
-    // Start watching global discovery tables
-    if (typeof FirebaseManager !== 'undefined') {
-        FirebaseManager.watchTables(renderActiveTables);
-        FirebaseManager.syncChat(addRemoteMessage);
-    } else {
-        renderMessages();
-    }
+    renderMessages();
 };
 
 /* --- UI Transition --- */
@@ -30,39 +24,15 @@ function showMainMenu() {
     renderMessages();
 }
 
-/* --- Table Discovery Logic --- */
-function renderActiveTables(tables) {
-    const list = document.getElementById('active-tables-list');
-    if (!list) return;
-
-    if (tables.length === 0) {
-        list.innerHTML = "<p style='opacity:0.6;'>No active tables found. Why not create one?</p>";
-        return;
-    }
-
-    list.innerHTML = "";
-    tables.forEach(table => {
-        const div = document.createElement('div');
-        div.style.cssText = "background:rgba(255,255,255,0.05); border:1px solid gold; padding:15px; margin:10px 0; border-radius:10px; display:flex; justify-content:space-between; align-items:center;";
-        
-        div.innerHTML = `
-            <div style="text-align:left;">
-                <div style="font-weight:bold; color:gold;">${table.gameName.toUpperCase()}</div>
-                <div style="font-size:0.8em; opacity:0.8;">Host: ${table.hostName}</div>
-            </div>
-            <button onclick="joinTable('${table.pin}', '${table.gameName.toLowerCase().replace(/ /g, '-')}')" style="padding:5px 15px;">Join</button>
-        `;
-        list.appendChild(div);
-    });
-}
-
-function joinTable(pin, gameSlug) {
-    window.location.href = `games/${gameSlug}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`;
-}
-
+/* --- Table Discovery Logic (Manual PIN only now) --- */
 function showViewTables() {
     const container = document.getElementById('view-tables-container');
     if (container) container.style.display = 'block';
+    // Firebase is removed, so we only show instructions for Join PIN
+    const list = document.getElementById('active-tables-list');
+    if (list) {
+        list.innerHTML = "<p style='opacity:0.8;'>Global discovery is disabled. Use the <strong>Join PIN</strong> button to enter a 4-digit code provided by your friend.</p>";
+    }
 }
 
 function hideViewTables() {
@@ -85,7 +55,12 @@ function joinTablePrompt() {
     }
 }
 
-/* --- Message Board / Chat Logic --- */
+function logout() {
+    sessionStorage.removeItem('webbs_active_player');
+    location.reload();
+}
+
+/* --- Message Board / Chat Logic (Local Storage) --- */
 function postMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
@@ -102,50 +77,21 @@ function postMessage() {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
-    if (typeof FirebaseManager !== 'undefined') {
-        FirebaseManager.postChat(newMessage);
-    } else {
-        // Fallback to local storage if Firebase isn't set up
-        let localMessages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
-        localMessages.push(newMessage);
-        if (localMessages.length > 20) localMessages.shift();
-        localStorage.setItem('webbs_messages', JSON.stringify(localMessages));
-        renderMessages();
-    }
-    
-    input.value = "";
-}
+    messages.push(newMessage);
+    if (messages.length > 20) messages.shift();
 
-function addRemoteMessage(msg) {
-    const container = document.getElementById('messages');
-    if (!container) return;
-    
-    const div = document.createElement('div');
-    div.className = `msg theme-${msg.sender}`;
-    div.style.margin = "5px 0";
-    div.style.padding = "8px";
-    div.style.borderRadius = "5px";
-    div.style.background = "rgba(255,255,255,0.05)";
-    div.style.borderLeft = "4px solid var(--primary-color)";
-    
-    div.innerHTML = `<strong>${msg.sender.toUpperCase()}:</strong> ${msg.body} <span style="font-size:0.7em; float:right; opacity:0.5;">${msg.timestamp}</span>`;
-    container.appendChild(div);
-    container.scrollTop = container.scrollHeight;
+    localStorage.setItem('webbs_messages', JSON.stringify(messages));
+    input.value = "";
+    renderMessages();
 }
 
 function renderMessages() {
     const container = document.getElementById('messages');
     if (!container) return;
     
-    // If Firebase is active, clear container once and wait for Firebase syncChat
-    if (typeof FirebaseManager !== 'undefined') {
-        container.innerHTML = "";
-        return;
-    }
-
-    let localMessages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
     container.innerHTML = "";
-    localMessages.forEach(msg => {
+
+    messages.forEach(msg => {
         const div = document.createElement('div');
         div.className = `msg theme-${msg.sender}`;
         div.style.margin = "5px 0";
@@ -153,13 +99,16 @@ function renderMessages() {
         div.style.borderRadius = "5px";
         div.style.background = "rgba(255,255,255,0.05)";
         div.style.borderLeft = "4px solid var(--primary-color)";
+        
         div.innerHTML = `<strong>${msg.sender.toUpperCase()}:</strong> ${msg.body} <span style="font-size:0.7em; float:right; opacity:0.5;">${msg.timestamp}</span>`;
         container.appendChild(div);
     });
+
+    // Auto-scroll to bottom
     container.scrollTop = container.scrollHeight;
 }
 
 /* --- Global Lobby Refresh --- */
 window.refreshLobby = () => {
-    if (typeof FirebaseManager === 'undefined') renderMessages();
+    renderMessages();
 };

@@ -81,9 +81,6 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
-    <script src="../../firebase-init.js"></script>
     <script src="../../network.js"></script>
     <script src="../../profile.js"></script>
     <script>
@@ -115,7 +112,6 @@
                     document.getElementById('network-status').innerText = `Table PIN: ${id}`;
                     document.getElementById('host-pin-display').style.display = 'block';
                     document.getElementById('table-pin-value').innerText = id;
-                    if (typeof FirebaseManager !== 'undefined') FirebaseManager.registerTable(id, "Mancala", playerID);
                 });
                 NetworkManager.onPlayerJoined = (id, conn) => {
                     if (!player2ID) {
