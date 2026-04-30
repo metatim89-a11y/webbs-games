@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Uno No Mercy | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.1.3">
+    <link rel="stylesheet" href="../../style.css?v=1.1.4">
     <style>
         #game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px; }
         #discard-pile { width: 100px; height: 150px; border: 3px solid var(--accent-color); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold; background: #222; }
@@ -55,8 +55,8 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.1.3"></script>
-    <script src="../../profile.js?v=1.1.3"></script>
+    <script src="../../network.js?v=1.1.4"></script>
+    <script src="../../profile.js?v=1.1.4"></script>
     <script>
         let hand = [];
         let discard = { color: 'wild', value: '--' };
@@ -83,14 +83,10 @@
         };
 
         function setupMultiplayer() {
+            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+
             if (networkRole === 'host') {
                 myRole = 'host';
-                NetworkManager.init('host');
-                NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
-                    document.getElementById('host-pin-display').style.display = 'block';
-                    document.getElementById('table-pin-value').innerText = id;
-                });
                 NetworkManager.onPlayerJoined = (id, conn) => {
                     if (!player2ID) {
                         player2ID = id;
@@ -101,10 +97,17 @@
                 NetworkManager.onMoveReceived = (move) => {
                     if (currentPlayer === "O") executeAction(move);
                 };
+
+                NetworkManager.init('host');
+                NetworkManager.peer.on('open', (id) => {
+                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    document.getElementById('host-pin-display').style.display = 'block';
+                    document.getElementById('table-pin-value').innerText = id;
+                });
             } else {
                 isSpectator = true;
                 document.getElementById('network-status').innerText = `Connecting to Table ${hostPIN}...`;
-                NetworkManager.init('client', hostPIN);
+                
                 NetworkManager.onStateUpdate = (state) => {
                     discard = state.discard;
                     currentPlayer = state.currentPlayer;
@@ -124,9 +127,9 @@
                     document.getElementById('network-status').innerText = "Connected as Player 2";
                     document.getElementById('multiplayer-controls').style.display = 'none';
                 };
-                document.getElementById('network-status').innerText = `Spectating PIN: ${hostPIN}`;
+
+                NetworkManager.init('client', hostPIN);
             }
-            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
         }
 
         function requestToJoin() { NetworkManager.requestJoin(); }
