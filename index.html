@@ -23,28 +23,30 @@
         </div>
 
         <div id="main-menu" style="display:none;">
-            <div class="menu-actions">
-                <button onclick="showGameSelection('online')">Create Table (Online)</button>
-                <button onclick="showGameSelection('local')">Play Games (Local/CPU)</button>
+            <div class="menu-actions" style="display: flex; gap: 10px; margin-bottom: 20px;">
+                <button onclick="showGameSelection('online')">Create Table</button>
+                <button onclick="showGameSelection('local')">Play Games</button>
             </div>
             
             <div id="message-board-container">
                 <h3>Family Chat</h3>
-                <div id="messages"></div>
-                <input type="text" id="msg-input" placeholder="Type a message...">
-                <button onclick="postMessage()">Post</button>
+                <div id="messages" style="height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 5px; text-align: left;"></div>
+                <div style="display: flex; gap: 5px;">
+                    <input type="text" id="msg-input" placeholder="Type a message..." style="flex: 1;">
+                    <button onclick="postMessage()">Post</button>
+                </div>
             </div>
         </div>
     </div>
 
-    <div id="pin-overlay" style="display:none;">
-        <div class="pin-box">
+    <div id="pin-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center;">
+        <div class="pin-box" style="background: var(--secondary-color); padding: 20px; border-radius: 15px; border: 2px solid var(--primary-color); text-align: center;">
             <h2 id="pin-msg">Enter PIN</h2>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 10px;">
-                <div id="pin-display" style="font-size: 2em; letter-spacing: 5px;">----</div>
-                <button onclick="togglePinVisibility()" style="background:none; border:none; color:gold; cursor:pointer; font-size:1.2em;">ⓘ</button>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 20px 0;">
+                <div id="pin-display" style="font-size: 2.5em; letter-spacing: 8px; min-width: 120px;">----</div>
+                <button type="button" onclick="togglePinVisibility()" style="background:none; border:1px solid gold; color:gold; cursor:pointer; font-size:1em; padding: 5px 10px; border-radius: 5px;">ⓘ</button>
             </div>
-            <div class="keypad">
+            <div class="keypad" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
                 <button onclick="appendPin('1')">1</button><button onclick="appendPin('2')">2</button><button onclick="appendPin('3')">3</button>
                 <button onclick="appendPin('4')">4</button><button onclick="appendPin('5')">5</button><button onclick="appendPin('6')">6</button>
                 <button onclick="appendPin('7')">7</button><button onclick="appendPin('8')">8</button><button onclick="appendPin('9')">9</button>
@@ -56,6 +58,5 @@
 
     <script src="auth.js"></script>
     <script src="main.js"></script>
-    <script src="admin.js"></script>
 </body>
 </html>

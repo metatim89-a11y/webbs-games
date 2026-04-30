@@ -1,4 +1,3 @@
-/* --- Complete Auth Logic --- */
 let activePlayer = null;
 let currentPinInput = "";
 let pinVisible = false;
@@ -14,7 +13,7 @@ const PIN_CONFIG = {
 function initLogin(playerID) {
     activePlayer = playerID;
     currentPinInput = "";
-    pinVisible = false; // Reset visibility on every new login attempt
+    pinVisible = false;
     updatePinDisplay();
 
     if (playerID === 'guest') {
@@ -26,12 +25,7 @@ function initLogin(playerID) {
     const msg = document.getElementById('pin-msg');
     const storedPin = localStorage.getItem(`pin_${playerID}`);
     
-    if (!storedPin) {
-        msg.innerText = `Welcome ${PIN_CONFIG[playerID].name}! Create your 4-digit PIN:`;
-    } else {
-        msg.innerText = `Hello ${PIN_CONFIG[playerID].name}, enter your PIN:`;
-    }
-
+    msg.innerText = !storedPin ? `Create PIN for ${PIN_CONFIG[playerID].name}` : `Enter PIN for ${PIN_CONFIG[playerID].name}`;
     overlay.style.display = 'flex';
 }
 
@@ -54,41 +48,46 @@ function togglePinVisibility() {
 
 function updatePinDisplay() {
     const display = document.getElementById('pin-display');
-    if (display) {
-        if (currentPinInput.length === 0) {
-            display.innerText = "----";
-        } else {
-            display.innerText = pinVisible ? currentPinInput : "*".repeat(currentPinInput.length);
-        }
+    if (!display) return;
+    
+    if (currentPinInput.length === 0) {
+        display.innerText = "----";
+    } else {
+        display.innerText = pinVisible ? currentPinInput : "*".repeat(currentPinInput.length);
     }
 }
 
 function closePinOverlay() {
-    const overlay = document.getElementById('pin-overlay');
-    if (overlay) overlay.style.display = 'none';
+    document.getElementById('pin-overlay').style.display = 'none';
     currentPinInput = "";
 }
 
 function submitPin() {
     if (currentPinInput.length !== 4) return;
     const storedPin = localStorage.getItem(`pin_${activePlayer}`);
+    
     if (!storedPin) {
         localStorage.setItem(`pin_${activePlayer}`, currentPinInput);
         loginSuccess(activePlayer);
     } else if (currentPinInput === storedPin) {
         loginSuccess(activePlayer);
     } else {
-        alert("Incorrect PIN. Try again.");
+        alert("Wrong PIN.");
         clearPin();
     }
 }
 
 function loginSuccess(playerID) {
     activePlayer = playerID;
-    document.body.className = "";
-    document.body.classList.add(PIN_CONFIG[playerID].theme);
+    document.body.className = PIN_CONFIG[playerID].theme;
     closePinOverlay();
-    if (typeof showMainMenu === "function") {
-        showMainMenu();
+    
+    // Manual Redirection to Menu
+    document.getElementById('player-select').style.display = 'none';
+    document.getElementById('main-menu').style.display = 'block';
+    
+    // Ensure chat is rendered
+    if (typeof renderMessages === "function") {
+        renderMessages();
     }
 }
