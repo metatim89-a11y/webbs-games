@@ -15,17 +15,37 @@
     </div>
 
     <div id="signup-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center;">
-        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid gold; text-align: center; width: 90%; max-width: 400px;">
-            <h2>Request Account</h2>
-            <p style="opacity: 0.8; font-size: 0.9em;">Submit your info for Tim's approval.</p>
-            <input type="text" id="signup-name" placeholder="Your Name" style="width: 100%; margin-bottom: 15px;">
-            <div style="margin-bottom: 15px;">
-                <label>Favorite Color:</label><br>
-                <input type="color" id="signup-color" value="#00ff00" style="width: 100%; height: 40px; border: none; background: none; cursor: pointer;">
+        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid gold; text-align: center; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto;">
+            <h2 style="color: gold;">Join the Family</h2>
+            <p style="opacity: 0.8; font-size: 0.9em; margin-bottom: 20px;">Fill out your profile request for Tim's approval.</p>
+            
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-size: 0.8em; opacity: 0.7;">Full Name:</label>
+                <input type="text" id="signup-name" placeholder="Enter your name" style="width: 100%; margin-top: 5px;">
             </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-size: 0.8em; opacity: 0.7;">Favorite Animal:</label>
+                <input type="text" id="signup-animal" placeholder="e.g. Axolotl, Duck..." style="width: 100%; margin-top: 5px;">
+            </div>
+
+            <div style="text-align: left; margin-bottom: 15px;">
+                <label style="font-size: 0.8em; opacity: 0.7;">Favorite Board Game:</label>
+                <input type="text" id="signup-game" placeholder="e.g. Mancala, Sorry..." style="width: 100%; margin-top: 5px;">
+            </div>
+
+            <div style="text-align: left; margin-bottom: 20px;">
+                <label style="font-size: 0.8em; opacity: 0.7;">Top 3 Favorite Colors:</label>
+                <div style="display: flex; gap: 10px; margin-top: 5px;">
+                    <input type="color" id="signup-color-1" value="#ffd700" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                    <input type="color" id="signup-color-2" value="#00ffff" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                    <input type="color" id="signup-color-3" value="#ff00ff" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                </div>
+            </div>
+
             <div style="display: flex; gap: 10px;">
-                <button onclick="submitSignup()" style="flex: 1;">Request</button>
-                <button onclick="closeSignup()" style="flex: 1; background: #444;">Cancel</button>
+                <button onclick="submitSignup()" style="flex: 1; padding: 12px; font-weight: bold;">Submit Request</button>
+                <button onclick="closeSignup()" style="flex: 1; background: #444; padding: 12px;">Cancel</button>
             </div>
         </div>
     </div>

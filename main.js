@@ -1,4 +1,5 @@
 /* --- Global State --- */
+console.log("Webbs Games: main.js loading...");
 let messages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
 
 /* --- Initialization --- */
@@ -59,15 +60,27 @@ function closeSignup() {
 
 function submitSignup() {
     const name = document.getElementById('signup-name').value.trim();
-    const color = document.getElementById('signup-color').value;
+    const animal = document.getElementById('signup-animal').value.trim();
+    const game = document.getElementById('signup-game').value.trim();
+    const colors = [
+        document.getElementById('signup-color-1').value,
+        document.getElementById('signup-color-2').value,
+        document.getElementById('signup-color-3').value
+    ];
 
-    if (!name) {
-        alert("Please enter your name!");
+    if (!name || !animal || !game) {
+        alert("Please fill out all fields!");
         return;
     }
 
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
-    pending.push({ name, color, timestamp: new Date().getTime() });
+    pending.push({ 
+        name, 
+        animal, 
+        game, 
+        colors, 
+        timestamp: new Date().getTime() 
+    });
     localStorage.setItem('webbs_pending', JSON.stringify(pending));
 
     alert("Request sent to Tim! He'll see a notification on his gear icon.");
@@ -76,12 +89,16 @@ function submitSignup() {
 
 /* --- Profile Management --- */
 function openProfile() {
-    if (!activePlayer) return;
+    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
+    if (!player) {
+        alert("Please log in first!");
+        return;
+    }
     
     document.getElementById('profile-modal').style.display = 'flex';
-    document.getElementById('profile-title').innerText = `${activePlayer.toUpperCase()}'s Profile`;
+    document.getElementById('profile-title').innerText = `${player.toUpperCase()}'s Profile`;
     
-    refreshProfileView();
+    refreshProfileView(player);
 }
 
 function closeProfile() {
@@ -93,8 +110,9 @@ function toggleProfileEdit(show) {
     document.getElementById('profile-view').style.display = show ? 'none' : 'block';
     document.getElementById('profile-edit').style.display = show ? 'block' : 'none';
     
-    if (show) {
-        const prefs = ProfileManager.getPreferences(activePlayer);
+    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
+    if (show && player) {
+        const prefs = ProfileManager.getPreferences(player);
         document.getElementById('edit-animal').value = prefs.favoriteAnimal;
         document.getElementById('edit-color').value = prefs.favoriteColor;
         document.getElementById('edit-game').value = prefs.favoriteGame;
@@ -102,20 +120,26 @@ function toggleProfileEdit(show) {
 }
 
 function saveProfile() {
+    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
+    if (!player) return;
+
     const prefs = {
         favoriteAnimal: document.getElementById('edit-animal').value || "None set",
         favoriteColor: document.getElementById('edit-color').value,
         favoriteGame: document.getElementById('edit-game').value || "None set"
     };
     
-    ProfileManager.savePreferences(activePlayer, prefs);
+    ProfileManager.savePreferences(player, prefs);
     toggleProfileEdit(false);
-    refreshProfileView();
+    refreshProfileView(player);
 }
 
-function refreshProfileView() {
-    const stats = ProfileManager.getStats(activePlayer);
-    const prefs = ProfileManager.getPreferences(activePlayer);
+function refreshProfileView(playerOverride) {
+    const player = playerOverride || activePlayer || sessionStorage.getItem('webbs_active_player');
+    if (!player) return;
+
+    const stats = ProfileManager.getStats(player);
+    const prefs = ProfileManager.getPreferences(player);
     
     document.getElementById('stat-total').innerText = stats.total;
     document.getElementById('stat-winrate').innerText = `${stats.winRate}%`;

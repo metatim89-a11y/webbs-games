@@ -72,19 +72,36 @@ function renderApprovalQueue() {
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
     
     if (pending.length === 0) {
-        list.innerHTML = "<p>No pending requests.</p>";
+        list.innerHTML = "<p style='opacity:0.5;'>No pending requests.</p>";
         return;
     }
 
     list.innerHTML = "";
     pending.forEach((req, index) => {
         const item = document.createElement('div');
-        item.style.cssText = "background:rgba(255,255,255,0.1); padding:10px; margin:10px 0; border-radius:8px; display:flex; justify-content:space-between; align-items:center;";
+        item.style.cssText = "background:rgba(255,255,255,0.05); padding:15px; margin:10px 0; border-radius:10px; border:1px solid rgba(255,255,255,0.1);";
+        
+        let colorDots = "";
+        if (Array.isArray(req.colors)) {
+            req.colors.forEach(c => {
+                colorDots += `<span style="display:inline-block; width:15px; height:15px; border-radius:50%; background:${c}; margin-right:5px; border:1px solid #fff; vertical-align:middle;"></span>`;
+            });
+        }
+
         item.innerHTML = `
-            <span><strong>${req.name}</strong> <span style="display:inline-block; width:15px; height:15px; border-radius:50%; background:${req.color}; margin-left:5px; vertical-align:middle; border:1px solid #fff;"></span></span>
-            <div>
-                <button onclick="approveGuest(${index})" style="background:green; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Approve</button>
-                <button onclick="denyGuest(${index})" style="background:red; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-left:5px;">Deny</button>
+            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
+                <div>
+                    <div style="font-size: 1.1em; font-weight: bold; color: gold;">${req.name}</div>
+                    <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">
+                        🐾 Animal: <strong>${req.animal || 'None'}</strong><br>
+                        🎲 Game: <strong>${req.game || 'None'}</strong>
+                    </div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="margin-bottom: 8px;">${colorDots}</div>
+                    <button onclick="approveGuest(${index})" style="background:green; color:white; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; font-weight:bold;">Approve</button>
+                    <button onclick="denyGuest(${index})" style="background:#800; color:white; border:none; padding:5px 12px; border-radius:5px; cursor:pointer; margin-left:5px;">Deny</button>
+                </div>
             </div>
         `;
         list.appendChild(item);
@@ -94,7 +111,27 @@ function renderApprovalQueue() {
 function approveGuest(index) {
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
     const guest = pending[index];
-    alert(`Approved ${guest.name}! They can now set a PIN and join the family grid.`);
+    
+    // Save their preferences to their profile (using their name as ID for now)
+    // In a real system, we'd assign an ID, but here we'll use name
+    const playerID = guest.name.toLowerCase().replace(/\s+/g, '');
+    
+    const prefs = {
+        favoriteAnimal: guest.animal || "None set",
+        favoriteColor: (guest.colors && guest.colors[0]) ? guest.colors[0] : "#ffd700",
+        favoriteGame: guest.game || "None set",
+        allColors: guest.colors || []
+    };
+    
+    // Use the ProfileManager if available, otherwise manual save
+    if (typeof ProfileManager !== 'undefined') {
+        ProfileManager.savePreferences(playerID, prefs);
+    } else {
+        localStorage.setItem(`prefs_${playerID}`, JSON.stringify(prefs));
+    }
+
+    alert(`Approved ${guest.name}! They can now log in as "${playerID}" and set a PIN.`);
+    
     pending.splice(index, 1);
     localStorage.setItem('webbs_pending', JSON.stringify(pending));
     
