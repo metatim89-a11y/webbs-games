@@ -1,13 +1,4 @@
-/* --- Login Success with Redirection --- */
-function loginSuccess(playerID) {
-    // 1. Save session (optional for persistence)
-    sessionStorage.setItem('activePlayer', playerID);
-    
-    // 2. Redirect to the Game Selection page
-    window.location.href = `games.html?player=${playerID}`;
-}
-
-/* --- Keep the rest of your existing auth logic below --- */
+/* --- Complete Auth Logic --- */
 let activePlayer = null;
 let currentPinInput = "";
 
@@ -19,34 +10,96 @@ const PIN_CONFIG = {
     guest: { name: "Guest", theme: "theme-guest" }
 };
 
+/* --- Login Initialization --- */
 function initLogin(playerID) {
     activePlayer = playerID;
     currentPinInput = "";
     updatePinDisplay();
-    if (playerID === 'guest') { loginSuccess('guest'); return; }
+
+    // Guest Bypass
+    if (playerID === 'guest') {
+        loginSuccess('guest');
+        return;
+    }
+
     const overlay = document.getElementById('pin-overlay');
     const msg = document.getElementById('pin-msg');
+    
+    // Check if PIN is already set in localStorage
     const storedPin = localStorage.getItem(`pin_${playerID}`);
-    if (!storedPin) { msg.innerText = `Welcome ${PIN_CONFIG[playerID].name}! Create your 4-digit PIN:`; } 
-    else { msg.innerText = `Hello ${PIN_CONFIG[playerID].name}, enter your PIN:`; }
+    
+    if (!storedPin) {
+        msg.innerText = `Welcome ${PIN_CONFIG[playerID].name}! Create your 4-digit PIN:`;
+    } else {
+        msg.innerText = `Hello ${PIN_CONFIG[playerID].name}, enter your PIN:`;
+    }
+
     overlay.style.display = 'flex';
 }
 
-function appendPin(num) { if (currentPinInput.length < 4) { currentPinInput += num; updatePinDisplay(); } }
-function clearPin() { currentPinInput = ""; updatePinDisplay(); }
-function updatePinDisplay() { document.getElementById('pin-display').innerText = "*".repeat(currentPinInput.length) || "----"; }
-function closePinOverlay() { document.getElementById('pin-overlay').style.display = 'none'; currentPinInput = ""; }
+/* --- Keypad Logic --- */
+function appendPin(num) {
+    if (currentPinInput.length < 4) {
+        currentPinInput += num;
+        updatePinDisplay();
+    }
+}
 
+function clearPin() {
+    currentPinInput = "";
+    updatePinDisplay();
+}
+
+function updatePinDisplay() {
+    const display = document.getElementById('pin-display');
+    if (display) {
+        display.innerText = "*".repeat(currentPinInput.length) || "----";
+    }
+}
+
+function closePinOverlay() {
+    const overlay = document.getElementById('pin-overlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+    currentPinInput = "";
+}
+
+/* --- Validation & Redirection --- */
 function submitPin() {
     if (currentPinInput.length !== 4) return;
+
     const storedPin = localStorage.getItem(`pin_${activePlayer}`);
+
     if (!storedPin) {
+        // First time setup
         localStorage.setItem(`pin_${activePlayer}`, currentPinInput);
         loginSuccess(activePlayer);
     } else if (currentPinInput === storedPin) {
+        // Success
         loginSuccess(activePlayer);
     } else {
-        alert("Incorrect PIN.");
+        // Fail
+        alert("Incorrect PIN. Try again.");
         clearPin();
+    }
+}
+
+/* --- Session Handling --- */
+function loginSuccess(playerID) {
+    activePlayer = playerID;
+    
+    // 1. Remove any existing theme classes and apply new one
+    document.body.className = "";
+    document.body.classList.add(PIN_CONFIG[playerID].theme);
+    
+    // 2. Close the PIN window
+    closePinOverlay();
+    
+    // 3. Switch the Lobby UI from Player Select to Main Menu
+    if (typeof showMainMenu === "function") {
+        showMainMenu();
+    } else {
+        console.error("showMainMenu function not found in main.js");
     }
 }
