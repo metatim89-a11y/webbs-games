@@ -247,6 +247,42 @@
                 }
             }
             
+            // Capture logic
+            if (board[current] === 1) { // If it was empty before the last stone
+                const isPlayerSide = (currentPlayer === 0 && current >= 0 && current <= 5);
+                const isOpponentSide = (currentPlayer === 1 && current >= 7 && current <= 12);
+                
+                if (isPlayerSide || isOpponentSide) {
+                    const opposite = 12 - current;
+                    if (board[opposite] > 0) {
+                        // Pulse the captured pits
+                        const currentEl = document.getElementById(`pit-${current}`);
+                        const oppositeEl = document.getElementById(`pit-${opposite}`);
+                        const storeEl = document.getElementById(currentPlayer === 0 ? 'store-0' : 'store-1');
+                        
+                        if (currentEl) currentEl.classList.add('active-sow');
+                        if (oppositeEl) oppositeEl.classList.add('active-sow');
+                        
+                        await sleep(600); // Pause to show the capture
+
+                        const captured = board[opposite] + 1;
+                        board[opposite] = 0;
+                        board[current] = 0;
+                        board[currentPlayer === 0 ? 6 : 13] += captured;
+
+                        if (currentEl) currentEl.classList.remove('active-sow');
+                        if (oppositeEl) oppositeEl.classList.remove('active-sow');
+                        if (storeEl) {
+                            storeEl.classList.add('anim-pulse');
+                            setTimeout(() => storeEl.classList.remove('anim-pulse'), 500);
+                        }
+                        
+                        render();
+                        await sleep(300);
+                    }
+                }
+            }
+            
             // Extra turn check
             if ((currentPlayer === 0 && current !== 6) || (currentPlayer === 1 && current !== 13)) {
                 currentPlayer = currentPlayer === 0 ? 1 : 0;
