@@ -33,6 +33,7 @@
     </style>
 </head>
 <body>
+    <div id="logout-btn" style="position: fixed; top: 10px; left: 10px; z-index: 2000; cursor: pointer; background: rgba(255,0,0,0.2); border: 1px solid #800; color: #ff5555; padding: 5px 10px; border-radius: 5px; font-size: 0.8em;" onclick="logout()">Logout</div>
     <div id="winner-modal">
         <div class="modal-content">
             <h1 id="winner-text" style="color: gold; margin-bottom: 20px;">PLAYER 1 WINS!</h1>
@@ -99,6 +100,11 @@
 
         document.body.classList.add('theme-' + playerID);
 
+        function logout() {
+            sessionStorage.removeItem('webbs_active_player');
+            window.location.href = '../../index.html';
+        }
+
         // --- Initialization ---
         window.onload = () => {
             if (gameType === 'online') {
@@ -112,7 +118,7 @@
                 myRole = 'host';
                 NetworkManager.init('host');
                 
-                // Display PIN and Register with Firebase when Peer is ready
+                // Display PIN when Peer is ready
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `Table PIN: ${id}`;
                     const hostDisplay = document.getElementById('host-pin-display');

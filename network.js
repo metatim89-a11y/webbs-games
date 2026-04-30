@@ -79,6 +79,7 @@ const NetworkManager = {
                 if (conn.open) conn.send(msg);
             });
         } else if (this.conn && this.conn.open) {
+            this.handleMessage(msg); // Local display for client
             this.conn.send(msg);
         }
     },

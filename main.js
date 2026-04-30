@@ -10,18 +10,68 @@ window.onload = () => {
     }
     
     renderMessages();
+    checkAdminNotifications();
 };
+
+/* --- Admin Notifications --- */
+function checkAdminNotifications() {
+    const notif = document.getElementById('admin-notif');
+    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
+    if (notif) {
+        if (pending.length > 0 && activePlayer === 'tim') {
+            notif.style.display = 'flex';
+        } else {
+            notif.style.display = 'none';
+        }
+    }
+}
 
 /* --- UI Transition --- */
 function showMainMenu() {
     const playerSelect = document.getElementById('player-select');
     const mainMenu = document.getElementById('main-menu');
+    const logoutBtn = document.getElementById('logout-btn');
+    const guestActions = document.getElementById('guest-actions');
     
     if (playerSelect) playerSelect.style.display = 'none';
     if (mainMenu) mainMenu.style.display = 'block';
+    if (logoutBtn) logoutBtn.style.display = 'block';
+
+    if (activePlayer === 'guest' && guestActions) {
+        guestActions.style.display = 'block';
+    } else if (guestActions) {
+        guestActions.style.display = 'none';
+    }
     
+    checkAdminNotifications();
     console.log("Switched to Main Menu for: " + activePlayer);
     renderMessages();
+}
+
+/* --- Sign Up Logic --- */
+function openSignup() {
+    document.getElementById('signup-modal').style.display = 'flex';
+}
+
+function closeSignup() {
+    document.getElementById('signup-modal').style.display = 'none';
+}
+
+function submitSignup() {
+    const name = document.getElementById('signup-name').value.trim();
+    const color = document.getElementById('signup-color').value;
+
+    if (!name) {
+        alert("Please enter your name!");
+        return;
+    }
+
+    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
+    pending.push({ name, color, timestamp: new Date().getTime() });
+    localStorage.setItem('webbs_pending', JSON.stringify(pending));
+
+    alert("Request sent to Tim! He'll see a notification on his gear icon.");
+    closeSignup();
 }
 
 /* --- Table Discovery Logic (Manual PIN only now) --- */
@@ -47,12 +97,8 @@ function showGameSelection(mode) {
 }
 
 function joinTablePrompt() {
-    const pin = prompt("Enter the 4-digit Table PIN to join:");
-    if (pin && pin.length === 4) {
-        window.location.href = `games.html?player=${activePlayer}&mode=join&host=${pin}`;
-    } else if (pin) {
-        alert("Please enter a valid 4-digit PIN.");
-    }
+    // Take user to games selection in 'join' mode
+    window.location.href = `games.html?player=${activePlayer}&mode=join`;
 }
 
 function logout() {

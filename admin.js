@@ -69,20 +69,22 @@ function clearGlobalChat() {
 /* --- Approval Logic --- */
 function renderApprovalQueue() {
     const list = document.getElementById('queue-list');
-    if (pendingApprovals.length === 0) {
+    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
+    
+    if (pending.length === 0) {
         list.innerHTML = "<p>No pending requests.</p>";
         return;
     }
 
     list.innerHTML = "";
-    pendingApprovals.forEach((req, index) => {
+    pending.forEach((req, index) => {
         const item = document.createElement('div');
         item.style.cssText = "background:rgba(255,255,255,0.1); padding:10px; margin:10px 0; border-radius:8px; display:flex; justify-content:space-between; align-items:center;";
         item.innerHTML = `
-            <span><strong>${req.name}</strong> (Color: ${req.color})</span>
+            <span><strong>${req.name}</strong> <span style="display:inline-block; width:15px; height:15px; border-radius:50%; background:${req.color}; margin-left:5px; vertical-align:middle; border:1px solid #fff;"></span></span>
             <div>
-                <button onclick="approveGuest(${index})" style="background:green; color:white;">Approve</button>
-                <button onclick="denyGuest(${index})" style="background:red; color:white;">Deny</button>
+                <button onclick="approveGuest(${index})" style="background:green; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer;">Approve</button>
+                <button onclick="denyGuest(${index})" style="background:red; color:white; border:none; padding:5px 10px; border-radius:5px; cursor:pointer; margin-left:5px;">Deny</button>
             </div>
         `;
         list.appendChild(item);
@@ -90,15 +92,21 @@ function renderApprovalQueue() {
 }
 
 function approveGuest(index) {
-    const guest = pendingApprovals[index];
+    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
+    const guest = pending[index];
     alert(`Approved ${guest.name}! They can now set a PIN and join the family grid.`);
-    pendingApprovals.splice(index, 1);
-    localStorage.setItem('webbs_pending', JSON.stringify(pendingApprovals));
+    pending.splice(index, 1);
+    localStorage.setItem('webbs_pending', JSON.stringify(pending));
+    
+    if (typeof checkAdminNotifications === "function") checkAdminNotifications();
     renderApprovalQueue();
 }
 
 function denyGuest(index) {
-    pendingApprovals.splice(index, 1);
-    localStorage.setItem('webbs_pending', JSON.stringify(pendingApprovals));
+    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
+    pending.splice(index, 1);
+    localStorage.setItem('webbs_pending', JSON.stringify(pending));
+    
+    if (typeof checkAdminNotifications === "function") checkAdminNotifications();
     renderApprovalQueue();
 }
