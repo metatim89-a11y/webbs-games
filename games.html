@@ -3,47 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Select Game | Webbs Games</title>
+    <title>Pick Game | Webbs Games</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="lobby-container">
-        <button onclick="location.href='index.html'">← Back to Lobby</button>
-        <h1 id="welcome-msg">Select a Game</h1>
+        <button onclick="location.href='index.html'">← Back</button>
+        <h1 id="mode-title">Select Game</h1>
+        <div class="game-grid" id="game-list">
+            <button onclick="selectGame('tic-tac-toe')">Tic-Tac-Toe</button>
+            <button onclick="selectGame('357')">357</button>
+            <button onclick="selectGame('mancala')">Mancala</button>
+        </div>
 
-        <div class="game-grid">
-            <div class="game-card" onclick="launchGame('tic-tac-toe')">
-                <h3>Tic-Tac-Toe</h3>
-                <p>Strategy</p>
-            </div>
-            <div class="game-card" onclick="launchGame('357')">
-                <h3>357 (Nim)</h3>
-                <p>Math</p>
-            </div>
-            <div class="game-card" onclick="launchGame('mancala')">
-                <h3>Mancala</h3>
-                <p>Classic Board</p>
-            </div>
-             <div class="game-card" onclick="launchGame('black-hole')">
-                <h3>Black Hole</h3>
-                <p>Space Strategy</p>
-            </div>
-            <div class="game-card" onclick="launchGame('uno-no-mercy')">
-                <h3>Uno No Mercy</h3>
-                <p>Card Game</p>
-            </div>
+        <div id="sub-mode" style="display:none; position:fixed; top:30%; left:10%; width:80%; background:#222; padding:20px; border:2px solid gold;">
+            <h3>Play Style:</h3>
+            <button id="btn-cpu">vs. Computer</button>
+            <button id="btn-local">Local Multiplayer</button>
+            <button onclick="document.getElementById('sub-mode').style.display='none'">Cancel</button>
         </div>
     </div>
 
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const playerID = urlParams.get('player') || 'guest';
-        document.body.classList.add('theme-' + playerID);
-        document.getElementById('welcome-msg').innerText = `What's the play, ${playerID.charAt(0).toUpperCase() + playerID.slice(1)}?`;
+        const params = new URLSearchParams(window.location.search);
+        const player = params.get('player');
+        const mode = params.get('mode'); // 'online' or 'local'
+        document.body.classList.add('theme-' + player);
 
-        function launchGame(gamePath) {
-            // This is where we create the "Table" by adding the player info to the URL
-            window.location.href = `games/${gamePath}/index.html?player=${playerID}`;
+        function selectGame(game) {
+            if (mode === 'online') {
+                // Skip sub-mode, go straight to table creation
+                window.location.href = `games/${game}/index.html?player=${player}&type=online`;
+            } else {
+                // Show choice for CPU or Local
+                document.getElementById('sub-mode').style.display = 'block';
+                document.getElementById('btn-cpu').onclick = () => {
+                    window.location.href = `games/${game}/index.html?player=${player}&type=cpu`;
+                };
+                document.getElementById('btn-local').onclick = () => {
+                    window.location.href = `games/${game}/index.html?player=${player}&type=local`;
+                };
+            }
         }
     </script>
 </body>

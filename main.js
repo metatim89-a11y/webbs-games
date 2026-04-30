@@ -3,10 +3,30 @@ let messages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
 
 /* --- Initialization --- */
 window.onload = () => {
+    // If a session exists, you could auto-login here, 
+    // but for now, we wait for auth.js to call showMainMenu.
     renderMessages();
 };
 
-/* --- Message Board Logic --- */
+/* --- UI Transition --- */
+function showMainMenu() {
+    const playerSelect = document.getElementById('player-select');
+    const mainMenu = document.getElementById('main-menu');
+    
+    if (playerSelect) playerSelect.style.display = 'none';
+    if (mainMenu) mainMenu.style.display = 'block';
+    
+    console.log("Switched to Main Menu for: " + activePlayer);
+    renderMessages();
+}
+
+/* --- Navigation Logic --- */
+function showGameSelection(mode) {
+    // mode is 'online' (Create Table) or 'local' (Play Games)
+    window.location.href = `games.html?player=${activePlayer}&mode=${mode}`;
+}
+
+/* --- Message Board / Chat Logic --- */
 function postMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
@@ -18,15 +38,14 @@ function postMessage() {
     }
 
     const newMessage = {
-        sender: PIN_CONFIG[activePlayer].name,
-        color: activePlayer,
+        sender: activePlayer,
         body: text,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
 
     messages.push(newMessage);
     
-    // Keep only the last 20 messages to save space
+    // Keep only the last 20 messages
     if (messages.length > 20) messages.shift();
 
     localStorage.setItem('webbs_messages', JSON.stringify(messages));
@@ -36,14 +55,21 @@ function postMessage() {
 
 function renderMessages() {
     const container = document.getElementById('messages');
+    if (!container) return;
+    
     container.innerHTML = "";
 
     messages.forEach(msg => {
         const div = document.createElement('div');
-        div.className = `msg theme-${msg.color}`;
-        div.style.borderLeft = `4px solid var(--primary-color)`;
-        div.style.background = `rgba(255,255,255,0.05)`;
-        div.innerHTML = `<strong>${msg.sender}:</strong> ${msg.body} <small style="float:right; opacity:0.5;">${msg.timestamp}</small>`;
+        // Apply theme color to the message bubble based on sender
+        div.className = `msg theme-${msg.sender}`;
+        div.style.margin = "5px 0";
+        div.style.padding = "8px";
+        div.style.borderRadius = "5px";
+        div.style.background = "rgba(255,255,255,0.05)";
+        div.style.borderLeft = "4px solid var(--primary-color)";
+        
+        div.innerHTML = `<strong>${msg.sender.toUpperCase()}:</strong> ${msg.body} <span style="font-size:0.7em; float:right; opacity:0.5;">${msg.timestamp}</span>`;
         container.appendChild(div);
     });
 
@@ -53,16 +79,5 @@ function renderMessages() {
 
 /* --- Global Lobby Refresh --- */
 window.refreshLobby = () => {
-    console.log("Lobby refreshed for " + activePlayer);
     renderMessages();
 };
-
-/* --- Navigation Logic --- */
-function launchGame(gamePath) {
-    if (!activePlayer) {
-        alert("Please log in first!");
-        return;
-    }
-    // Pass the player ID in the URL so the game knows who is playing
-    window.location.href = `games/${gamePath}/index.html?player=${activePlayer}`;
-}
