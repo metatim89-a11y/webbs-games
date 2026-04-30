@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mancala | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        #mancala-board {
+            display: flex; align-items: center; justify-content: center;
+            background: #5d4037; padding: 20px; border-radius: 50px;
+            margin: 20px auto; width: fit-content; gap: 10px;
+        }
+        .store {
+            width: 60px; height: 180px; background: rgba(0,0,0,0.3);
+            border-radius: 30px; display: flex; align-items: center;
+            justify-content: center; font-size: 2em;
+        }
+        .pits-container { display: flex; flex-direction: column; gap: 20px; }
+        .row { display: flex; gap: 10px; }
+        .pit {
+            width: 50px; height: 50px; background: rgba(0,0,0,0.3);
+            border-radius: 50%; display: flex; align-items: center;
+            justify-content: center; cursor: pointer; font-weight: bold;
+        }
+        .pit.disabled { cursor: default; }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1 id="status">Mancala</h1>
+        <p id="turn-info">Your Turn</p>
+
+        <div id="mancala-board">
+            <div id="store-1" class="store">0</div> <div class="pits-container">
+                <div class="row" id="cpu-pits">
+                    <div class="pit disabled" id="pit-12">4</div>
+                    <div class="pit disabled" id="pit-11">4</div>
+                    <div class="pit disabled" id="pit-10">4</div>
+                    <div class="pit disabled" id="pit-9">4</div>
+                    <div class="pit disabled" id="pit-8">4</div>
+                    <div class="pit disabled" id="pit-7">4</div>
+                </div>
+                <div class="row" id="player-pits">
+                    <div class="pit" id="pit-0" onclick="makeMove(0)">4</div>
+                    <div class="pit" id="pit-1" onclick="makeMove(1)">4</div>
+                    <div class="pit" id="pit-2" onclick="makeMove(2)">4</div>
+                    <div class="pit" id="pit-3" onclick="makeMove(3)">4</div>
+                    <div class="pit" id="pit-4" onclick="makeMove(4)">4</div>
+                    <div class="pit" id="pit-5" onclick="makeMove(5)">4</div>
+                </div>
+            </div>
+            <div id="store-0" class="store">0</div> </div>
+
+        <button onclick="resetGame()">Reset</button>
+    </div>
+
+    <script src="../../profile.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+
+        let board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+        let currentPlayer = 0; // 0 = Player, 1 = CPU
+        let active = true;
+
+        function render() {
+            for (let i = 0; i < 14; i++) {
+                const el = document.getElementById(i === 6 ? 'store-0' : i === 13 ? 'store-1' : `pit-${i}`);
+                if (el) el.innerText = board[i];
+            }
+        }
+
+        function makeMove(pit) {
+            if (!active || currentPlayer !== 0 || board[pit] === 0) return;
+            sow(pit);
+        }
+
+        function sow(pit) {
+            let stones = board[pit];
+            board[pit] = 0;
+            let current = pit;
+
+            while (stones > 0) {
+                current = (current + 1) % 14;
+                // Skip opponent's store
+                if ((currentPlayer === 0 && current === 13) || (currentPlayer === 1 && current === 6)) continue;
+                board[current]++;
+                stones--;
+            }
+
+            // Capture logic & Extra turn check would go here
+            render();
+            checkEnd();
+            
+            if (current !== 6 && current !== 13) {
+                currentPlayer = 1;
+                document.getElementById('turn-info').innerText = "CPU Turn";
+                setTimeout(cpuMove, 1000);
+            } else {
+                document.getElementById('turn-info').innerText = "Extra Turn!";
+            }
+        }
+
+        function cpuMove() {
+            let validPits = [7, 8, 9, 10, 11, 12].filter(p => board[p] > 0);
+            if (validPits.length > 0) {
+                let choice = validPits[Math.floor(Math.random() * validPits.length)];
+                sow(choice);
+                currentPlayer = 0;
+                document.getElementById('turn-info').innerText = "Your Turn";
+            }
+        }
+
+        function checkEnd() {
+            const pSide = board.slice(0, 6).every(s => s === 0);
+            const cSide = board.slice(7, 13).every(s => s === 0);
+            if (pSide || cSide) {
+                active = false;
+                const pTotal = board[6];
+                const cTotal = board[13];
+                const result = pTotal > cTotal ? "Win" : "Loss";
+                document.getElementById('status').innerText = `Game Over: ${pTotal}-${cTotal}`;
+                logMatch(playerID, "Mancala", result);
+            }
+        }
+
+        function resetGame() {
+            board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+            active = true;
+            currentPlayer = 0;
+            render();
+        }
+
+        render();
+    </script>
+</body>
+</html>

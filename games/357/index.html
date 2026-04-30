@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>357 | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .pile-container { display: flex; justify-content: center; gap: 40px; margin: 30px 0; }
+        .pile { display: flex; flex-direction: column-reverse; align-items: center; gap: 10px; cursor: pointer; padding: 10px; border: 2px solid transparent; border-radius: 10px; }
+        .pile:hover { border-color: var(--accent-color); }
+        .item { width: 30px; height: 30px; background: var(--primary-color); border-radius: 50%; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
+        .item.selected { background: var(--accent-color); transform: scale(1.1); }
+        #controls { margin-top: 20px; text-align: center; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1 id="status">357 (Nim)</h1>
+        <p id="turn-info">Your Turn</p>
+        <div class="pile-container">
+            <div id="pile-0" class="pile" onclick="selectPile(0)"></div>
+            <div id="pile-1" class="pile" onclick="selectPile(1)"></div>
+            <div id="pile-2" class="pile" onclick="selectPile(2)"></div>
+        </div>
+        <div id="controls">
+            <button id="end-turn-btn" onclick="endTurn()" disabled>Take Selected</button>
+            <button onclick="resetGame()">Reset</button>
+        </div>
+    </div>
+    <script src="../../profile.js"></script>
+    <script>
+        let piles = [3, 5, 7];
+        let selectedPile = null, selectedCount = 0, isCpuTurn = false;
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+        function init() {
+            [0, 1, 2].forEach(i => {
+                const c = document.getElementById(`pile-${i}`);
+                c.innerHTML = '';
+                for(let j=0; j<piles[i]; j++) {
+                    const item = document.createElement('div');
+                    item.className = 'item' + (selectedPile === i && j >= piles[i] - selectedCount ? ' selected' : '');
+                    c.appendChild(item);
+                }
+            });
+            document.getElementById('end-turn-btn').disabled = selectedCount === 0;
+        }
+        function selectPile(idx) {
+            if (isCpuTurn || piles[idx] === 0) return;
+            if (selectedPile !== null && selectedPile !== idx) { selectedCount = 1; } 
+            else { selectedCount = (selectedCount % piles[idx]) + 1; }
+            selectedPile = idx;
+            init();
+        }
+        function endTurn() {
+            piles[selectedPile] -= selectedCount;
+            selectedPile = null; selectedCount = 0;
+            init();
+            if (checkGameOver()) return;
+            isCpuTurn = true;
+            document.getElementById('turn-info').innerText = "CPU thinking...";
+            setTimeout(cpuMove, 800);
+        }
+        function cpuMove() {
+            let maxIdx = piles.indexOf(Math.max(...piles));
+            piles[maxIdx] -= 1;
+            isCpuTurn = false;
+            document.getElementById('turn-info').innerText = "Your Turn";
+            init();
+            checkGameOver();
+        }
+        function checkGameOver() {
+            if (piles.every(p => p === 0)) {
+                const winner = isCpuTurn ? "You" : "CPU";
+                document.getElementById('status').innerText = winner + " Won!";
+                logMatch(playerID, "357", winner === "You" ? "Win" : "Loss");
+                return true;
+            }
+            return false;
+        }
+        function resetGame() {
+            piles = [3, 5, 7]; selectedPile = null; selectedCount = 0; isCpuTurn = false;
+            document.getElementById('status').innerText = "357 (Nim)";
+            document.getElementById('turn-info').innerText = "Your Turn";
+            init();
+        }
+        init();
+    </script>
+</body>
+</html>

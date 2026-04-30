@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Black Hole | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        #pyramid { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0; }
+        .row { display: flex; gap: 10px; }
+        .node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary-color); background: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; }
+        .node.filled { background: var(--primary-color); color: var(--secondary-color); cursor: default; }
+        #number-selector { display: flex; gap: 5px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .num-btn { width: 35px; height: 35px; border: 1px solid var(--accent-color); background: none; color: var(--accent-color); cursor: pointer; border-radius: 5px; }
+        .num-btn.active { background: var(--accent-color); color: var(--secondary-color); }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1>Black Hole</h1>
+        <div id="number-selector"></div>
+        <div id="pyramid"></div>
+        <p id="info">Pick a number, then a spot.</p>
+    </div>
+    <script src="../../profile.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+        let pNums = [1,2,3,4,5,6,7,8,9,10], currentNum = null, board = Array(21).fill(null);
+        function buildBoard() {
+            const container = document.getElementById('pyramid');
+            container.innerHTML = ''; let count = 0;
+            for(let i=1; i<=6; i++) {
+                const row = document.createElement('div'); row.className = 'row';
+                for(let j=0; j<i; j++) {
+                    const idx = count++;
+                    const node = document.createElement('div');
+                    node.className = 'node' + (board[idx] ? ' filled' : '');
+                    node.innerText = board[idx] || '';
+                    node.onclick = () => placeNumber(idx);
+                    row.appendChild(node);
+                }
+                container.appendChild(row);
+            }
+            renderSelector();
+        }
+        function renderSelector() {
+            const sel = document.getElementById('number-selector');
+            sel.innerHTML = '';
+            pNums.forEach(n => {
+                const btn = document.createElement('button');
+                btn.className = 'num-btn' + (currentNum === n ? ' active' : '');
+                btn.innerText = n;
+                btn.onclick = () => { currentNum = n; renderSelector(); };
+                sel.appendChild(btn);
+            });
+        }
+        function placeNumber(idx) {
+            if(board[idx] || !currentNum) return;
+            board[idx] = currentNum;
+            pNums = pNums.filter(n => n !== currentNum);
+            currentNum = null;
+            buildBoard();
+        }
+        buildBoard();
+    </script>
+</body>
+</html>

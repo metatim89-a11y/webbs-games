@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sorry | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        #board { width: 320px; height: 320px; border: 5px solid #444; position: relative; margin: 20px auto; background: #eee; }
+        .square { width: 40px; height: 40px; border: 1px solid #ccc; position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+        .pawn { width: 25px; height: 25px; border-radius: 50%; background: var(--primary-color); border: 2px solid #000; z-index: 10; transition: all 0.3s; }
+        #draw-btn { margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1>Sorry</h1>
+        <div id="board"></div>
+        <button id="draw-btn" onclick="drawCard()">Draw Card</button>
+        <p id="game-info">Draw a card to move.</p>
+    </div>
+
+    <script src="../../profile.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+
+        let pos = 0;
+        const boardSize = 28; // Outer loop for simplicity
+
+        function createBoard() {
+            const board = document.getElementById('board');
+            for(let i=0; i<8; i++) addSquare(i*40, 0); // Top
+            for(let i=1; i<8; i++) addSquare(280, i*40); // Right
+            for(let i=1; i<8; i++) addSquare(280-(i*40), 280); // Bottom
+            for(let i=1; i<7; i++) addSquare(0, 280-(i*40)); // Left
+            
+            const pawn = document.createElement('div');
+            pawn.id = 'pawn';
+            pawn.className = 'pawn';
+            board.appendChild(pawn);
+            updatePawn();
+        }
+
+        function addSquare(x, y) {
+            const sq = document.createElement('div');
+            sq.className = 'square';
+            sq.style.left = x + 'px';
+            sq.style.top = y + 'px';
+            document.getElementById('board').appendChild(sq);
+        }
+
+        function updatePawn() {
+            const squares = document.querySelectorAll('.square');
+            const pawn = document.getElementById('pawn');
+            const target = squares[pos];
+            pawn.style.left = (target.offsetLeft + 7) + 'px';
+            pawn.style.top = (target.offsetTop + 7) + 'px';
+        }
+
+        function drawCard() {
+            const move = Math.floor(Math.random() * 5) + 1;
+            document.getElementById('game-info').innerText = `You moved ${move} spaces!`;
+            pos = (pos + move) % boardSize;
+            updatePawn();
+            if(pos === 0) {
+                alert("Home! You win!");
+                logMatch(playerID, "Sorry", "Win");
+            }
+        }
+
+        createBoard();
+    </script>
+</body>
+</html>

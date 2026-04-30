@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Webbs Games</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
+        <img src="assets/icons/settings.svg" alt="Settings" width="40">
+    </div>
+
+    <div id="lobby-container">
+        <h1>Webbs Games</h1>
+        <p>Select your profile to play</p>
+
+        <div class="player-grid">
+            <div class="player-card" onclick="initLogin('arieal')">
+                <div class="avatar">🦆</div>
+                <h3>Arieal</h3>
+            </div>
+            <div class="player-card" onclick="initLogin('az')">
+                <div class="avatar">🦎</div>
+                <h3>AZ</h3>
+            </div>
+            <div class="player-card" onclick="initLogin('cassie')">
+                <div class="avatar">🐎</div>
+                <h3>Cassie</h3>
+            </div>
+            <div class="player-card" onclick="initLogin('tim')">
+                <div class="avatar">🦦</div>
+                <h3>Tim</h3>
+            </div>
+            <div class="player-card" onclick="initLogin('guest')">
+                <div class="avatar">👤</div>
+                <h3>+ Guest</h3>
+            </div>
+        </div>
+
+        <div id="message-board-container">
+            <h3>Family Message Board</h3>
+            <div id="messages">
+                </div>
+            <div class="message-input">
+                <input type="text" id="msg-input" placeholder="Leave a note...">
+                <button onclick="postMessage()">Post</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="pin-overlay">
+        <div class="pin-box">
+            <h2 id="pin-msg">Enter PIN</h2>
+            <div id="pin-display">****</div>
+            <div class="keypad">
+                <button onclick="appendPin('1')">1</button>
+                <button onclick="appendPin('2')">2</button>
+                <button onclick="appendPin('3')">3</button>
+                <button onclick="appendPin('4')">4</button>
+                <button onclick="appendPin('5')">5</button>
+                <button onclick="appendPin('6')">6</button>
+                <button onclick="appendPin('7')">7</button>
+                <button onclick="appendPin('8')">8</button>
+                <button onclick="appendPin('9')">9</button>
+                <button onclick="clearPin()">C</button>
+                <button onclick="appendPin('0')">0</button>
+                <button onclick="submitPin()">OK</button>
+            </div>
+            <button class="close-btn" onclick="closePinOverlay()">Cancel</button>
+        </div>
+    </div>
+
+    <script src="auth.js"></script>
+    <script src="main.js"></script>
+    <script src="admin.js"></script>
+    <script src="network.js"></script>
+    <script src="profile.js"></script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uno No Mercy | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        #game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px; }
+        #discard-pile { width: 100px; height: 150px; border: 3px solid var(--accent-color); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.5em; font-weight: bold; background: #222; }
+        #player-hand { display: flex; gap: 5px; flex-wrap: wrap; justify-content: center; padding: 10px; }
+        .card { width: 60px; height: 90px; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; cursor: pointer; border: 1px solid #fff; text-shadow: 1px 1px 2px #000; }
+        .red { background: #ff5555; } .blue { background: #5555ff; } .green { background: #55aa55; } .yellow { background: #ffaa00; } .wild { background: #222; }
+        #deck { width: 60px; height: 90px; background: #444; border: 2px dashed #888; border-radius: 8px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1 id="status">Uno No Mercy</h1>
+        <p id="mercy-count">Cards: 0/25</p>
+
+        <div id="game-area">
+            <div id="deck" onclick="drawCard()">DRAW</div>
+            <div id="discard-pile">--</div>
+            <div id="player-hand"></div>
+        </div>
+    </div>
+
+    <script src="../../profile.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+
+        let hand = [];
+        let discard = null;
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+2', '+4', '+6', '+10'];
+
+        function createCard() {
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const value = values[Math.floor(Math.random() * values.length)];
+            return { color, value };
+        }
+
+        function init() {
+            for(let i=0; i<7; i++) hand.push(createCard());
+            discard = createCard();
+            render();
+        }
+
+        function render() {
+            const discardEl = document.getElementById('discard-pile');
+            discardEl.className = discard.color;
+            discardEl.innerText = discard.value;
+
+            const handEl = document.getElementById('player-hand');
+            handEl.innerHTML = '';
+            hand.forEach((card, i) => {
+                const cardEl = document.createElement('div');
+                cardEl.className = `card ${card.color}`;
+                cardEl.innerText = card.value;
+                cardEl.onclick = () => playCard(i);
+                handEl.appendChild(cardEl);
+            });
+
+            document.getElementById('mercy-count').innerText = `Cards: ${hand.length}/25`;
+            if(hand.length >= 25) {
+                alert("Mercy Rule! You lose!");
+                logMatch(playerID, "Uno No Mercy", "Loss");
+                location.reload();
+            }
+        }
+
+        function playCard(i) {
+            const card = hand[i];
+            if(card.color === discard.color || card.value === discard.value) {
+                discard = card;
+                hand.splice(i, 1);
+                if(hand.length === 0) {
+                    alert("UNO! You win!");
+                    logMatch(playerID, "Uno No Mercy", "Win");
+                }
+                render();
+            }
+        }
+
+        function drawCard() {
+            hand.push(createCard());
+            render();
+        }
+
+        init();
+    </script>
+</body>
+</html>

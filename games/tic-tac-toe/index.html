@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        .grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px auto; width: fit-content; }
+        .cell { width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid var(--primary-color); display: flex; justify-content: center; align-items: center; font-size: 3em; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1 id="game-status">Tic-Tac-Toe</h1>
+        <div class="grid" id="board">
+            <div class="cell" onclick="makeMove(0)"></div>
+            <div class="cell" onclick="makeMove(1)"></div>
+            <div class="cell" onclick="makeMove(2)"></div>
+            <div class="cell" onclick="makeMove(3)"></div>
+            <div class="cell" onclick="makeMove(4)"></div>
+            <div class="cell" onclick="makeMove(5)"></div>
+            <div class="cell" onclick="makeMove(6)"></div>
+            <div class="cell" onclick="makeMove(7)"></div>
+            <div class="cell" onclick="makeMove(8)"></div>
+        </div>
+        <button onclick="resetGame()">Reset</button>
+    </div>
+    <script src="../../profile.js"></script>
+    <script>
+        let board = ["","","","","","","","",""], currentPlayer = "X", active = true;
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+        function makeMove(idx) {
+            if (board[idx] === "" && active) {
+                board[idx] = currentPlayer; render();
+                if (!checkWin()) { currentPlayer = currentPlayer === "X" ? "O" : "X"; }
+            }
+        }
+        function render() {
+            const cells = document.querySelectorAll('.cell');
+            board.forEach((val, i) => cells[i].innerText = val);
+        }
+        function checkWin() {
+            const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+            for (let c of wins) {
+                if (board[c[0]] && board[c[0]] === board[c[1]] && board[c[0]] === board[c[2]]) {
+                    document.getElementById('game-status').innerText = board[c[0]] + " Wins!";
+                    active = false; logMatch(playerID, "Tic-Tac-Toe", board[c[0]] === "X" ? "Win" : "Loss");
+                    return true;
+                }
+            }
+            if (!board.includes("")) { document.getElementById('game-status').innerText = "Draw!"; return true; }
+            return false;
+        }
+        function resetGame() {
+            board = ["","","","","","","","",""]; currentPlayer = "X"; active = true;
+            document.getElementById('game-status').innerText = "Tic-Tac-Toe"; render();
+        }
+    </script>
+</body>
+</html>

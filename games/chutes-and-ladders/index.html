@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chutes & Ladders | Webbs Games</title>
+    <link rel="stylesheet" href="../../style.css">
+    <style>
+        #board {
+            display: grid;
+            grid-template-columns: repeat(10, 32px);
+            grid-template-rows: repeat(10, 32px);
+            gap: 2px;
+            margin: 20px auto;
+            background: #444;
+            border: 5px solid #222;
+            width: fit-content;
+        }
+        .sq {
+            width: 32px; height: 32px;
+            background: #fff; color: #ccc;
+            font-size: 8px; display: flex;
+            align-items: center; justify-content: center;
+            position: relative;
+        }
+        .sq.special { background: #ffe0b2; color: #fb8c00; font-weight: bold; }
+        .pawn {
+            width: 20px; height: 20px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            border: 2px solid #000;
+            position: absolute;
+            z-index: 10;
+            transition: all 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body>
+    <div id="lobby-container">
+        <button onclick="location.href='../../index.html'">← Back</button>
+        <h1>Chutes & Ladders</h1>
+        <div id="board"></div>
+        <div id="controls" style="margin-top:20px;">
+            <h2 id="dice-result">🎲 ?</h2>
+            <button onclick="rollDice()">Spin / Roll</button>
+        </div>
+    </div>
+
+    <script src="../../profile.js"></script>
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        document.body.classList.add('theme-' + playerID);
+
+        let currentPos = 1;
+        const specials = {
+            1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, // Ladders
+            16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 // Chutes
+        };
+
+        function initBoard() {
+            const boardEl = document.getElementById('board');
+            for (let r = 9; r >= 0; r--) {
+                for (let c = 0; c < 10; c++) {
+                    let num = (r % 2 === 0) ? (r * 10 + c + 1) : (r * 10 + (9 - c) + 1);
+                    const sq = document.createElement('div');
+                    sq.className = 'sq' + (specials[num] ? ' special' : '');
+                    sq.id = 'sq-' + num;
+                    sq.innerText = num;
+                    boardEl.appendChild(sq);
+                }
+            }
+            const pawn = document.createElement('div');
+            pawn.id = 'pawn';
+            pawn.className = 'pawn';
+            document.body.appendChild(pawn);
+            movePawn(1);
+        }
+
+        function movePawn(pos) {
+            const sq = document.getElementById('sq-' + pos);
+            const pawn = document.getElementById('pawn');
+            const rect = sq.getBoundingClientRect();
+            pawn.style.left = (window.scrollX + rect.left + 6) + 'px';
+            pawn.style.top = (window.scrollY + rect.top + 6) + 'px';
+        }
+
+        function rollDice() {
+            const roll = Math.floor(Math.random() * 6) + 1;
+            document.getElementById('dice-result').innerText = "🎲 " + roll;
+            
+            if (currentPos + roll <= 100) {
+                currentPos += roll;
+                movePawn(currentPos);
+                
+                setTimeout(() => {
+                    if (specials[currentPos]) {
+                        currentPos = specials[currentPos];
+                        movePawn(currentPos);
+                    }
+                    if (currentPos === 100) {
+                        alert("Winner!");
+                        logMatch(playerID, "Chutes and Ladders", "Win");
+                        location.reload();
+                    }
+                }, 500);
+            }
+        }
+
+        window.onload = initBoard;
+    </script>
+</body>
+</html>
