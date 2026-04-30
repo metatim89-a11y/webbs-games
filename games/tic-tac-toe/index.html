@@ -12,6 +12,12 @@
 </head>
 <body>
     <div id="lobby-container">
+        <!-- Prominent PIN Display for Host -->
+        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
+        </div>
+
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <button onclick="location.href='../../index.html'">← Back</button>
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
@@ -93,6 +99,12 @@
                 // Display PIN when ready
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    const hostDisplay = document.getElementById('host-pin-display');
+                    const pinValue = document.getElementById('table-pin-value');
+                    if (hostDisplay && pinValue) {
+                        hostDisplay.style.display = 'block';
+                        pinValue.innerText = id;
+                    }
                 });
             } else {
                 isSpectator = true;
