@@ -33,12 +33,18 @@ body.theme-cassie {
     --bg-pattern: url('assets/backgrounds/horse-pattern.svg');
 }
 
-/* Tim: Green, Tan & Gold (Platypus) */
+/* Tim: Black, Grey, Red, Silver & Gold */
 body.theme-tim {
-    --primary-color: #008000;
-    --secondary-color: #d2b48c;
+    --primary-color: #ff0000;
+    --secondary-color: #000000;
     --accent-color: #ffd700;
-    --bg-pattern: url('assets/backgrounds/platypus-pattern.svg');
+    --bg-pattern: radial-gradient(#c0c0c0 1px, transparent 1px);
+    background-size: 30px 30px;
+}
+
+body.theme-tim .player-card {
+    background: #333333;
+    border-color: #ff0000;
 }
 
 /* Guest: Neutral Gray (Chameleon Mode) */

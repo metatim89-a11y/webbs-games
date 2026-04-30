@@ -27,15 +27,22 @@ function toggleAdminSettings() {
         </div>
         <hr>
         <div id="admin-actions">
-            <h3>Individual PIN Resets</h3>
+            <h3>Quick Resets & Actions</h3>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-width:400px;">
-                <button onclick="resetPin('arieal')">Reset Arieal</button>
-                <button onclick="resetPin('az')">Reset AZ</button>
-                <button onclick="resetPin('cassie')">Reset Cassie</button>
+                <button onclick="resetPin('arieal')">Reset Arieal PIN</button>
+                <button onclick="resetPin('az')">Reset AZ PIN</button>
+                <button onclick="resetPin('cassie')">Reset Cassie PIN</button>
                 <button onclick="resetPin('tim')">Reset My Own PIN</button>
             </div>
             <br>
             <button onclick="clearGlobalChat()" style="background:#800; color:white; border:none; padding:10px; border-radius:5px;">Clear Global Chat Feed</button>
+        </div>
+        <hr>
+        <div id="user-management">
+            <h3>User Management (Dev Mode)</h3>
+            <div id="user-list-admin" style="display:grid; gap:10px;">
+                <!-- Populated dynamically -->
+            </div>
         </div>
         <hr>
         <div id="approval-queue">
@@ -45,7 +52,74 @@ function toggleAdminSettings() {
     `;
 
     document.body.appendChild(panel);
+    renderUserList();
     renderApprovalQueue();
+}
+
+/* --- User Management --- */
+function renderUserList() {
+    const container = document.getElementById('user-list-admin');
+    if (!container) return;
+
+    const defaults = [
+        { id: 'tim', name: 'Tim' },
+        { id: 'arieal', name: 'Arieal' },
+        { id: 'az', name: 'AZ' },
+        { id: 'cassie', name: 'Cassie' }
+    ];
+    const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+    const all = [...defaults, ...approved];
+
+    container.innerHTML = all.map(p => `
+        <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
+            <span><strong>${p.name}</strong> (${p.id})</span>
+            <div style="display:flex; gap:5px;">
+                <button onclick="impersonateUser('${p.id}')" style="background:#444; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.8em;">Impersonate</button>
+                <button onclick="resetAccount('${p.id}')" style="background:orange; color:black; border:none; padding:5px 10px; border-radius:4px; font-size:0.8em;">Reset</button>
+                ${defaults.some(d => d.id === p.id) ? '' : `<button onclick="deleteAccount('${p.id}')" style="background:red; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.8em;">Delete</button>`}
+            </div>
+        </div>
+    `).join('');
+}
+
+function impersonateUser(playerID) {
+    if (confirm(`Switch to ${playerID}? This will bypass PIN security.`)) {
+        console.log(`Tim is impersonating: ${playerID}`);
+        // Close admin panel
+        const panel = document.getElementById('admin-panel');
+        if (panel) panel.remove();
+        
+        // Use the auth.js loginSuccess to bypass PIN
+        if (typeof loginSuccess === 'function') {
+            loginSuccess(playerID);
+        } else {
+            alert("Auth system not ready.");
+        }
+    }
+}
+
+function resetAccount(playerID) {
+    if (confirm(`Completely reset ${playerID}? This clears PIN and all game history.`)) {
+        localStorage.removeItem(`pin_${playerID}`);
+        localStorage.removeItem(`history_${playerID}`);
+        alert(`${playerID} has been reset.`);
+    }
+}
+
+function deleteAccount(playerID) {
+    if (confirm(`Permanently delete account ${playerID}?`)) {
+        const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+        const filtered = approved.filter(p => p.id !== playerID);
+        localStorage.setItem('webbs_approved_players', JSON.stringify(filtered));
+        
+        localStorage.removeItem(`pin_${playerID}`);
+        localStorage.removeItem(`history_${playerID}`);
+        localStorage.removeItem(`prefs_${playerID}`);
+        
+        alert(`${playerID} deleted.`);
+        renderUserList();
+        if (typeof renderPlayerSelect === "function") renderPlayerSelect();
+    }
 }
 
 /* --- Individual PIN Reset --- */
