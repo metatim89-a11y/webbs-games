@@ -37,26 +37,125 @@
 </head>
 <body>
     <div id="lobby-container">
-        <button onclick="location.href='../../index.html'">← Back</button>
+        <!-- Prominent PIN Display for Host -->
+        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <button onclick="location.href='../../index.html'">← Back</button>
+            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
+        </div>
+
         <h1>Chutes & Ladders</h1>
+        <p id="turn-info">Your Turn</p>
+
+        <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
+            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+        </div>
+
         <div id="board"></div>
         <div id="controls" style="margin-top:20px;">
             <h2 id="dice-result">🎲 ?</h2>
-            <button onclick="rollDice()">Spin / Roll</button>
+            <button id="roll-btn" onclick="handleRoll()">Spin / Roll</button>
+            <button id="reset-btn" onclick="resetGame()">Reset</button>
+        </div>
+
+        <!-- Table Chat -->
+        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            <h3 style="margin-top: 0;">Table Chat</h3>
+            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
+                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
+            </div>
         </div>
     </div>
 
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="../../firebase-init.js"></script>
+    <script src="../../network.js"></script>
     <script src="../../profile.js"></script>
     <script>
-        const urlParams = new URLSearchParams(window.location.search);
-        const playerID = urlParams.get('player') || 'guest';
-        document.body.classList.add('theme-' + playerID);
+        let p1Pos = 1, p2Pos = 1;
+        let currentPlayer = "X"; // X = Player 1, O = Player 2
+        let active = true;
+        let myRole = 'local';
+        let isSpectator = false;
+        let player2ID = null;
 
-        let currentPos = 1;
         const specials = {
             1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, // Ladders
             16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 // Chutes
         };
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const playerID = urlParams.get('player') || 'guest';
+        const gameType = urlParams.get('type');
+        const networkRole = urlParams.get('role');
+        const hostPIN = urlParams.get('host');
+
+        document.body.classList.add('theme-' + playerID);
+
+        window.onload = () => {
+            initBoard();
+            if (gameType === 'online') setupMultiplayer();
+            updateStatus();
+        };
+
+        function setupMultiplayer() {
+            if (networkRole === 'host') {
+                myRole = 'host';
+                NetworkManager.init('host');
+                NetworkManager.peer.on('open', (id) => {
+                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    document.getElementById('host-pin-display').style.display = 'block';
+                    document.getElementById('table-pin-value').innerText = id;
+                    if (typeof FirebaseManager !== 'undefined') FirebaseManager.registerTable(id, "Chutes & Ladders", playerID);
+                });
+                NetworkManager.onPlayerJoined = (id, conn) => {
+                    if (!player2ID) {
+                        player2ID = id;
+                        conn.send({ type: 'JOIN_ACCEPTED' });
+                        broadcast();
+                    }
+                };
+                NetworkManager.onMoveReceived = (roll) => {
+                    if (currentPlayer === "O") executeRoll(roll);
+                };
+            } else {
+                isSpectator = true;
+                document.getElementById('multiplayer-controls').style.display = 'block';
+                NetworkManager.init('client', hostPIN);
+                NetworkManager.onStateUpdate = (state) => {
+                    p1Pos = state.p1Pos; p2Pos = state.p2Pos;
+                    currentPlayer = state.currentPlayer;
+                    player2ID = state.player2ID;
+                    active = state.active;
+                    if (player2ID === playerID) {
+                        isSpectator = false;
+                        myRole = 'player2';
+                        document.getElementById('multiplayer-controls').style.display = 'none';
+                    }
+                    movePawn('p1', p1Pos);
+                    movePawn('p2', p2Pos);
+                    updateStatus();
+                };
+                NetworkManager.onJoinAccepted = () => {
+                    isSpectator = false;
+                    myRole = 'player2';
+                    document.getElementById('multiplayer-controls').style.display = 'none';
+                };
+                document.getElementById('network-status').innerText = `Spectating PIN: ${hostPIN}`;
+            }
+            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+        }
+
+        function requestToJoin() { NetworkManager.requestJoin(); }
+        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active }); }
 
         function initBoard() {
             const boardEl = document.getElementById('board');
@@ -70,44 +169,116 @@
                     boardEl.appendChild(sq);
                 }
             }
-            const pawn = document.createElement('div');
-            pawn.id = 'pawn';
-            pawn.className = 'pawn';
-            document.body.appendChild(pawn);
-            movePawn(1);
+            
+            createPawn('p1', 'var(--accent-color)');
+            createPawn('p2', '#ff5555');
+            
+            setTimeout(() => {
+                movePawn('p1', 1);
+                movePawn('p2', 1);
+            }, 100);
         }
 
-        function movePawn(pos) {
+        function createPawn(id, color) {
+            const pawn = document.createElement('div');
+            pawn.id = 'pawn-' + id;
+            pawn.className = 'pawn';
+            pawn.style.background = color;
+            if (id === 'p2') pawn.style.transform = "translateX(5px) translateY(5px)";
+            document.body.appendChild(pawn);
+        }
+
+        function movePawn(id, pos) {
             const sq = document.getElementById('sq-' + pos);
-            const pawn = document.getElementById('pawn');
+            const pawn = document.getElementById('pawn-' + id);
+            if (!sq || !pawn) return;
             const rect = sq.getBoundingClientRect();
             pawn.style.left = (window.scrollX + rect.left + 6) + 'px';
             pawn.style.top = (window.scrollY + rect.top + 6) + 'px';
         }
 
-        function rollDice() {
+        function handleRoll() {
+            if (isSpectator || !active) return;
+            if (myRole === 'host' && currentPlayer !== "X") return;
+            if (myRole === 'player2' && currentPlayer !== "O") return;
+
             const roll = Math.floor(Math.random() * 6) + 1;
-            document.getElementById('dice-result').innerText = "🎲 " + roll;
-            
-            if (currentPos + roll <= 100) {
-                currentPos += roll;
-                movePawn(currentPos);
-                
-                setTimeout(() => {
-                    if (specials[currentPos]) {
-                        currentPos = specials[currentPos];
-                        movePawn(currentPos);
-                    }
-                    if (currentPos === 100) {
-                        alert("Winner!");
-                        logMatch(playerID, "Chutes and Ladders", "Win");
-                        location.reload();
-                    }
-                }, 500);
+            if (myRole === 'player2') {
+                NetworkManager.sendMove(roll);
+            } else {
+                executeRoll(roll);
             }
         }
 
-        window.onload = initBoard;
+        function executeRoll(roll) {
+            document.getElementById('dice-result').innerText = "🎲 " + roll;
+            let current = (currentPlayer === "X") ? p1Pos : p2Pos;
+            
+            if (current + roll <= 100) {
+                current += roll;
+                if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                movePawn(currentPlayer === "X" ? 'p1' : 'p2', current);
+                
+                setTimeout(() => {
+                    if (specials[current]) {
+                        current = specials[current];
+                        if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                        movePawn(currentPlayer === "X" ? 'p1' : 'p2', current);
+                    }
+                    if (current === 100) {
+                        active = false;
+                        document.getElementById('status').innerText = (currentPlayer === "X" ? "Player 1" : "Player 2") + " Wins!";
+                    } else {
+                        currentPlayer = (currentPlayer === "X") ? "O" : "X";
+                    }
+                    broadcast();
+                    updateStatus();
+                }, 500);
+            } else {
+                currentPlayer = (currentPlayer === "X") ? "O" : "X";
+                broadcast();
+                updateStatus();
+            }
+        }
+
+        function updateStatus() {
+            const statusEl = document.getElementById('turn-info');
+            if (!active) return;
+            let turnText = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
+            if (myRole === 'host' && currentPlayer === "X") turnText += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === "O") turnText += " (YOU)";
+            if (isSpectator) turnText += " (Spectating)";
+            statusEl.innerText = turnText;
+            document.getElementById('roll-btn').disabled = (myRole === 'host' && currentPlayer !== 'X') || (myRole === 'player2' && currentPlayer !== 'O') || isSpectator;
+        }
+
+        function resetGame() {
+            if (isSpectator || myRole === 'player2') return;
+            p1Pos = 1; p2Pos = 1; currentPlayer = "X"; active = true;
+            document.getElementById('status').innerText = "Chutes & Ladders";
+            movePawn('p1', 1); movePawn('p2', 1);
+            broadcast();
+            updateStatus();
+        }
+
+        // --- Table Chat Logic ---
+        function sendTableChat() {
+            const input = document.getElementById('table-msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+            NetworkManager.sendChatMessage(text);
+            input.value = "";
+        }
+        function renderTableMessage(payload) {
+            const container = document.getElementById('table-messages');
+            const div = document.createElement('div');
+            div.style.cssText = "margin-bottom:5px; padding:5px; border-radius:5px; font-size:0.9em; background:rgba(255,255,255,0.05);";
+            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
+            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTableChat(); });
     </script>
 </body>
 </html>

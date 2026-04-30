@@ -28,89 +28,197 @@
 </head>
 <body>
     <div id="lobby-container">
-        <button onclick="location.href='../../index.html'">← Back</button>
+        <!-- Prominent PIN Display for Host -->
+        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <button onclick="location.href='../../index.html'">← Back</button>
+            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
+        </div>
+
         <h1 id="status">Mancala</h1>
         <p id="turn-info">Your Turn</p>
+
+        <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
+            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+        </div>
 
         <div id="mancala-board">
             <div id="store-1" class="store">0</div> <div class="pits-container">
                 <div class="row" id="cpu-pits">
-                    <div class="pit disabled" id="pit-12">4</div>
-                    <div class="pit disabled" id="pit-11">4</div>
-                    <div class="pit disabled" id="pit-10">4</div>
-                    <div class="pit disabled" id="pit-9">4</div>
-                    <div class="pit disabled" id="pit-8">4</div>
-                    <div class="pit disabled" id="pit-7">4</div>
+                    <div class="pit" id="pit-12" onclick="handlePitClick(12)">4</div>
+                    <div class="pit" id="pit-11" onclick="handlePitClick(11)">4</div>
+                    <div class="pit" id="pit-10" onclick="handlePitClick(10)">4</div>
+                    <div class="pit" id="pit-9" onclick="handlePitClick(9)">4</div>
+                    <div class="pit" id="pit-8" onclick="handlePitClick(8)">4</div>
+                    <div class="pit" id="pit-7" onclick="handlePitClick(7)">4</div>
                 </div>
                 <div class="row" id="player-pits">
-                    <div class="pit" id="pit-0" onclick="makeMove(0)">4</div>
-                    <div class="pit" id="pit-1" onclick="makeMove(1)">4</div>
-                    <div class="pit" id="pit-2" onclick="makeMove(2)">4</div>
-                    <div class="pit" id="pit-3" onclick="makeMove(3)">4</div>
-                    <div class="pit" id="pit-4" onclick="makeMove(4)">4</div>
-                    <div class="pit" id="pit-5" onclick="makeMove(5)">4</div>
+                    <div class="pit" id="pit-0" onclick="handlePitClick(0)">4</div>
+                    <div class="pit" id="pit-1" onclick="handlePitClick(1)">4</div>
+                    <div class="pit" id="pit-2" onclick="handlePitClick(2)">4</div>
+                    <div class="pit" id="pit-3" onclick="handlePitClick(3)">4</div>
+                    <div class="pit" id="pit-4" onclick="handlePitClick(4)">4</div>
+                    <div class="pit" id="pit-5" onclick="handlePitClick(5)">4</div>
                 </div>
             </div>
             <div id="store-0" class="store">0</div> </div>
 
-        <button onclick="resetGame()">Reset</button>
+        <button id="reset-btn" onclick="resetGame()">Reset</button>
+
+        <!-- Table Chat -->
+        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
+            <h3 style="margin-top: 0;">Table Chat</h3>
+            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
+            <div style="display: flex; gap: 5px;">
+                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
+                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
+            </div>
+        </div>
     </div>
 
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
+    <script src="../../firebase-init.js"></script>
+    <script src="../../network.js"></script>
     <script src="../../profile.js"></script>
     <script>
+        let board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
+        let currentPlayer = 0; // 0 = Host (Bottom), 1 = Player 2 (Top)
+        let active = true;
+        let myRole = 'local';
+        let isSpectator = false;
+        let player2ID = null;
+
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
+        const gameType = urlParams.get('type');
+        const networkRole = urlParams.get('role');
+        const hostPIN = urlParams.get('host');
+
         document.body.classList.add('theme-' + playerID);
 
-        let board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
-        let currentPlayer = 0; // 0 = Player, 1 = CPU
-        let active = true;
+        window.onload = () => {
+            if (gameType === 'online') setupMultiplayer();
+            render();
+        };
+
+        function setupMultiplayer() {
+            if (networkRole === 'host') {
+                myRole = 'host';
+                NetworkManager.init('host');
+                NetworkManager.peer.on('open', (id) => {
+                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    document.getElementById('host-pin-display').style.display = 'block';
+                    document.getElementById('table-pin-value').innerText = id;
+                    if (typeof FirebaseManager !== 'undefined') FirebaseManager.registerTable(id, "Mancala", playerID);
+                });
+                NetworkManager.onPlayerJoined = (id, conn) => {
+                    if (!player2ID) {
+                        player2ID = id;
+                        conn.send({ type: 'JOIN_ACCEPTED' });
+                        broadcast();
+                    }
+                };
+                NetworkManager.onMoveReceived = (pit) => {
+                    if (currentPlayer === 1) sow(pit);
+                };
+            } else {
+                isSpectator = true;
+                document.getElementById('multiplayer-controls').style.display = 'block';
+                NetworkManager.init('client', hostPIN);
+                NetworkManager.onStateUpdate = (state) => {
+                    board = state.board;
+                    currentPlayer = state.currentPlayer;
+                    player2ID = state.player2ID;
+                    active = state.active;
+                    if (player2ID === playerID) {
+                        isSpectator = false;
+                        myRole = 'player2';
+                        document.getElementById('multiplayer-controls').style.display = 'none';
+                    }
+                    render();
+                };
+                NetworkManager.onJoinAccepted = () => {
+                    isSpectator = false;
+                    myRole = 'player2';
+                    document.getElementById('multiplayer-controls').style.display = 'none';
+                };
+                document.getElementById('network-status').innerText = `Spectating PIN: ${hostPIN}`;
+            }
+            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+        }
+
+        function requestToJoin() { NetworkManager.requestJoin(); }
+        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ board, currentPlayer, player2ID, active }); }
 
         function render() {
             for (let i = 0; i < 14; i++) {
                 const el = document.getElementById(i === 6 ? 'store-0' : i === 13 ? 'store-1' : `pit-${i}`);
-                if (el) el.innerText = board[i];
+                if (el) {
+                    el.innerText = board[i];
+                    el.classList.toggle('disabled', isSpectator || (currentPlayer === 0 && i > 5) || (currentPlayer === 1 && i < 7) || board[i] === 0);
+                }
             }
+            updateStatus();
         }
 
-        function makeMove(pit) {
-            if (!active || currentPlayer !== 0 || board[pit] === 0) return;
-            sow(pit);
+        function updateStatus() {
+            const statusEl = document.getElementById('turn-info');
+            if (!active) return;
+            let turnText = currentPlayer === 0 ? "Player 1's Turn" : "Player 2's Turn";
+            if (myRole === 'host' && currentPlayer === 0) turnText += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === 1) turnText += " (YOU)";
+            if (isSpectator) turnText += " (Spectating)";
+            statusEl.innerText = turnText;
+        }
+
+        function handlePitClick(pit) {
+            if (isSpectator || !active || board[pit] === 0) return;
+            if (myRole === 'host' && (currentPlayer !== 0 || pit > 5)) return;
+            if (myRole === 'player2' && (currentPlayer !== 1 || pit < 7)) return;
+
+            if (myRole === 'player2') {
+                NetworkManager.sendMove(pit);
+            } else {
+                sow(pit);
+            }
         }
 
         function sow(pit) {
             let stones = board[pit];
             board[pit] = 0;
             let current = pit;
-
             while (stones > 0) {
                 current = (current + 1) % 14;
-                // Skip opponent's store
                 if ((currentPlayer === 0 && current === 13) || (currentPlayer === 1 && current === 6)) continue;
                 board[current]++;
                 stones--;
             }
-
-            // Capture logic & Extra turn check would go here
-            render();
-            checkEnd();
             
-            if (current !== 6 && current !== 13) {
-                currentPlayer = 1;
-                document.getElementById('turn-info').innerText = "CPU Turn";
+            // Extra turn check
+            if ((currentPlayer === 0 && current !== 6) || (currentPlayer === 1 && current !== 13)) {
+                currentPlayer = currentPlayer === 0 ? 1 : 0;
+            }
+            
+            checkEnd();
+            broadcast();
+            render();
+            
+            if (gameType === 'cpu' && active && currentPlayer === 1) {
+                document.getElementById('turn-info').innerText = "CPU thinking...";
                 setTimeout(cpuMove, 1000);
-            } else {
-                document.getElementById('turn-info').innerText = "Extra Turn!";
             }
         }
 
         function cpuMove() {
             let validPits = [7, 8, 9, 10, 11, 12].filter(p => board[p] > 0);
             if (validPits.length > 0) {
-                let choice = validPits[Math.floor(Math.random() * validPits.length)];
-                sow(choice);
-                currentPlayer = 0;
-                document.getElementById('turn-info').innerText = "Your Turn";
+                sow(validPits[Math.floor(Math.random() * validPits.length)]);
             }
         }
 
@@ -121,20 +229,38 @@
                 active = false;
                 const pTotal = board[6];
                 const cTotal = board[13];
-                const result = pTotal > cTotal ? "Win" : "Loss";
                 document.getElementById('status').innerText = `Game Over: ${pTotal}-${cTotal}`;
-                logMatch(playerID, "Mancala", result);
+                document.getElementById('turn-info').innerText = pTotal > cTotal ? "Player 1 Wins!" : "Player 2 Wins!";
             }
         }
 
         function resetGame() {
+            if (isSpectator || myRole === 'player2') return;
             board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
-            active = true;
-            currentPlayer = 0;
+            active = true; currentPlayer = 0;
+            document.getElementById('status').innerText = "Mancala";
+            broadcast();
             render();
         }
 
-        render();
+        // --- Table Chat Logic ---
+        function sendTableChat() {
+            const input = document.getElementById('table-msg-input');
+            const text = input.value.trim();
+            if (!text) return;
+            NetworkManager.sendChatMessage(text);
+            input.value = "";
+        }
+        function renderTableMessage(payload) {
+            const container = document.getElementById('table-messages');
+            const div = document.createElement('div');
+            div.style.cssText = "margin-bottom:5px; padding:5px; border-radius:5px; font-size:0.9em; background:rgba(255,255,255,0.05);";
+            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
+            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTableChat(); });
     </script>
 </body>
 </html>
