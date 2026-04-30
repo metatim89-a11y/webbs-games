@@ -215,8 +215,34 @@ function showGameSelection(mode) {
 }
 
 function joinTablePrompt() {
-    // Take user to games selection in 'join' mode
-    window.location.href = `games.html?player=${activePlayer}&mode=join`;
+    document.getElementById('join-game-modal').style.display = 'flex';
+    document.getElementById('join-step-1').style.display = 'block';
+    document.getElementById('join-step-2').style.display = 'none';
+    document.getElementById('join-table-pin').value = '';
+}
+
+function closeJoinModal() {
+    document.getElementById('join-game-modal').style.display = 'none';
+}
+
+function nextJoinStep() {
+    const pin = document.getElementById('join-table-pin').value;
+    if (pin.length !== 4) {
+        alert("Please enter a 4-digit PIN.");
+        return;
+    }
+    document.getElementById('join-step-1').style.display = 'none';
+    document.getElementById('join-step-2').style.display = 'block';
+}
+
+function prevJoinStep() {
+    document.getElementById('join-step-1').style.display = 'block';
+    document.getElementById('join-step-2').style.display = 'none';
+}
+
+function confirmJoin(game) {
+    const pin = document.getElementById('join-table-pin').value;
+    window.location.href = `games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`;
 }
 
 function logout() {

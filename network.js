@@ -91,6 +91,8 @@ const NetworkManager = {
 
         this.conn.on('open', () => {
             console.log("Connected to host!");
+            // Auto-join request when connection opens
+            setTimeout(() => this.requestJoin(), 500); 
         });
 
         this.conn.on('data', (data) => {

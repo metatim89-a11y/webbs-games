@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chutes & Ladders | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.1.1">
+    <link rel="stylesheet" href="../../style.css?v=1.1.2">
     <style>
         #board {
             display: grid;
@@ -74,8 +74,8 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.1.1"></script>
-    <script src="../../profile.js?v=1.1.1"></script>
+    <script src="../../network.js?v=1.1.2"></script>
+    <script src="../../profile.js?v=1.1.2"></script>
     <script>
         let p1Pos = 1, p2Pos = 1;
         let currentPlayer = "X"; // X = Player 1, O = Player 2
@@ -124,7 +124,7 @@
                 };
             } else {
                 isSpectator = true;
-                document.getElementById('multiplayer-controls').style.display = 'block';
+                // document.getElementById('multiplayer-controls').style.display = 'block';
                 NetworkManager.init('client', hostPIN);
                 NetworkManager.onStateUpdate = (state) => {
                     p1Pos = state.p1Pos; p2Pos = state.p2Pos;
@@ -135,6 +135,7 @@
                         isSpectator = false;
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
+                        document.getElementById('network-status').innerText = "Connected as Player 2";
                     }
                     movePawn('p1', p1Pos);
                     movePawn('p2', p2Pos);
@@ -144,8 +145,9 @@
                     isSpectator = false;
                     myRole = 'player2';
                     document.getElementById('multiplayer-controls').style.display = 'none';
+                    document.getElementById('network-status').innerText = "Connected as Player 2";
                 };
-                document.getElementById('network-status').innerText = `Spectating PIN: ${hostPIN}`;
+                document.getElementById('network-status').innerText = `Connecting to Table ${hostPIN}...`;
             }
             NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
         }
@@ -275,7 +277,7 @@
         function renderTableMessage(payload) {
             const container = document.getElementById('table-messages');
             const div = document.createElement('div');
-            div.style.css?v=1.1.1Text = "margin-bottom:5px; padding:5px; border-radius:5px; font-size:0.9em; background:rgba(255,255,255,0.05);";
+            div.style.css?v=1.1.2Text = "margin-bottom:5px; padding:5px; border-radius:5px; font-size:0.9em; background:rgba(255,255,255,0.05);";
             const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
             div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
             container.appendChild(div);
