@@ -3,8 +3,12 @@ let messages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
 
 /* --- Initialization --- */
 window.onload = () => {
-    // If a session exists, you could auto-login here, 
-    // but for now, we wait for auth.js to call showMainMenu.
+    // Check if we have a persisted session
+    const persistedPlayer = sessionStorage.getItem('webbs_active_player');
+    if (persistedPlayer && typeof loginSuccess === "function") {
+        loginSuccess(persistedPlayer);
+    }
+    
     renderMessages();
 };
 

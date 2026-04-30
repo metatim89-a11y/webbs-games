@@ -43,6 +43,11 @@ function clearPin() {
 
 function togglePinVisibility() {
     pinVisible = !pinVisible;
+    const btn = document.querySelector('#pin-overlay button[onclick="togglePinVisibility()"]');
+    if (btn) {
+        btn.style.background = pinVisible ? "gold" : "none";
+        btn.style.color = pinVisible ? "black" : "gold";
+    }
     updatePinDisplay();
 }
 
@@ -50,16 +55,19 @@ function updatePinDisplay() {
     const display = document.getElementById('pin-display');
     if (!display) return;
     
-    if (currentPinInput.length === 0) {
-        display.innerText = "----";
-    } else {
-        display.innerText = pinVisible ? currentPinInput : "*".repeat(currentPinInput.length);
-    }
+    let dots = pinVisible ? currentPinInput : "*".repeat(currentPinInput.length);
+    display.innerText = dots.padEnd(4, "-");
 }
 
 function closePinOverlay() {
     document.getElementById('pin-overlay').style.display = 'none';
     currentPinInput = "";
+    // Reset toggle button state
+    const btn = document.querySelector('#pin-overlay button[onclick="togglePinVisibility()"]');
+    if (btn) {
+        btn.style.background = "none";
+        btn.style.color = "gold";
+    }
 }
 
 function submitPin() {
@@ -79,15 +87,17 @@ function submitPin() {
 
 function loginSuccess(playerID) {
     activePlayer = playerID;
+    sessionStorage.setItem('webbs_active_player', playerID);
     document.body.className = PIN_CONFIG[playerID].theme;
     closePinOverlay();
     
-    // Manual Redirection to Menu
-    document.getElementById('player-select').style.display = 'none';
-    document.getElementById('main-menu').style.display = 'block';
-    
-    // Ensure chat is rendered
-    if (typeof renderMessages === "function") {
-        renderMessages();
+    // Call the central UI transition from main.js
+    if (typeof showMainMenu === "function") {
+        showMainMenu();
+    } else {
+        // Fallback if main.js isn't ready
+        document.getElementById('player-select').style.display = 'none';
+        document.getElementById('main-menu').style.display = 'block';
+        if (typeof renderMessages === "function") renderMessages();
     }
 }
