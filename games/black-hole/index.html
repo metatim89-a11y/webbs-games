@@ -208,10 +208,26 @@
         }
 
         function calculateWinner() {
-            // Find the black hole (the one null spot left)
             const holeIdx = board.findIndex(b => b === null);
-            document.getElementById('status').innerText = "Game Over! Calculating...";
-            // Scoring logic could be added here
+            document.getElementById('status').innerText = "Game Over!";
+            
+            // Simplified Scoring: sum of all numbers played
+            let p1Score = 0, p2Score = 0;
+            board.forEach(b => {
+                if (!b) return;
+                if (b.owner === 'X') p1Score += b.num;
+                else p2Score += b.num;
+            });
+
+            const winner = p1Score > p2Score ? 'X' : 'O'; // Higher score wins for now
+            document.getElementById('info').innerText = `P1: ${p1Score} | P2: ${p2Score} - ${winner === 'X' ? 'Player 1' : 'Player 2'} Wins!`;
+            
+            if (gameType === 'online') {
+                const iWon = (myRole === 'host' && winner === 'X') || (myRole === 'player2' && winner === 'O');
+                ProfileManager.recordResult('Black Hole', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+            } else if (gameType !== 'local') {
+                ProfileManager.recordResult('Black Hole', playerID, 'CPU', winner === 'X' ? 'win' : 'loss');
+            }
         }
 
         function resetGame() {

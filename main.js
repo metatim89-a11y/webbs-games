@@ -74,6 +74,72 @@ function submitSignup() {
     closeSignup();
 }
 
+/* --- Profile Management --- */
+function openProfile() {
+    if (!activePlayer) return;
+    
+    document.getElementById('profile-modal').style.display = 'flex';
+    document.getElementById('profile-title').innerText = `${activePlayer.toUpperCase()}'s Profile`;
+    
+    refreshProfileView();
+}
+
+function closeProfile() {
+    document.getElementById('profile-modal').style.display = 'none';
+    toggleProfileEdit(false);
+}
+
+function toggleProfileEdit(show) {
+    document.getElementById('profile-view').style.display = show ? 'none' : 'block';
+    document.getElementById('profile-edit').style.display = show ? 'block' : 'none';
+    
+    if (show) {
+        const prefs = ProfileManager.getPreferences(activePlayer);
+        document.getElementById('edit-animal').value = prefs.favoriteAnimal;
+        document.getElementById('edit-color').value = prefs.favoriteColor;
+        document.getElementById('edit-game').value = prefs.favoriteGame;
+    }
+}
+
+function saveProfile() {
+    const prefs = {
+        favoriteAnimal: document.getElementById('edit-animal').value || "None set",
+        favoriteColor: document.getElementById('edit-color').value,
+        favoriteGame: document.getElementById('edit-game').value || "None set"
+    };
+    
+    ProfileManager.savePreferences(activePlayer, prefs);
+    toggleProfileEdit(false);
+    refreshProfileView();
+}
+
+function refreshProfileView() {
+    const stats = ProfileManager.getStats(activePlayer);
+    const prefs = ProfileManager.getPreferences(activePlayer);
+    
+    document.getElementById('stat-total').innerText = stats.total;
+    document.getElementById('stat-winrate').innerText = `${stats.winRate}%`;
+    document.getElementById('stat-w-l').innerText = `${stats.wins} / ${stats.losses}`;
+    
+    document.getElementById('view-animal').innerText = prefs.favoriteAnimal;
+    document.getElementById('view-color-text').innerText = prefs.favoriteColor;
+    document.getElementById('view-color-swatch').style.background = prefs.favoriteColor;
+    document.getElementById('view-game').innerText = prefs.favoriteGame;
+    
+    const historyContainer = document.getElementById('match-history');
+    if (stats.history.length === 0) {
+        historyContainer.innerHTML = "<p style='opacity:0.5;'>No matches recorded yet.</p>";
+    } else {
+        historyContainer.innerHTML = stats.history.map(h => `
+            <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                <span><strong>${h.game}</strong> vs ${h.opponent || 'CPU'}</span>
+                <span style="color: ${h.result === 'win' ? '#5f5' : (h.result === 'loss' ? '#f55' : '#aaa')}">${h.result.toUpperCase()}</span>
+                <span style="opacity:0.5; font-size:0.8em;">${h.timestamp.split(',')[0]}</span>
+            </div>
+        `).join('');
+    }
+}
+
 /* --- Table Discovery Logic (Manual PIN only now) --- */
 function showViewTables() {
     const container = document.getElementById('view-tables-container');

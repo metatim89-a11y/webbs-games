@@ -211,9 +211,18 @@
         function checkGameOver() {
             if (piles.every(p => p === 0)) {
                 active = false;
-                const winner = currentPlayer === "X" ? "Player 2" : "Player 1";
-                document.getElementById('status').innerText = winner + " Won!";
+                const winnerName = currentPlayer === "X" ? "Player 2" : "Player 1";
+                const winnerSymbol = winnerName === "Player 1" ? "X" : "O";
+                
+                document.getElementById('status').innerText = winnerName + " Won!";
                 document.getElementById('turn-info').innerText = "Game Over";
+
+                if (gameType === 'online') {
+                    const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
+                    ProfileManager.recordResult('357', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                } else if (gameType !== 'local') {
+                    ProfileManager.recordResult('357', playerID, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
+                }
                 return true;
             }
             return false;

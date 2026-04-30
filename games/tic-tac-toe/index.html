@@ -253,12 +253,25 @@
             const wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
             for (let c of wins) {
                 if (board[c[0]] && board[c[0]] === board[c[1]] && board[c[0]] === board[c[2]]) {
-                    document.getElementById('game-status').innerText = board[c[0]] + " Wins!";
+                    const winnerSymbol = board[c[0]];
+                    document.getElementById('game-status').innerText = winnerSymbol + " Wins!";
                     active = false;
+                    
+                    if (gameType === 'online') {
+                        const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
+                        ProfileManager.recordResult('Tic-Tac-Toe', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                    } else if (gameType === 'cpu') {
+                        ProfileManager.recordResult('Tic-Tac-Toe', playerID, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
+                    }
                     return true;
                 }
             }
-            if (!board.includes("")) { document.getElementById('game-status').innerText = "Draw!"; active = false; return true; }
+            if (!board.includes("")) { 
+                document.getElementById('game-status').innerText = "Draw!"; 
+                active = false; 
+                if (gameType !== 'local') ProfileManager.recordResult('Tic-Tac-Toe', playerID, (gameType === 'cpu' ? 'CPU' : (myRole === 'host' ? player2ID : 'host')), 'draw');
+                return true; 
+            }
             return false;
         }
 

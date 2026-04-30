@@ -199,6 +199,14 @@
             active = false;
             document.getElementById('status').innerText = player + " Wins!";
             document.getElementById('game-info').innerText = "Game Over!";
+            
+            const winnerSymbol = player === "Player 1" ? "X" : "O";
+            if (gameType === 'online') {
+                const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
+                ProfileManager.recordResult('Sorry', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+            } else if (gameType !== 'local') {
+                ProfileManager.recordResult('Sorry', playerID, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
+            }
         }
 
         function updateStatus() {

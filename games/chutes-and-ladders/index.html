@@ -224,6 +224,13 @@
                     if (current === 100) {
                         active = false;
                         document.getElementById('status').innerText = (currentPlayer === "X" ? "Player 1" : "Player 2") + " Wins!";
+                        
+                        if (gameType === 'online') {
+                            const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                            ProfileManager.recordResult('Chutes & Ladders', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                        } else if (gameType !== 'local') {
+                            ProfileManager.recordResult('Chutes & Ladders', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
+                        }
                     } else {
                         currentPlayer = (currentPlayer === "X") ? "O" : "X";
                     }

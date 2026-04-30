@@ -143,6 +143,15 @@
             render();
         }
 
+        function recordUnoResult(winner) {
+            if (gameType === 'online') {
+                const iWon = (myRole === 'host' && winner === 'X') || (myRole === 'player2' && winner === 'O');
+                ProfileManager.recordResult('Uno No Mercy', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+            } else if (gameType !== 'local') {
+                ProfileManager.recordResult('Uno No Mercy', playerID, 'CPU', winner === 'X' ? 'win' : 'loss');
+            }
+        }
+
         function render() {
             const discardEl = document.getElementById('discard-pile');
             discardEl.className = discard.color;
@@ -162,9 +171,10 @@
             }
 
             document.getElementById('mercy-count').innerText = `Cards: ${hand.length}/25`;
-            if(hand.length >= 25) {
+            if(hand.length >= 25 && active) {
                 active = false;
                 document.getElementById('status').innerText = "Mercy Rule! You Lose!";
+                recordUnoResult(currentPlayer === 'X' ? 'O' : 'X');
             }
             updateStatus();
         }
@@ -212,9 +222,10 @@
         function executeAction(action) {
             if (action.type === 'PLAY') {
                 discard = action.card;
-                if (hand.length === 0 && ((myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O'))) {
+                if (hand.length === 0 && active && ((myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O'))) {
                     active = false;
                     document.getElementById('status').innerText = (currentPlayer === 'X' ? 'Player 1' : 'Player 2') + " Wins!";
+                    recordUnoResult(currentPlayer);
                 }
             } else if (action.type === 'DRAW') {
                 // If it's Player 2 drawing, we don't know their hand, but they know it locally

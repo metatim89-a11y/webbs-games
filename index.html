@@ -51,6 +51,7 @@
                 <button onclick="showViewTables()">View Tables</button>
                 <button onclick="joinTablePrompt()">Join PIN</button>
                 <button onclick="showGameSelection('local')">Play Games</button>
+                <button onclick="openProfile()">My Profile</button>
                 <button onclick="logout()" style="border-color: #800; color: #ff5555;">Logout</button>
             </div>
 
@@ -77,6 +78,65 @@
         </div>
     </div>
 
+    <div id="profile-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center;">
+        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid gold; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 id="profile-title" style="margin:0;">Player Profile</h2>
+                <button onclick="closeProfile()">Close</button>
+            </div>
+
+            <div id="profile-view">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
+                    <div>
+                        <div style="font-size: 0.8em; opacity: 0.6;">Total Games</div>
+                        <div id="stat-total" style="font-size: 1.5em; font-weight: bold;">0</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8em; opacity: 0.6;">Win Rate</div>
+                        <div id="stat-winrate" style="font-size: 1.5em; font-weight: bold;">0%</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 0.8em; opacity: 0.6;">Wins / Losses</div>
+                        <div id="stat-w-l" style="font-size: 1.1em;">0 / 0</div>
+                    </div>
+                </div>
+
+                <div style="text-align: left; margin-bottom: 20px;">
+                    <h3>About Me</h3>
+                    <p><strong>Favorite Animal:</strong> <span id="view-animal">-</span></p>
+                    <p><strong>Favorite Color:</strong> <span id="view-color-swatch" style="display:inline-block; width:15px; height:15px; border-radius:50%; border:1px solid #fff; vertical-align:middle;"></span> <span id="view-color-text">-</span></p>
+                    <p><strong>Favorite Game:</strong> <span id="view-game">-</span></p>
+                    <button onclick="toggleProfileEdit(true)" style="font-size: 0.8em;">Edit Bio</button>
+                </div>
+
+                <div style="text-align: left;">
+                    <h3>Recent Matches</h3>
+                    <div id="match-history" style="font-size: 0.9em;"></div>
+                </div>
+            </div>
+
+            <div id="profile-edit" style="display:none; text-align: left;">
+                <h3>Edit Bio</h3>
+                <div style="margin-bottom: 15px;">
+                    <label>Favorite Animal:</label><br>
+                    <input type="text" id="edit-animal" style="width:100%;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label>Favorite Color:</label><br>
+                    <input type="color" id="edit-color" style="width:100%; height:40px;">
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label>Favorite Board Game:</label><br>
+                    <input type="text" id="edit-game" style="width:100%;">
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button onclick="saveProfile()" style="flex:1;">Save Changes</button>
+                    <button onclick="toggleProfileEdit(false)" style="flex:1; background:#444;">Cancel</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="pin-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center;">
         <div class="pin-box" style="background: var(--secondary-color); padding: 20px; border-radius: 15px; border: 2px solid var(--primary-color); text-align: center;">
             <h2 id="pin-msg">Enter PIN</h2>
@@ -95,6 +155,7 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="profile.js"></script>
     <script src="admin.js"></script>
     <script src="auth.js"></script>
     <script src="main.js"></script>
