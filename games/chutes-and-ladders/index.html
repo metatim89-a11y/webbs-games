@@ -4,42 +4,77 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chutes & Ladders | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.1.4">
+    <link rel="stylesheet" href="../../style.css?v=1.2.0">
     <style>
+        #board-wrapper { position: relative; width: fit-content; margin: 20px auto; }
         #board {
-            display: grid;
-            grid-template-columns: repeat(10, 32px);
-            grid-template-rows: repeat(10, 32px);
-            gap: 2px;
-            margin: 20px auto;
-            background: #444;
-            border: 5px solid #222;
-            width: fit-content;
+            display: grid; grid-template-columns: repeat(10, 32px); grid-template-rows: repeat(10, 32px);
+            gap: 2px; background: #444; border: 5px solid #222;
         }
         .sq {
-            width: 32px; height: 32px;
-            background: #fff; color: #ccc;
-            font-size: 8px; display: flex;
-            align-items: center; justify-content: center;
+            width: 32px; height: 32px; background: #fff; color: #ccc;
+            font-size: 8px; display: flex; align-items: center; justify-content: center;
             position: relative;
         }
         .sq.special { background: #ffe0b2; color: #fb8c00; font-weight: bold; }
         .pawn {
-            width: 20px; height: 20px;
-            background: var(--accent-color);
-            border-radius: 50%;
-            border: 2px solid #000;
-            position: absolute;
-            z-index: 10;
-            transition: all 0.4s ease-in-out;
+            width: 20px; height: 20px; background: var(--accent-color);
+            border-radius: 50%; border: 2px solid #000; position: absolute;
+            z-index: 20; transition: all 0.4s ease-in-out;
+        }
+        .trajectory {
+            position: absolute; pointer-events: none; z-index: 5;
+            stroke-dasharray: 5,5; stroke-width: 2;
+        }
+        .ladder { stroke: #4caf50; }
+        .chute { stroke: #f44336; }
+        
+        #dice-container {
+            width: 60px; height: 60px; background: white; border: 2px solid #444;
+            border-radius: 10px; margin: 20px auto; display: flex;
+            align-items: center; justify-content: center; font-size: 2em;
+            color: #222; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        .rolling { animation: diceRoll 0.1s infinite; }
+        @keyframes diceRoll {
+            0% { transform: rotate(0deg) scale(1); }
+            50% { transform: rotate(10deg) scale(1.1); }
+            100% { transform: rotate(-10deg) scale(1); }
         }
     </style>
 </head>
 <body>
+    <div id="version-tag">v1.2.0</div>
+
+    <div class="rules-block" id="rules-block">
+        <div class="rules-toggle" onclick="toggleRules()">
+            <i class="info-icon">i</i>
+            <span>Rules</span>
+            <span class="rules-subtext">Need help?</span>
+        </div>
+        <div class="rules-content-mini" id="rules-content">
+            <strong>Objective:</strong> Be the first to reach square 100.<br><br>
+            <strong>Rules:</strong>
+            <ul>
+                <li>Spin to move.</li>
+                <li>Ladders (Green) take you UP.</li>
+                <li>Chutes (Red) send you DOWN.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="game-over-modal">
+        <div class="modal-content">
+            <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
+            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
+        </div>
+    </div>
+
     <div id="lobby-container">
-        <!-- Prominent PIN Display for Host -->
         <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
             <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
         </div>
 
@@ -49,40 +84,35 @@
         </div>
 
         <h1>Chutes & Ladders</h1>
-        <p id="turn-info">Your Turn</p>
+        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
-            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+            <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
-        <div id="board"></div>
+        <div id="board-wrapper">
+            <svg id="trajectories" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;"></svg>
+            <div id="board"></div>
+        </div>
+
         <div id="controls" style="margin-top:20px;">
-            <h2 id="dice-result">🎲 ?</h2>
-            <button id="roll-btn" onclick="handleRoll()">Spin / Roll</button>
-            <button id="reset-btn" onclick="resetGame()">Reset</button>
-        </div>
-
-        <!-- Table Chat -->
-        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
-            <h3 style="margin-top: 0;">Table Chat</h3>
-            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
-                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
-            </div>
+            <div id="dice-container">?</div>
+            <button id="roll-btn" class="modal-btn" onclick="handleRoll()">Spin / Roll</button>
+            <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.1.4"></script>
-    <script src="../../profile.js?v=1.1.4"></script>
+    <script src="../../network.js?v=1.2.0"></script>
+    <script src="../../profile.js?v=1.2.0"></script>
     <script>
         let p1Pos = 1, p2Pos = 1;
-        let currentPlayer = "X"; // X = Player 1, O = Player 2
+        let currentPlayer = "X"; 
         let active = true;
         let myRole = 'local';
         let isSpectator = false;
         let player2ID = null;
+        let startingPlayer = "X";
 
         const specials = {
             1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, // Ladders
@@ -103,9 +133,11 @@
             updateStatus();
         };
 
-        function setupMultiplayer() {
-            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+        function toggleRules() {
+            document.getElementById('rules-block').classList.toggle('expanded');
+        }
 
+        function setupMultiplayer() {
             if (networkRole === 'host') {
                 myRole = 'host';
                 NetworkManager.onPlayerJoined = (id, conn) => {
@@ -115,20 +147,15 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (roll) => {
-                    if (currentPlayer === "O") executeRoll(roll);
-                };
-
+                NetworkManager.onMoveReceived = (roll) => { if (currentPlayer === "O") executeRoll(roll); };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    document.getElementById('network-status').innerText = `PIN: ${id}`;
                     document.getElementById('host-pin-display').style.display = 'block';
                     document.getElementById('table-pin-value').innerText = id;
                 });
             } else {
                 isSpectator = true;
-                document.getElementById('network-status').innerText = `Connecting to Table ${hostPIN}...`;
-                
                 NetworkManager.onStateUpdate = (state) => {
                     p1Pos = state.p1Pos; p2Pos = state.p2Pos;
                     currentPlayer = state.currentPlayer;
@@ -138,24 +165,24 @@
                         isSpectator = false;
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
-                        document.getElementById('network-status').innerText = "Connected as Player 2";
                     }
+                    if (!active) showGameOver(currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
                     movePawn('p1', p1Pos);
                     movePawn('p2', p2Pos);
                     updateStatus();
+                };
+                NetworkManager.onAnimationTrigger = (data) => {
+                    if (data.type === 'ROLL') executeRoll(data.roll, false);
                 };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
                     myRole = 'player2';
                     document.getElementById('multiplayer-controls').style.display = 'none';
-                    document.getElementById('network-status').innerText = "Connected as Player 2";
                 };
-
                 NetworkManager.init('client', hostPIN);
             }
         }
 
-        function requestToJoin() { NetworkManager.requestJoin(); }
         function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active }); }
 
         function initBoard() {
@@ -170,14 +197,33 @@
                     boardEl.appendChild(sq);
                 }
             }
-            
             createPawn('p1', 'var(--accent-color)');
             createPawn('p2', '#ff5555');
-            
             setTimeout(() => {
+                drawTrajectories();
                 movePawn('p1', 1);
                 movePawn('p2', 1);
-            }, 100);
+            }, 500);
+        }
+
+        function drawTrajectories() {
+            const svg = document.getElementById('trajectories');
+            const boardRect = document.getElementById('board').getBoundingClientRect();
+            Object.keys(specials).forEach(start => {
+                const end = specials[start];
+                const sEl = document.getElementById('sq-' + start);
+                const eEl = document.getElementById('sq-' + end);
+                const sRect = sEl.getBoundingClientRect();
+                const eRect = eEl.getBoundingClientRect();
+                
+                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                line.setAttribute("x1", sRect.left - boardRect.left + 16);
+                line.setAttribute("y1", sRect.top - boardRect.top + 16);
+                line.setAttribute("x2", eRect.left - boardRect.left + 16);
+                line.setAttribute("y2", eRect.top - boardRect.top + 16);
+                line.setAttribute("class", "trajectory " + (end > start ? "ladder" : "chute"));
+                svg.appendChild(line);
+            });
         }
 
         function createPawn(id, color) {
@@ -185,20 +231,29 @@
             pawn.id = 'pawn-' + id;
             pawn.className = 'pawn';
             pawn.style.background = color;
-            if (id === 'p2') pawn.style.transform = "translateX(5px) translateY(5px)";
-            document.body.appendChild(pawn);
+            document.getElementById('board-wrapper').appendChild(pawn);
         }
 
-        function movePawn(id, pos) {
+        function movePawn(id, pos, animate = false) {
             const sq = document.getElementById('sq-' + pos);
             const pawn = document.getElementById('pawn-' + id);
             if (!sq || !pawn) return;
-            const rect = sq.getBoundingClientRect();
-            pawn.style.left = (window.scrollX + rect.left + 6) + 'px';
-            pawn.style.top = (window.scrollY + rect.top + 6) + 'px';
+            const boardRect = document.getElementById('board').getBoundingClientRect();
+            const sqRect = sq.getBoundingClientRect();
+            
+            if (animate) {
+                pawn.classList.remove('hop-anim');
+                void pawn.offsetWidth;
+                pawn.classList.add('hop-anim');
+            }
+            
+            pawn.style.left = (sqRect.left - boardRect.left + (id === 'p1' ? 2 : 10)) + 'px';
+            pawn.style.top = (sqRect.top - boardRect.top + (id === 'p1' ? 2 : 10)) + 'px';
         }
 
-        function handleRoll() {
+        const sleep = ms => new Promise(res => setTimeout(res, ms));
+
+        async function handleRoll() {
             if (isSpectator || !active) return;
             if (myRole === 'host' && currentPlayer !== "X") return;
             if (myRole === 'player2' && currentPlayer !== "O") return;
@@ -207,86 +262,82 @@
             if (myRole === 'player2') {
                 NetworkManager.sendMove(roll);
             } else {
-                executeRoll(roll);
+                if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
+                await executeRoll(roll);
             }
         }
 
-        function executeRoll(roll) {
-            document.getElementById('dice-result').innerText = "🎲 " + roll;
+        async function executeRoll(roll, isLocal = true) {
+            const dice = document.getElementById('dice-container');
+            dice.classList.add('rolling');
+            for(let i=0; i<10; i++) {
+                dice.innerText = Math.floor(Math.random() * 6) + 1;
+                await sleep(50);
+            }
+            dice.classList.remove('rolling');
+            dice.innerText = roll;
+            
+            let pId = currentPlayer === "X" ? 'p1' : 'p2';
             let current = (currentPlayer === "X") ? p1Pos : p2Pos;
             
             if (current + roll <= 100) {
-                current += roll;
-                if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
-                movePawn(currentPlayer === "X" ? 'p1' : 'p2', current);
+                for(let i=0; i<roll; i++) {
+                    current++;
+                    if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                    movePawn(pId, current, true);
+                    await sleep(400);
+                }
                 
-                setTimeout(() => {
-                    if (specials[current]) {
-                        current = specials[current];
-                        if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
-                        movePawn(currentPlayer === "X" ? 'p1' : 'p2', current);
+                if (specials[current]) {
+                    await sleep(400);
+                    current = specials[current];
+                    if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                    movePawn(pId, current, true);
+                }
+                
+                if (current === 100) {
+                    active = false;
+                    showGameOver(currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
+                    if (gameType === 'online') {
+                        const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                        ProfileManager.recordResult('Chutes & Ladders', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                    } else if (gameType !== 'local') {
+                        ProfileManager.recordResult('Chutes & Ladders', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
                     }
-                    if (current === 100) {
-                        active = false;
-                        document.getElementById('status').innerText = (currentPlayer === "X" ? "Player 1" : "Player 2") + " Wins!";
-                        
-                        if (gameType === 'online') {
-                            const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                            ProfileManager.recordResult('Chutes & Ladders', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-                        } else if (gameType !== 'local') {
-                            ProfileManager.recordResult('Chutes & Ladders', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
-                        }
-                    } else {
-                        currentPlayer = (currentPlayer === "X") ? "O" : "X";
-                    }
-                    broadcast();
-                    updateStatus();
-                }, 500);
-            } else {
+                }
+            }
+            
+            if (active) {
                 currentPlayer = (currentPlayer === "X") ? "O" : "X";
-                broadcast();
+                if (isLocal) broadcast();
                 updateStatus();
             }
         }
 
+        function showGameOver(winner) {
+            document.getElementById('winner-text').innerText = winner + " WINS!";
+            document.getElementById('game-over-modal').style.display = 'flex';
+        }
+
         function updateStatus() {
-            const statusEl = document.getElementById('turn-info');
+            const info = document.getElementById('turn-info');
             if (!active) return;
-            let turnText = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") turnText += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") turnText += " (YOU)";
-            if (isSpectator) turnText += " (Spectating)";
-            statusEl.innerText = turnText;
+            let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
+            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            info.innerText = text;
             document.getElementById('roll-btn').disabled = (myRole === 'host' && currentPlayer !== 'X') || (myRole === 'player2' && currentPlayer !== 'O') || isSpectator;
         }
 
         function resetGame() {
-            if (isSpectator || myRole === 'player2') return;
-            p1Pos = 1; p2Pos = 1; currentPlayer = "X"; active = true;
-            document.getElementById('status').innerText = "Chutes & Ladders";
+            document.getElementById('game-over-modal').style.display = 'none';
+            p1Pos = 1; p2Pos = 1; active = true;
+            startingPlayer = startingPlayer === "X" ? "O" : "X";
+            currentPlayer = startingPlayer;
             movePawn('p1', 1); movePawn('p2', 1);
-            broadcast();
+            if (myRole === 'host') broadcast();
             updateStatus();
         }
-
-        // --- Table Chat Logic ---
-        function sendTableChat() {
-            const input = document.getElementById('table-msg-input');
-            const text = input.value.trim();
-            if (!text) return;
-            NetworkManager.sendChatMessage(text);
-            input.value = "";
-        }
-        function renderTableMessage(payload) {
-            const container = document.getElementById('table-messages');
-            const div = document.createElement('div');
-            div.style.cssText = "margin-bottom:5px; padding:5px; border-radius:5px; font-size:0.9em; background:rgba(255,255,255,0.05);";
-            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
-            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendTableChat(); });
     </script>
 </body>
 </html>

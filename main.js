@@ -1,12 +1,13 @@
 /* --- Global State --- */
-console.log("Webbs Games: main.js loading...");
+console.log("Wubs Games: main.js loading...");
 let messages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
 
 /* --- Initialization --- */
 window.onload = () => {
     // Check if we have a persisted session
     const persistedPlayer = sessionStorage.getItem('webbs_active_player');
-    if (persistedPlayer && typeof loginSuccess === "function") {
+    if (persistedPlayer) {
+        activePlayer = persistedPlayer;
         loginSuccess(persistedPlayer);
     }
     
@@ -43,37 +44,79 @@ function renderPlayerSelect() {
 
 /* --- Admin Notifications --- */
 function checkAdminNotifications() {
-    const notif = document.getElementById('admin-notif');
+    const gear = document.getElementById('admin-gear');
+    if (!gear) return;
+    
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
-    if (notif) {
-        if (pending.length > 0 && activePlayer === 'tim') {
-            notif.style.display = 'flex';
-        } else {
-            notif.style.display = 'none';
-        }
+    if (activePlayer === 'tim' && pending.length > 0) {
+        gear.classList.add('admin-only'); // Show gear
+        // Could add a red dot here if we want
+    } else if (activePlayer === 'tim') {
+        gear.classList.add('admin-only');
+    } else {
+        gear.classList.remove('admin-only');
     }
 }
 
 /* --- UI Transition --- */
 function showMainMenu() {
-    const playerSelect = document.getElementById('player-select');
+    const playerSelect = document.getElementById('player-select-container');
     const mainMenu = document.getElementById('main-menu');
     const logoutBtn = document.getElementById('logout-btn');
-    const guestActions = document.getElementById('guest-actions');
+    const welcomeName = document.getElementById('active-player-name');
     
     if (playerSelect) playerSelect.style.display = 'none';
     if (mainMenu) mainMenu.style.display = 'block';
     if (logoutBtn) logoutBtn.style.display = 'block';
 
-    if (activePlayer === 'guest' && guestActions) {
-        guestActions.style.display = 'block';
-    } else if (guestActions) {
-        guestActions.style.display = 'none';
+    if (welcomeName) {
+        welcomeName.innerText = `Welcome, ${activePlayer.toUpperCase()}!`;
     }
     
     checkAdminNotifications();
-    console.log("Switched to Main Menu for: " + activePlayer);
     renderMessages();
+}
+
+/* --- Profile Logic --- */
+function openProfile() {
+    const modal = document.getElementById('profile-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        refreshProfileView();
+    }
+}
+
+function closeProfile() {
+    const modal = document.getElementById('profile-modal');
+    if (modal) modal.style.display = 'none';
+}
+
+function toggleProfileEdit(show) {
+    document.getElementById('profile-view').style.display = show ? 'none' : 'block';
+    document.getElementById('profile-edit').style.display = show ? 'block' : 'none';
+}
+
+function saveProfile() {
+    const animal = document.getElementById('edit-animal').value;
+    const game = document.getElementById('edit-game').value;
+    
+    if (typeof ProfileManager !== 'undefined') {
+        ProfileManager.savePreferences(activePlayer, { favoriteAnimal: animal, favoriteGame: game });
+    }
+    
+    toggleProfileEdit(false);
+    refreshProfileView();
+}
+
+function refreshProfileView() {
+    if (typeof ProfileManager === 'undefined') return;
+    const stats = ProfileManager.getStats(activePlayer);
+    const prefs = ProfileManager.getPreferences(activePlayer);
+    
+    document.getElementById('stat-wins').innerText = stats.wins;
+    document.getElementById('stat-losses').innerText = stats.losses;
+    document.getElementById('view-animal').innerText = prefs.favoriteAnimal || "None";
+    document.getElementById('view-game').innerText = prefs.favoriteGame || "None";
 }
 
 /* --- Sign Up Logic --- */
@@ -86,15 +129,9 @@ function closeSignup() {
 }
 
 function submitSignup() {
-    console.log("submitSignup called");
     const name = document.getElementById('signup-name').value.trim();
     const animal = document.getElementById('signup-animal').value.trim();
     const game = document.getElementById('signup-game').value.trim();
-    const colors = [
-        document.getElementById('signup-color-1').value,
-        document.getElementById('signup-color-2').value,
-        document.getElementById('signup-color-3').value
-    ];
 
     if (!name || !animal || !game) {
         alert("Please fill out all fields!");
@@ -102,123 +139,20 @@ function submitSignup() {
     }
 
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
-    pending.push({ 
-        name, 
-        animal, 
-        game, 
-        colors, 
-        timestamp: new Date().getTime() 
-    });
+    pending.push({ name, animal, game, timestamp: Date.now() });
     localStorage.setItem('webbs_pending', JSON.stringify(pending));
 
-    alert("Request sent to Tim! He'll see a notification on his gear icon.");
+    alert("Request sent to Tim!");
     closeSignup();
 }
 
-/* --- Profile Management --- */
-function openProfile() {
-    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
-    if (!player) {
-        alert("Please log in first!");
-        return;
-    }
-    
-    document.getElementById('profile-modal').style.display = 'flex';
-    document.getElementById('profile-title').innerText = `${player.toUpperCase()}'s Profile`;
-    
-    refreshProfileView(player);
-}
-
-function closeProfile() {
-    document.getElementById('profile-modal').style.display = 'none';
-    toggleProfileEdit(false);
-}
-
-function toggleProfileEdit(show) {
-    document.getElementById('profile-view').style.display = show ? 'none' : 'block';
-    document.getElementById('profile-edit').style.display = show ? 'block' : 'none';
-    
-    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
-    if (show && player) {
-        const prefs = ProfileManager.getPreferences(player);
-        document.getElementById('edit-animal').value = prefs.favoriteAnimal;
-        document.getElementById('edit-color').value = prefs.favoriteColor;
-        document.getElementById('edit-game').value = prefs.favoriteGame;
-    }
-}
-
-function saveProfile() {
-    const player = activePlayer || sessionStorage.getItem('webbs_active_player');
-    if (!player) return;
-
-    const prefs = {
-        favoriteAnimal: document.getElementById('edit-animal').value || "None set",
-        favoriteColor: document.getElementById('edit-color').value,
-        favoriteGame: document.getElementById('edit-game').value || "None set"
-    };
-    
-    ProfileManager.savePreferences(player, prefs);
-    toggleProfileEdit(false);
-    refreshProfileView(player);
-}
-
-function refreshProfileView(playerOverride) {
-    const player = playerOverride || activePlayer || sessionStorage.getItem('webbs_active_player');
-    if (!player) return;
-
-    const stats = ProfileManager.getStats(player);
-    const prefs = ProfileManager.getPreferences(player);
-    
-    document.getElementById('stat-total').innerText = stats.total;
-    document.getElementById('stat-winrate').innerText = `${stats.winRate}%`;
-    document.getElementById('stat-w-l').innerText = `${stats.wins} / ${stats.losses}`;
-    
-    document.getElementById('view-animal').innerText = prefs.favoriteAnimal;
-    document.getElementById('view-color-text').innerText = prefs.favoriteColor;
-    document.getElementById('view-color-swatch').style.background = prefs.favoriteColor;
-    document.getElementById('view-game').innerText = prefs.favoriteGame;
-    
-    const historyContainer = document.getElementById('match-history');
-    if (stats.history.length === 0) {
-        historyContainer.innerHTML = "<p style='opacity:0.5;'>No matches recorded yet.</p>";
-    } else {
-        historyContainer.innerHTML = stats.history.map(h => `
-            <div style="display:flex; justify-content:space-between; padding:5px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                <span><strong>${h.game}</strong> vs ${h.opponent || 'CPU'}</span>
-                <span style="color: ${h.result === 'win' ? '#5f5' : (h.result === 'loss' ? '#f55' : '#aaa')}">${h.result.toUpperCase()}</span>
-                <span style="opacity:0.5; font-size:0.8em;">${h.timestamp.split(',')[0]}</span>
-            </div>
-        `).join('');
-    }
-}
-
-/* --- Table Discovery Logic (Manual PIN only now) --- */
-function showViewTables() {
-    const container = document.getElementById('view-tables-container');
-    if (container) container.style.display = 'block';
-    // Firebase is removed, so we only show instructions for Join PIN
-    const list = document.getElementById('active-tables-list');
-    if (list) {
-        list.innerHTML = "<p style='opacity:0.8;'>Global discovery is disabled. Use the <strong>Join PIN</strong> button to enter a 4-digit code provided by your friend.</p>";
-    }
-}
-
-function hideViewTables() {
-    const container = document.getElementById('view-tables-container');
-    if (container) container.style.display = 'none';
-}
-
-/* --- Navigation Logic --- */
+/* --- Navigation --- */
 function showGameSelection(mode) {
-    // mode is 'online' (Create Table) or 'local' (Play Games)
     window.location.href = `games.html?player=${activePlayer}&mode=${mode}`;
 }
 
 function joinTablePrompt() {
     document.getElementById('join-game-modal').style.display = 'flex';
-    document.getElementById('join-step-1').style.display = 'block';
-    document.getElementById('join-step-2').style.display = 'none';
-    document.getElementById('join-table-pin').value = '';
 }
 
 function closeJoinModal() {
@@ -228,7 +162,7 @@ function closeJoinModal() {
 function nextJoinStep() {
     const pin = document.getElementById('join-table-pin').value;
     if (pin.length !== 4) {
-        alert("Please enter a 4-digit PIN.");
+        alert("Enter 4-digit PIN");
         return;
     }
     document.getElementById('join-step-1').style.display = 'none';
@@ -250,26 +184,14 @@ function logout() {
     location.reload();
 }
 
-/* --- Message Board / Chat Logic (Local Storage) --- */
+/* --- Messaging --- */
 function postMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
-
     if (!text) return;
-    if (!activePlayer) {
-        alert("Please log in to post a message!");
-        return;
-    }
 
-    const newMessage = {
-        sender: activePlayer,
-        body: text,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    };
-
-    messages.push(newMessage);
+    messages.push({ sender: activePlayer, body: text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
     if (messages.length > 20) messages.shift();
-
     localStorage.setItem('webbs_messages', JSON.stringify(messages));
     input.value = "";
     renderMessages();
@@ -278,27 +200,10 @@ function postMessage() {
 function renderMessages() {
     const container = document.getElementById('messages');
     if (!container) return;
-    
-    container.innerHTML = "";
-
-    messages.forEach(msg => {
-        const div = document.createElement('div');
-        div.className = `msg theme-${msg.sender}`;
-        div.style.margin = "5px 0";
-        div.style.padding = "8px";
-        div.style.borderRadius = "5px";
-        div.style.background = "rgba(255,255,255,0.05)";
-        div.style.borderLeft = "4px solid var(--primary-color)";
-        
-        div.innerHTML = `<strong>${msg.sender.toUpperCase()}:</strong> ${msg.body} <span style="font-size:0.7em; float:right; opacity:0.5;">${msg.timestamp}</span>`;
-        container.appendChild(div);
-    });
-
-    // Auto-scroll to bottom
+    container.innerHTML = messages.map(m => `
+        <div style="margin-bottom: 8px; font-size: 0.9em;">
+            <strong style="color: gold;">${m.sender.toUpperCase()}:</strong> ${m.body}
+        </div>
+    `).join('');
     container.scrollTop = container.scrollHeight;
 }
-
-/* --- Global Lobby Refresh --- */
-window.refreshLobby = () => {
-    renderMessages();
-};

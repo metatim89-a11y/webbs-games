@@ -4,22 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>357 | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.1.4">
-    <style>
-        .pile-container { display: flex; justify-content: center; gap: 40px; margin: 30px 0; }
-        .pile { display: flex; flex-direction: column-reverse; align-items: center; gap: 10px; cursor: pointer; padding: 10px; border: 2px solid transparent; border-radius: 10px; }
-        .pile:hover { border-color: var(--accent-color); }
-        .item { width: 30px; height: 30px; background: var(--primary-color); border-radius: 50%; box-shadow: 0 4px 0 rgba(0,0,0,0.3); }
-        .item.selected { background: var(--accent-color); transform: scale(1.1); }
-        #controls { margin-top: 20px; text-align: center; }
-        button:disabled { opacity: 0.5; cursor: not-allowed; }
-    </style>
+    <link rel="stylesheet" href="../../style.css?v=1.2.0">
 </head>
 <body>
+    <div id="version-tag">v1.2.0</div>
+    
+    <div class="rules-block" id="rules-block">
+        <div class="rules-toggle" onclick="toggleRules()">
+            <i class="info-icon">i</i>
+            <span>Rules</span>
+            <span class="rules-subtext">Need help?</span>
+        </div>
+        <div class="rules-content-mini" id="rules-content">
+            <strong>Objective:</strong> Take the last item to win!<br><br>
+            <strong>Rules:</strong>
+            <ul>
+                <li>Take at least one item per turn.</li>
+                <li>Only take from ONE column per turn.</li>
+                <li>You can take any amount from that column.</li>
+            </ul>
+        </div>
+    </div>
+
+    <div id="game-over-modal" class="game-over-modal">
+        <div class="modal-content">
+            <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
+            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
+        </div>
+    </div>
+
     <div id="lobby-container">
-        <!-- Prominent PIN Display for Host -->
         <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
             <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
         </div>
 
@@ -28,45 +45,37 @@
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
 
-        <h1 id="status">357 (Nim)</h1>
-        <p id="turn-info">Your Turn</p>
+        <h1 id="status-title">357 (Nim)</h1>
+        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
-            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+            <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
-        <div class="pile-container">
-            <div id="pile-0" class="pile" onclick="selectPile(0)"></div>
-            <div id="pile-1" class="pile" onclick="selectPile(1)"></div>
-            <div id="pile-2" class="pile" onclick="selectPile(2)"></div>
-        </div>
-        <div id="controls">
-            <button id="end-turn-btn" onclick="endTurn()" disabled>Take Selected</button>
-            <button id="reset-btn" onclick="resetGame()">Reset</button>
+        <div class="nim-board" id="board">
+            <div id="row-0" class="nim-row"></div>
+            <div id="row-1" class="nim-row"></div>
+            <div id="row-2" class="nim-row"></div>
         </div>
 
-        <!-- Table Chat -->
-        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
-            <h3 style="margin-top: 0;">Table Chat</h3>
-            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
-                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
-            </div>
+        <div id="controls" style="margin-top: 30px;">
+            <button id="end-turn-btn" class="modal-btn" onclick="endTurn()" disabled>Take Selected</button>
+            <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.1.4"></script>
-    <script src="../../profile.js?v=1.1.4"></script>
+    <script src="../../network.js?v=1.2.0"></script>
+    <script src="../../profile.js?v=1.2.0"></script>
     <script>
         let piles = [3, 5, 7];
-        let selectedPile = null, selectedCount = 0;
-        let myRole = 'local'; // 'local', 'host', or 'player2'
+        let selectedRow = null, selectedCount = 0;
+        let myRole = 'local'; 
         let isSpectator = false;
-        let currentPlayer = "X"; // Host is X, Player 2 is O
+        let currentPlayer = "X"; 
         let player2ID = null;
         let active = true;
+        let startingPlayer = "X";
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -77,15 +86,15 @@
         document.body.classList.add('theme-' + playerID);
 
         window.onload = () => {
-            if (gameType === 'online') {
-                setupMultiplayer();
-            }
-            init();
+            if (gameType === 'online') setupMultiplayer();
+            render();
         };
 
-        function setupMultiplayer() {
-            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+        function toggleRules() {
+            document.getElementById('rules-block').classList.toggle('expanded');
+        }
 
+        function setupMultiplayer() {
             if (networkRole === 'host') {
                 myRole = 'host';
                 NetworkManager.onPlayerJoined = (id, conn) => {
@@ -96,19 +105,16 @@
                     }
                 };
                 NetworkManager.onMoveReceived = (move) => {
-                    if (currentPlayer === "O") executeMove(move.pile, move.count);
+                    if (currentPlayer === "O") executeMove(move.row, move.count);
                 };
-
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
+                    document.getElementById('network-status').innerText = `PIN: ${id}`;
                     document.getElementById('host-pin-display').style.display = 'block';
                     document.getElementById('table-pin-value').innerText = id;
                 });
             } else {
                 isSpectator = true;
-                document.getElementById('network-status').innerText = `Connecting to Table ${hostPIN}...`;
-                
                 NetworkManager.onStateUpdate = (state) => {
                     piles = state.piles;
                     currentPlayer = state.currentPlayer;
@@ -118,40 +124,32 @@
                         isSpectator = false;
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
-                        document.getElementById('network-status').innerText = "Connected as Player 2";
                     }
-                    init();
+                    if (!active) showGameOver(currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1");
+                    render();
                 };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
                     myRole = 'player2';
                     document.getElementById('multiplayer-controls').style.display = 'none';
-                    document.getElementById('network-status').innerText = "Connected as Player 2";
                 };
-
                 NetworkManager.init('client', hostPIN);
             }
         }
 
-        function requestToJoin() {
-            NetworkManager.requestJoin();
-        }
-
         function broadcast() {
-            if (myRole === 'host') {
-                NetworkManager.broadcastState({ piles, currentPlayer, player2ID, active });
-            }
+            if (myRole === 'host') NetworkManager.broadcastState({ piles, currentPlayer, player2ID, active });
         }
 
-        function init() {
+        function render() {
             [0, 1, 2].forEach(i => {
-                const c = document.getElementById(`pile-${i}`);
-                if (!c) return;
-                c.innerHTML = '';
+                const rowEl = document.getElementById(`row-${i}`);
+                rowEl.innerHTML = '';
                 for(let j=0; j<piles[i]; j++) {
-                    const item = document.createElement('div');
-                    item.className = 'item' + (selectedPile === i && j >= piles[i] - selectedCount ? ' selected' : '');
-                    c.appendChild(item);
+                    const piece = document.createElement('div');
+                    piece.className = 'nim-piece' + (selectedRow === i && j >= piles[i] - selectedCount ? ' selected' : '');
+                    piece.onclick = () => selectPiece(i);
+                    rowEl.appendChild(piece);
                 }
             });
             document.getElementById('end-turn-btn').disabled = selectedCount === 0 || !active || isSpectator;
@@ -159,114 +157,88 @@
         }
 
         function updateStatus() {
-            const statusEl = document.getElementById('turn-info');
+            const info = document.getElementById('turn-info');
             if (!active) return;
-
-            let turnText = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") turnText += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") turnText += " (YOU)";
-            if (isSpectator) turnText += " (Spectating)";
-            
-            statusEl.innerText = turnText;
+            let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
+            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            info.innerText = text;
         }
 
-        function selectPile(idx) {
+        function selectPiece(row) {
             if (isSpectator || !active) return;
             if (myRole === 'host' && currentPlayer !== "X") return;
             if (myRole === 'player2' && currentPlayer !== "O") return;
 
-            if (piles[idx] === 0) return;
-            if (selectedPile !== null && selectedPile !== idx) { selectedCount = 1; } 
-            else { selectedCount = (selectedCount % piles[idx]) + 1; }
-            selectedPile = idx;
-            init();
+            if (selectedRow !== null && selectedRow !== row) { selectedCount = 1; }
+            else { selectedCount = (selectedCount % piles[row]) + 1; }
+            selectedRow = row;
+            render();
         }
 
         function endTurn() {
             if (myRole === 'player2') {
-                NetworkManager.sendMove({ pile: selectedPile, count: selectedCount });
+                NetworkManager.sendMove({ row: selectedRow, count: selectedCount });
             } else {
-                executeMove(selectedPile, selectedCount);
+                executeMove(selectedRow, selectedCount);
             }
         }
 
-        function executeMove(idx, count) {
-            piles[idx] -= count;
-            selectedPile = null; selectedCount = 0;
+        function executeMove(row, count) {
+            piles[row] -= count;
+            selectedRow = null; selectedCount = 0;
             if (!checkGameOver()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
+                if (gameType === 'cpu' && currentPlayer === "O") {
+                    setTimeout(cpuMove, 800);
+                }
             }
             broadcast();
-            init();
-            
-            if (gameType === 'cpu' && active && currentPlayer === "O") {
-                document.getElementById('turn-info').innerText = "CPU thinking...";
-                setTimeout(cpuMove, 800);
-            }
+            render();
         }
 
         function cpuMove() {
-            let maxIdx = piles.indexOf(Math.max(...piles));
-            piles[maxIdx] -= 1;
-            currentPlayer = "X";
-            init();
-            checkGameOver();
+            if (!active) return;
+            let rowsWithItems = piles.map((p, i) => p > 0 ? i : -1).filter(i => i !== -1);
+            if (rowsWithItems.length === 0) return;
+            let row = rowsWithItems[Math.floor(Math.random() * rowsWithItems.length)];
+            let count = Math.floor(Math.random() * piles[row]) + 1;
+            executeMove(row, count);
         }
 
         function checkGameOver() {
             if (piles.every(p => p === 0)) {
                 active = false;
-                const winnerName = currentPlayer === "X" ? "Player 2" : "Player 1";
-                const winnerSymbol = winnerName === "Player 1" ? "X" : "O";
+                const winner = currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2";
+                showGameOver(winner);
                 
-                document.getElementById('status').innerText = winnerName + " Won!";
-                document.getElementById('turn-info').innerText = "Game Over";
-
                 if (gameType === 'online') {
-                    const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
+                    const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
                     ProfileManager.recordResult('357', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-                } else if (gameType !== 'local') {
-                    ProfileManager.recordResult('357', playerID, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
+                } else if (gameType === 'cpu') {
+                    ProfileManager.recordResult('357', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
                 }
                 return true;
             }
             return false;
         }
 
+        function showGameOver(winner) {
+            document.getElementById('winner-text').innerText = winner + " WINS!";
+            document.getElementById('game-over-modal').style.display = 'flex';
+        }
+
         function resetGame() {
-            if (isSpectator || myRole === 'player2') return;
-            piles = [3, 5, 7]; selectedPile = null; selectedCount = 0; active = true; currentPlayer = "X";
-            document.getElementById('status').innerText = "357 (Nim)";
-            broadcast();
-            init();
+            document.getElementById('game-over-modal').style.display = 'none';
+            piles = [3, 5, 7];
+            selectedRow = null; selectedCount = 0; active = true;
+            // Rotate starting player
+            startingPlayer = startingPlayer === "X" ? "O" : "X";
+            currentPlayer = startingPlayer;
+            if (myRole === 'host') broadcast();
+            render();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 800);
         }
-
-        // --- Table Chat Logic ---
-        function sendTableChat() {
-            const input = document.getElementById('table-msg-input');
-            const text = input.value.trim();
-            if (!text) return;
-            NetworkManager.sendChatMessage(text);
-            input.value = "";
-        }
-
-        function renderTableMessage(payload) {
-            const container = document.getElementById('table-messages');
-            const div = document.createElement('div');
-            div.style.marginBottom = "5px";
-            div.style.padding = "5px";
-            div.style.borderRadius = "5px";
-            div.style.fontSize = "0.9em";
-            div.style.background = "rgba(255,255,255,0.05)";
-            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
-            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendTableChat();
-        });
     </script>
 </body>
 </html>

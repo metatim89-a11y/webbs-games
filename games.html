@@ -2,61 +2,51 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pick Game | Webbs Games</title>
-    <link rel="stylesheet" href="style.css?v=1.1.4">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Select Game | Wubs Games</title>
+    <link rel="stylesheet" href="style.css?v=1.2.0">
 </head>
-<body>
-    <div id="version-tag">v1.1.4</div>
-    <div id="logout-btn" style="position: fixed; top: 10px; left: 10px; z-index: 2000; cursor: pointer; background: rgba(255,0,0,0.2); border: 1px solid #800; color: #ff5555; padding: 5px 10px; border-radius: 5px; font-size: 0.8em;" onclick="logout()">Logout</div>
+<body class="theme-guest">
+    <div id="version-tag">v1.2.0</div>
+    
     <div id="lobby-container">
-        <button onclick="location.href='index.html'">← Back</button>
-        <h1 id="mode-title">Select Game</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <button onclick="location.href='index.html'" style="background:none; border:none; color:gold; font-size: 1.2em; cursor: pointer;">← Lobby</button>
+            <h1 id="mode-title" style="margin: 0; font-size: 1.5em;">Pick a Game</h1>
+        </div>
+
         <div class="game-grid" id="game-list">
             <button onclick="selectGame('tic-tac-toe')">Tic-Tac-Toe</button>
-            <button onclick="selectGame('357')">357</button>
+            <button onclick="selectGame('357')">357 (Nim)</button>
             <button onclick="selectGame('mancala')">Mancala</button>
             <button onclick="selectGame('black-hole')">Black Hole</button>
             <button onclick="selectGame('chutes-and-ladders')">Chutes & Ladders</button>
-            <button onclick="selectGame('sorry')">Sorry</button>
+            <button onclick="selectGame('sorry')">Sorry!</button>
             <button onclick="selectGame('uno-no-mercy')">Uno No Mercy</button>
         </div>
 
-        <div id="sub-mode" style="display:none; position:fixed; top:30%; left:10%; width:80%; background:#222; padding:20px; border:2px solid gold;">
-            <h3>Play Style:</h3>
-            <button id="btn-cpu">vs. Computer</button>
-            <button id="btn-local">Local Multiplayer</button>
-            <button onclick="document.getElementById('sub-mode').style.display='none'">Cancel</button>
+        <!-- Play Style Modal (Replacement for sub-mode) -->
+        <div id="sub-mode" class="game-over-modal">
+            <div class="modal-content">
+                <h3>Play Style</h3>
+                <button id="btn-cpu" class="modal-btn" style="width: 100%;">vs. Computer</button>
+                <button id="btn-local" class="modal-btn" style="width: 100%;">Local Multiplayer</button>
+                <button onclick="document.getElementById('sub-mode').style.display='none'" class="modal-btn" style="background:none; width: 100%;">Cancel</button>
+            </div>
         </div>
     </div>
 
     <script>
         const params = new URLSearchParams(window.location.search);
-        const player = params.get('player');
-        const mode = params.get('mode'); // 'online', 'local', or 'join'
-        const hostPIN = params.get('host');
+        const player = params.get('player') || 'guest';
+        const mode = params.get('mode'); 
         document.body.classList.add('theme-' + player);
-
-        function logout() {
-            sessionStorage.removeItem('webbs_active_player');
-            window.location.href = 'index.html';
-        }
 
         function selectGame(game) {
             if (mode === 'online') {
-                // Host a new table
                 window.location.href = `games/${game}/index.html?player=${player}&type=online&role=host`;
-            } else if (mode === 'join') {
-                // Ask for PIN first
-                const pin = prompt(`Enter the 4-digit PIN for ${game.replace('-', ' ').toUpperCase()}:`);
-                if (pin && pin.length === 4) {
-                    window.location.href = `games/${game}/index.html?player=${player}&type=online&role=client&host=${pin}`;
-                } else if (pin) {
-                    alert("Please enter a valid 4-digit PIN.");
-                }
             } else {
-                // Show choice for CPU or Local
-                document.getElementById('sub-mode').style.display = 'block';
+                document.getElementById('sub-mode').style.display = 'flex';
                 document.getElementById('btn-cpu').onclick = () => {
                     window.location.href = `games/${game}/index.html?player=${player}&type=cpu`;
                 };

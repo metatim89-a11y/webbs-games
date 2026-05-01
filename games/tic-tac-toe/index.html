@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tic-Tac-Toe | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.1.4">
+    <link rel="stylesheet" href="../../style.css?v=1.2.0">
     <style>
         .grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px auto; width: fit-content; }
         .cell { 
@@ -13,39 +13,43 @@
             transition: background 0.3s;
         }
         .cell:hover { background: rgba(255,255,255,0.2); }
-        
-        /* Piece Animations */
         .piece { animation: scaleIn 0.3s ease-out; }
         @keyframes scaleIn {
             from { transform: scale(0); opacity: 0; }
             to { transform: scale(1); opacity: 1; }
         }
-
-        /* Winner Modal */
-        #winner-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); z-index: 2000; align-items: center; justify-content: center;
-        }
-        .modal-content {
-            background: var(--secondary-color); padding: 40px; border-radius: 20px;
-            border: 3px solid gold; text-align: center; box-shadow: 0 0 30px gold;
-        }
     </style>
 </head>
 <body>
-    <div id="logout-btn" style="position: fixed; top: 10px; left: 10px; z-index: 2000; cursor: pointer; background: rgba(255,0,0,0.2); border: 1px solid #800; color: #ff5555; padding: 5px 10px; border-radius: 5px; font-size: 0.8em;" onclick="logout()">Logout</div>
-    <div id="winner-modal">
-        <div class="modal-content">
-            <h1 id="winner-text" style="color: gold; margin-bottom: 20px;">PLAYER 1 WINS!</h1>
-            <button onclick="resetGame(); closeModal()" style="padding: 10px 30px; font-size: 1.2em;">Play Again</button>
-            <br><br>
-            <button onclick="location.href='../../index.html'" style="background:none; border:none; color:white; text-decoration:underline;">Back to Lobby</button>
+    <div id="version-tag">v1.2.0</div>
+
+    <div class="rules-block" id="rules-block">
+        <div class="rules-toggle" onclick="toggleRules()">
+            <i class="info-icon">i</i>
+            <span>Rules</span>
+            <span class="rules-subtext">Need help?</span>
+        </div>
+        <div class="rules-content-mini" id="rules-content">
+            <strong>Objective:</strong> Be the first to get 3 in a row.<br><br>
+            <strong>Rules:</strong>
+            <ul>
+                <li>Take turns placing X or O on the grid.</li>
+                <li>First to align 3 symbols horizontally, vertically, or diagonally wins.</li>
+            </ul>
         </div>
     </div>
+
+    <div id="game-over-modal" class="game-over-modal">
+        <div class="modal-content">
+            <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
+            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
+        </div>
+    </div>
+
     <div id="lobby-container">
-        <!-- Prominent PIN Display for Host -->
         <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN to invite players:</div>
+            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
             <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
         </div>
 
@@ -55,8 +59,10 @@
         </div>
 
         <h1 id="game-status">Tic-Tac-Toe</h1>
+        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
-            <button id="btn-join-game" onclick="requestToJoin()">Join as Player 2</button>
+            <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
         <div class="grid" id="board">
@@ -70,82 +76,58 @@
             <div class="cell" onclick="handleCellClick(7)"></div>
             <div class="cell" onclick="handleCellClick(8)"></div>
         </div>
-        <button id="reset-btn" onclick="resetGame()">Reset</button>
-
-        <!-- Table Chat -->
-        <div id="table-chat-container" style="margin-top: 30px; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
-            <h3 style="margin-top: 0;">Table Chat</h3>
-            <div id="table-messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); padding: 10px; border-radius: 5px; text-align: left; margin-bottom: 10px; display: flex; flex-direction: column;"></div>
-            <div style="display: flex; gap: 5px;">
-                <input type="text" id="table-msg-input" placeholder="Chat with the table..." style="flex: 1; padding: 5px; border-radius: 5px; border: none; background: rgba(255,255,255,0.1); color: white;">
-                <button onclick="sendTableChat()" style="padding: 5px 15px;">Send</button>
-            </div>
-        </div>
+        
+        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.1.4"></script>
-    <script src="../../profile.js?v=1.1.4"></script>
+    <script src="../../network.js?v=1.2.0"></script>
+    <script src="../../profile.js?v=1.2.0"></script>
     <script>
         let board = ["","","","","","","","",""], currentPlayer = "X", active = true;
-        let myRole = 'local'; // 'local', 'host', or 'player2'
+        let myRole = 'local';
         let isSpectator = false;
         let player2ID = null;
+        let startingPlayer = "X";
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
-        const gameType = urlParams.get('type'); // 'online', 'cpu', 'local'
-        const networkRole = urlParams.get('role'); // 'host', 'client'
+        const gameType = urlParams.get('type');
+        const networkRole = urlParams.get('role');
         const hostPIN = urlParams.get('host');
 
         document.body.classList.add('theme-' + playerID);
 
-        function logout() {
-            sessionStorage.removeItem('webbs_active_player');
-            window.location.href = '../../index.html';
-        }
-
-        // --- Initialization ---
         window.onload = () => {
-            if (gameType === 'online') {
-                setupMultiplayer();
-            }
+            if (gameType === 'online') setupMultiplayer();
             render();
         };
 
-        function setupMultiplayer() {
-            NetworkManager.onChatMessage = (payload) => renderTableMessage(payload);
+        function toggleRules() {
+            document.getElementById('rules-block').classList.toggle('expanded');
+        }
 
+        function setupMultiplayer() {
             if (networkRole === 'host') {
                 myRole = 'host';
-                
                 NetworkManager.onPlayerJoined = (id, conn) => {
                     if (!player2ID) {
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
-                        NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
-                        updateStatus();
+                        broadcast();
                     }
                 };
                 NetworkManager.onMoveReceived = (idx) => {
                     if (currentPlayer === "O") executeMove(idx);
                 };
-
                 NetworkManager.init('host');
-                
                 NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `Table PIN: ${id}`;
-                    const hostDisplay = document.getElementById('host-pin-display');
-                    const pinValue = document.getElementById('table-pin-value');
-                    if (hostDisplay && pinValue) {
-                        hostDisplay.style.display = 'block';
-                        pinValue.innerText = id;
-                    }
+                    document.getElementById('network-status').innerText = `PIN: ${id}`;
+                    document.getElementById('host-pin-display').style.display = 'block';
+                    document.getElementById('table-pin-value').innerText = id;
                 });
             } else {
                 isSpectator = true;
-                document.getElementById('network-status').innerText = `Connecting to Table ${hostPIN}...`;
-                
                 NetworkManager.onStateUpdate = (state) => {
                     board = state.board;
                     currentPlayer = state.currentPlayer;
@@ -154,68 +136,32 @@
                     if (player2ID === playerID) {
                         isSpectator = false;
                         myRole = 'player2';
-                        document.getElementById('network-status').innerText = "Connected as Player 2";
                         document.getElementById('multiplayer-controls').style.display = 'none';
                     }
+                    if (!active) checkWin(); // To trigger modal for spectator
                     render();
                 };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
                     myRole = 'player2';
-                    document.getElementById('network-status').innerText = "Connected as Player 2";
                     document.getElementById('multiplayer-controls').style.display = 'none';
                 };
-
                 NetworkManager.init('client', hostPIN);
             }
         }
 
-        function requestToJoin() {
-            NetworkManager.requestJoin();
+        function broadcast() {
+            if (myRole === 'host') NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
         }
-
-        // --- Table Chat Logic ---
-        function sendTableChat() {
-            const input = document.getElementById('table-msg-input');
-            const text = input.value.trim();
-            if (!text) return;
-            NetworkManager.sendChatMessage(text);
-            input.value = "";
-        }
-
-        function renderTableMessage(payload) {
-            const container = document.getElementById('table-messages');
-            const div = document.createElement('div');
-            div.style.marginBottom = "5px";
-            div.style.padding = "5px";
-            div.style.borderRadius = "5px";
-            div.style.fontSize = "0.9em";
-            div.style.background = "rgba(255,255,255,0.05)";
-            
-            const name = payload.sender ? payload.sender.toUpperCase() : "GUEST";
-            div.innerHTML = `<strong>${name}:</strong> ${payload.text}`;
-            container.appendChild(div);
-            container.scrollTop = container.scrollHeight;
-        }
-
-        // Allow Enter key to send chat
-        document.getElementById('table-msg-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') sendTableChat();
-        });
 
         function handleCellClick(idx) {
-            if (isSpectator) return;
-            
-            // In online mode, restrict who can move
+            if (isSpectator || !active) return;
             if (myRole === 'host' && currentPlayer !== "X") return;
             if (myRole === 'player2' && currentPlayer !== "O") return;
 
-            if (board[idx] === "" && active) {
-                if (myRole === 'player2') {
-                    NetworkManager.sendMove(idx);
-                } else {
-                    executeMove(idx);
-                }
+            if (board[idx] === "") {
+                if (myRole === 'player2') NetworkManager.sendMove(idx);
+                else executeMove(idx);
             }
         }
 
@@ -224,28 +170,26 @@
             if (!checkWin()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
             }
-            if (myRole === 'host') {
-                NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
-            }
+            broadcast();
             render();
         }
 
         function render() {
             const cells = document.querySelectorAll('.cell');
-            board.forEach((val, i) => cells[i].innerText = val);
+            board.forEach((val, i) => {
+                cells[i].innerText = val;
+                cells[i].classList.toggle('piece', val !== "");
+            });
             updateStatus();
         }
 
         function updateStatus() {
-            const statusEl = document.getElementById('game-status');
+            const info = document.getElementById('turn-info');
             if (!active) return;
-
-            let turnText = `Turn: ${currentPlayer}`;
-            if (myRole === 'host' && currentPlayer === "X") turnText += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") turnText += " (YOU)";
-            if (isSpectator) turnText += " (Spectating)";
-            
-            statusEl.innerText = turnText;
+            let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
+            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
+            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            info.innerText = text;
         }
 
         function checkWin() {
@@ -253,8 +197,9 @@
             for (let c of wins) {
                 if (board[c[0]] && board[c[0]] === board[c[1]] && board[c[0]] === board[c[2]]) {
                     const winnerSymbol = board[c[0]];
-                    document.getElementById('game-status').innerText = winnerSymbol + " Wins!";
+                    const winnerName = winnerSymbol === "X" ? "PLAYER 1" : "PLAYER 2";
                     active = false;
+                    showGameOver(winnerName);
                     
                     if (gameType === 'online') {
                         const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
@@ -266,18 +211,25 @@
                 }
             }
             if (!board.includes("")) { 
-                document.getElementById('game-status').innerText = "Draw!"; 
-                active = false; 
-                if (gameType !== 'local') ProfileManager.recordResult('Tic-Tac-Toe', playerID, (gameType === 'cpu' ? 'CPU' : (myRole === 'host' ? player2ID : 'host')), 'draw');
+                active = false;
+                showGameOver("DRAW");
                 return true; 
             }
             return false;
         }
 
+        function showGameOver(winner) {
+            document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
+            document.getElementById('game-over-modal').style.display = 'flex';
+        }
+
         function resetGame() {
-            if (isSpectator || myRole === 'player2') return; // Only host/local can reset
-            board = ["","","","","","","","",""]; currentPlayer = "X"; active = true;
-            if (myRole === 'host') NetworkManager.broadcastState({ board, currentPlayer, active, player2ID });
+            document.getElementById('game-over-modal').style.display = 'none';
+            board = ["","","","","","","","",""];
+            active = true;
+            startingPlayer = startingPlayer === "X" ? "O" : "X";
+            currentPlayer = startingPlayer;
+            broadcast();
             render();
         }
     </script>

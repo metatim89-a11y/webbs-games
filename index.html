@@ -2,205 +2,156 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lobby | Webbs Games</title>
-    <link rel="stylesheet" href="style.css?v=1.1.4">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wubs Games | Lobby</title>
+    <link rel="stylesheet" href="style.css?v=1.2.0">
 </head>
-<body>
-    <div id="version-tag">v1.1.4</div>
-    <div id="logout-btn" style="display:none; position: fixed; top: 10px; left: 10px; z-index: 2000; cursor: pointer; background: rgba(255,0,0,0.2); border: 1px solid #800; color: #ff5555; padding: 5px 10px; border-radius: 5px; font-size: 0.8em;" onclick="logout()">Logout</div>
-    <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="gold" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <div id="admin-notif" style="display:none; position: absolute; top: -5px; right: -5px; background: red; color: white; border-radius: 50%; width: 20px; height: 20px; font-size: 12px; display: flex; align-items: center; justify-content: center; font-weight: bold; border: 2px solid #222;">!</div>
-    </div>
-
-    <div id="signup-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center;">
-        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid gold; text-align: center; width: 90%; max-width: 450px; max-height: 90vh; overflow-y: auto;">
-            <h2 style="color: gold;">Join the Family</h2>
-            <p style="opacity: 0.8; font-size: 0.9em; margin-bottom: 20px;">Fill out your profile request for Tim's approval.</p>
-            
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label style="font-size: 0.8em; opacity: 0.7;">Full Name:</label>
-                <input type="text" id="signup-name" placeholder="Enter your name" style="width: 100%; margin-top: 5px;">
-            </div>
-
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label style="font-size: 0.8em; opacity: 0.7;">Favorite Animal:</label>
-                <input type="text" id="signup-animal" placeholder="e.g. Axolotl, Duck..." style="width: 100%; margin-top: 5px;">
-            </div>
-
-            <div style="text-align: left; margin-bottom: 15px;">
-                <label style="font-size: 0.8em; opacity: 0.7;">Favorite Board Game:</label>
-                <input type="text" id="signup-game" placeholder="e.g. Mancala, Sorry..." style="width: 100%; margin-top: 5px;">
-            </div>
-
-            <div style="text-align: left; margin-bottom: 20px;">
-                <label style="font-size: 0.8em; opacity: 0.7;">Top 3 Favorite Colors:</label>
-                <div style="display: flex; gap: 10px; margin-top: 5px;">
-                    <input type="color" id="signup-color-1" value="#ffd700" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
-                    <input type="color" id="signup-color-2" value="#00ffff" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
-                    <input type="color" id="signup-color-3" value="#ff00ff" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 10px;">
-                <button onclick="submitSignup()" style="flex: 1; padding: 12px; font-weight: bold;">Submit Request</button>
-                <button onclick="closeSignup()" style="flex: 1; background: #444; padding: 12px;">Cancel</button>
-            </div>
-        </div>
-    </div>
-
-    <div id="join-game-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center;">
-        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid var(--primary-color); text-align: center; width: 90%; max-width: 500px;">
-            <h2 style="color: gold; margin-top: 0;">Join Table</h2>
-            <div id="join-step-1">
-                <p>Enter the 4-digit Table PIN:</p>
-                <input type="number" id="join-table-pin" placeholder="0000" style="font-size: 2em; text-align: center; width: 150px; letter-spacing: 5px; margin-bottom: 20px;" oninput="if(this.value.length > 4) this.value = this.value.slice(0,4)">
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="nextJoinStep()" style="flex: 1;">Next</button>
-                    <button onclick="closeJoinModal()" style="flex: 1; background: #444;">Cancel</button>
-                </div>
-            </div>
-            <div id="join-step-2" style="display: none;">
-                <p>Select the game being played:</p>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px;">
-                    <button onclick="confirmJoin('tic-tac-toe')" style="padding: 10px; font-size: 0.9em;">Tic-Tac-Toe</button>
-                    <button onclick="confirmJoin('357')" style="padding: 10px; font-size: 0.9em;">357</button>
-                    <button onclick="confirmJoin('mancala')" style="padding: 10px; font-size: 0.9em;">Mancala</button>
-                    <button onclick="confirmJoin('black-hole')" style="padding: 10px; font-size: 0.9em;">Black Hole</button>
-                    <button onclick="confirmJoin('chutes-and-ladders')" style="padding: 10px; font-size: 0.9em;">Chutes & Ladders</button>
-                    <button onclick="confirmJoin('sorry')" style="padding: 10px; font-size: 0.9em;">Sorry</button>
-                    <button onclick="confirmJoin('uno-no-mercy')" style="padding: 10px; font-size: 0.9em;">Uno No Mercy</button>
-                </div>
-                <button onclick="prevJoinStep()" style="width: 100%; background: #444;">← Back</button>
-            </div>
-        </div>
-    </div>
-
+<body class="theme-guest">
+    <div id="version-tag">v1.2.0</div>
+    
     <div id="lobby-container">
-        <h1>Webbs Games</h1>
-        
-        <div id="player-select" class="player-grid">
-            <!-- Dynamically populated by main.js?v=1.1.2 -->
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="margin: 0;">Wubs Games</h1>
+            <div id="admin-gear" class="admin-only" onclick="location.href='admin.html'">
+                <img src="assets/icons/settings.svg" width="30" height="30" alt="Admin" style="filter: invert(1);">
+            </div>
         </div>
 
-        <div id="guest-actions" style="display:none; margin-top: -20px; margin-bottom: 30px;">
-            <button onclick="openSignup()" style="font-size: 0.9em; padding: 10px 20px; border-color: gold; color: gold;">Join the Family (Request Account)</button>
+        <div id="logout-btn" style="display:none; cursor: pointer; color: #ff5555; margin-bottom: 20px; text-align: left;" onclick="logout()">Logout</div>
+
+        <!-- Initial View: Player Select -->
+        <div id="player-select-container">
+            <p>Who is playing today?</p>
+            <div id="player-select" class="player-grid"></div>
+            <div id="guest-actions" style="margin-top: 20px;">
+                <button onclick="openSignup()" style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 10px 20px; border-radius: 10px; width: 100%;">Request Profile</button>
+            </div>
         </div>
 
-        <div id="main-menu" style="display:none;">
-            <div class="menu-actions" style="display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; justify-content: center;">
-                <button onclick="showGameSelection('online')">Create Table</button>
-                <button onclick="showViewTables()">View Tables</button>
-                <button onclick="joinTablePrompt()">Join PIN</button>
-                <button onclick="showGameSelection('local')">Play Games</button>
-                <button onclick="openProfile()">My Profile</button>
-                <button onclick="logout()" style="border-color: #800; color: #ff5555;">Logout</button>
+        <!-- Logged In View: Main Menu -->
+        <div id="main-menu" style="display: none;">
+            <div id="welcome-banner" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; border: 2px solid var(--primary-color); margin-bottom: 30px;">
+                <h2 id="active-player-name" style="margin: 0; color: var(--accent-color);">Welcome!</h2>
+                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
+                    <button onclick="openProfile()" class="modal-btn" style="font-size: 0.9em; padding: 10px 20px;">Profile</button>
+                    <button onclick="showGameSelection('local')" class="modal-btn" style="font-size: 0.9em; padding: 10px 20px;">Play Games</button>
+                </div>
             </div>
 
-            <!-- View Tables Section -->
-            <div id="view-tables-container" style="display: none; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 15px; border: 1px solid gold; margin-bottom: 20px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0;">Active Game Tables</h3>
-                    <button onclick="hideViewTables()" style="padding: 5px 10px; font-size: 0.8em;">Close</button>
-                </div>
-                <div id="active-tables-list">
-                    <p style="opacity: 0.6;">Searching for tables...</p>
-                    <!-- Tables will be injected here -->
-                </div>
+            <div id="online-actions" style="margin-top: 20px;">
+                <button onclick="showGameSelection('online')" class="modal-btn" style="width: 100%; margin: 5px 0;">Host Online Table</button>
+                <button onclick="joinTablePrompt()" class="modal-btn" style="width: 100%; margin: 5px 0; background: rgba(255,215,0,0.2); color: gold; border: 1px solid gold;">Join with PIN</button>
             </div>
-            
-            <div id="message-board-container">
+
+            <!-- Message Board -->
+            <div id="message-board-container" style="margin-top: 30px;">
                 <h3>Family Chat</h3>
-                <div id="messages" style="height: 200px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 5px; text-align: left;"></div>
-                <div style="display: flex; gap: 5px;">
-                    <input type="text" id="msg-input" placeholder="Type a message..." style="flex: 1;">
-                    <button onclick="postMessage()">Post</button>
+                <div id="messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 10px; text-align: left;"></div>
+                <div style="display: flex; gap: 8px;">
+                    <input type="text" id="msg-input" placeholder="Say hello..." style="flex: 1; padding: 12px; border-radius: 12px; border: none; background: rgba(255,255,255,0.1); color: white;">
+                    <button onclick="postMessage()" style="padding: 0 20px; border-radius: 12px; background: var(--primary-color); color: white; border: none;">Send</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="profile-modal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 3000; align-items: center; justify-content: center;">
-        <div style="background: var(--secondary-color); padding: 30px; border-radius: 20px; border: 2px solid gold; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h2 id="profile-title" style="margin:0;">Player Profile</h2>
-                <button onclick="closeProfile()">Close</button>
+        <!-- Modals -->
+        <div id="signup-modal" class="game-over-modal">
+            <div class="modal-content" style="text-align: left;">
+                <h2 style="color: gold;">Request Profile</h2>
+                <input type="text" id="signup-name" placeholder="Your Name" style="width: 90%; padding: 12px; margin: 10px 0; border-radius: 10px; background: #333; color: white; border: none;">
+                <input type="text" id="signup-animal" placeholder="Fav Animal (Background)" style="width: 90%; padding: 12px; margin: 10px 0; border-radius: 10px; background: #333; color: white; border: none;">
+                <input type="text" id="signup-game" placeholder="Fav Game" style="width: 90%; padding: 12px; margin: 10px 0; border-radius: 10px; background: #333; color: white; border: none;">
+                <div style="margin: 15px 0;">
+                    <label style="font-size: 0.8em; opacity: 0.7;">Theme Colors:</label><br>
+                    <div style="display: flex; gap: 10px; margin-top: 5px;">
+                        <input type="color" id="signup-color-1" value="#ff0000" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                        <input type="color" id="signup-color-2" value="#000000" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                        <input type="color" id="signup-color-3" value="#ffffff" style="flex: 1; height: 40px; border: none; background: none; cursor: pointer;">
+                    </div>
+                </div>
+                <button onclick="submitSignup()" class="modal-btn" style="width: 100%;">Submit Request</button>
+                <button onclick="closeSignup()" class="modal-btn" style="background:none; width: 100%;">Cancel</button>
             </div>
+        </div>
 
-            <div id="profile-view">
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; text-align: left; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-                    <div>
-                        <div style="font-size: 0.8em; opacity: 0.6;">Total Games</div>
-                        <div id="stat-total" style="font-size: 1.5em; font-weight: bold;">0</div>
+        <div id="join-game-modal" class="game-over-modal">
+            <div class="modal-content">
+                <div id="join-step-1">
+                    <h3>Enter Table PIN</h3>
+                    <input type="number" id="join-table-pin" pattern="[0-9]*" placeholder="0000" style="font-size: 2.5em; width: 80%; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 15px; border: none; margin-bottom: 20px; background: #333; color: white;">
+                    <br>
+                    <button onclick="nextJoinStep()" class="modal-btn">Next</button>
+                    <button onclick="closeJoinModal()" class="modal-btn" style="background:none;">Cancel</button>
+                </div>
+                <div id="join-step-2" style="display: none;">
+                    <h3>Which Game?</h3>
+                    <div class="game-grid">
+                        <button onclick="confirmJoin('tic-tac-toe')">Tic-Tac-Toe</button>
+                        <button onclick="confirmJoin('357')">357</button>
+                        <button onclick="confirmJoin('mancala')">Mancala</button>
+                        <button onclick="confirmJoin('sorry')">Sorry</button>
+                        <button onclick="confirmJoin('chutes-and-ladders')">Chutes & Ladders</button>
+                        <button onclick="confirmJoin('uno-no-mercy')">Uno No Mercy</button>
                     </div>
-                    <div>
-                        <div style="font-size: 0.8em; opacity: 0.6;">Win Rate</div>
-                        <div id="stat-winrate" style="font-size: 1.5em; font-weight: bold;">0%</div>
-                    </div>
-                    <div>
-                        <div style="font-size: 0.8em; opacity: 0.6;">Wins / Losses</div>
-                        <div id="stat-w-l" style="font-size: 1.1em;">0 / 0</div>
-                    </div>
-                </div>
-
-                <div style="text-align: left; margin-bottom: 20px;">
-                    <h3>About Me</h3>
-                    <p><strong>Favorite Animal:</strong> <span id="view-animal">-</span></p>
-                    <p><strong>Favorite Color:</strong> <span id="view-color-swatch" style="display:inline-block; width:15px; height:15px; border-radius:50%; border:1px solid #fff; vertical-align:middle;"></span> <span id="view-color-text">-</span></p>
-                    <p><strong>Favorite Game:</strong> <span id="view-game">-</span></p>
-                    <button onclick="toggleProfileEdit(true)" style="font-size: 0.8em;">Edit Bio</button>
-                </div>
-
-                <div style="text-align: left;">
-                    <h3>Recent Matches</h3>
-                    <div id="match-history" style="font-size: 0.9em;"></div>
-                </div>
-            </div>
-
-            <div id="profile-edit" style="display:none; text-align: left;">
-                <h3>Edit Bio</h3>
-                <div style="margin-bottom: 15px;">
-                    <label>Favorite Animal:</label><br>
-                    <input type="text" id="edit-animal" style="width:100%;">
-                </div>
-                <div style="margin-bottom: 15px;">
-                    <label>Favorite Color:</label><br>
-                    <input type="color" id="edit-color" style="width:100%; height:40px;">
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <label>Favorite Board Game:</label><br>
-                    <input type="text" id="edit-game" style="width:100%;">
-                </div>
-                <div style="display: flex; gap: 10px;">
-                    <button onclick="saveProfile()" style="flex:1;">Save Changes</button>
-                    <button onclick="toggleProfileEdit(false)" style="flex:1; background:#444;">Cancel</button>
+                    <button onclick="prevJoinStep()" class="modal-btn" style="background:none; width: 100%;">← Back</button>
                 </div>
             </div>
         </div>
-    </div>
 
-    <div id="pin-overlay" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 1000; align-items: center; justify-content: center;">
-        <div class="pin-box" style="background: var(--secondary-color); padding: 20px; border-radius: 15px; border: 2px solid var(--primary-color); text-align: center;">
-            <h2 id="pin-msg">Enter PIN</h2>
-            <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin: 20px 0;">
-                <div id="pin-display" style="font-size: 2.5em; letter-spacing: 8px; min-width: 120px;">----</div>
-                <button type="button" onclick="togglePinVisibility()" style="background:none; border:1px solid gold; color:gold; cursor:pointer; font-size:1em; padding: 5px 10px; border-radius: 5px;">ⓘ</button>
+        <div id="profile-modal" class="game-over-modal">
+            <div class="modal-content" style="text-align: left;">
+                <h2 id="profile-title" style="color: gold;">Profile</h2>
+                <div id="profile-view">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; background: rgba(255,255,255,0.05); padding: 15px; border-radius: 15px;">
+                        <div>
+                            <div style="font-size: 0.7em; opacity: 0.6;">WINS</div>
+                            <div id="stat-wins" style="font-size: 1.5em; font-weight: bold; color: #5f5;">0</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.7em; opacity: 0.6;">LOSSES</div>
+                            <div id="stat-losses" style="font-size: 1.5em; font-weight: bold; color: #f55;">0</div>
+                        </div>
+                    </div>
+                    <p><strong>Fav Animal:</strong> <span id="view-animal">--</span></p>
+                    <p><strong>Fav Game:</strong> <span id="view-game">--</span></p>
+                    <button onclick="toggleProfileEdit(true)" class="modal-btn" style="width: 100%;">Edit Bio</button>
+                </div>
+                <div id="profile-edit" style="display:none;">
+                    <input type="text" id="edit-animal" placeholder="Animal" style="width:90%; padding:12px; margin:5px 0; border-radius: 10px; background: #333; color: white; border: none;">
+                    <input type="text" id="edit-game" placeholder="Game" style="width:90%; padding:12px; margin:5px 0; border-radius: 10px; background: #333; color: white; border: none;">
+                    <button onclick="saveProfile()" class="modal-btn" style="width: 100%;">Save Changes</button>
+                </div>
+                <button onclick="closeProfile()" class="modal-btn" style="background:none; width:100%;">Close</button>
             </div>
-            <div class="keypad" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px;">
-                <button onclick="appendPin('1')">1</button><button onclick="appendPin('2')">2</button><button onclick="appendPin('3')">3</button>
-                <button onclick="appendPin('4')">4</button><button onclick="appendPin('5')">5</button><button onclick="appendPin('6')">6</button>
-                <button onclick="appendPin('7')">7</button><button onclick="appendPin('8')">8</button><button onclick="appendPin('9')">9</button>
-                <button onclick="clearPin()">C</button><button onclick="appendPin('0')">0</button><button onclick="submitPin()">OK</button>
+        </div>
+
+        <div id="pin-overlay" class="game-over-modal">
+            <div class="modal-content">
+                <h2 id="pin-msg">Enter PIN</h2>
+                <div id="pin-display" style="font-size: 3em; letter-spacing: 15px; margin: 20px 0; font-weight: bold; color: gold;">----</div>
+                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 250px; margin: 0 auto;">
+                    <button class="modal-btn" onclick="appendPin('1')">1</button>
+                    <button class="modal-btn" onclick="appendPin('2')">2</button>
+                    <button class="modal-btn" onclick="appendPin('3')">3</button>
+                    <button class="modal-btn" onclick="appendPin('4')">4</button>
+                    <button class="modal-btn" onclick="appendPin('5')">5</button>
+                    <button class="modal-btn" onclick="appendPin('6')">6</button>
+                    <button class="modal-btn" onclick="appendPin('7')">7</button>
+                    <button class="modal-btn" onclick="appendPin('8')">8</button>
+                    <button class="modal-btn" onclick="appendPin('9')">9</button>
+                    <button class="modal-btn" style="background: #444;" onclick="clearPin()">C</button>
+                    <button class="modal-btn" onclick="appendPin('0')">0</button>
+                    <button class="modal-btn" style="background: gold; color: black;" onclick="submitPin()">OK</button>
+                </div>
+                <button class="modal-btn" style="background:none; margin-top: 20px;" onclick="closePinOverlay()">Cancel</button>
             </div>
-            <button onclick="closePinOverlay()">Cancel</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="profile.js?v=1.1.4"></script>
-    <script src="admin.js?v=1.1.4"></script>
-    <script src="auth.js?v=1.1.4"></script>
-    <script src="main.js?v=1.1.4"></script>
+    <script src="profile.js?v=1.2.0"></script>
+    <script src="admin.js?v=1.2.0"></script>
+    <script src="auth.js?v=1.2.0"></script>
+    <script src="main.js?v=1.2.0"></script>
 </body>
 </html>

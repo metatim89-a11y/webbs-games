@@ -15,6 +15,7 @@ const NetworkManager = {
     onPlayerJoined: null,
     onChatMessage: null,
     onJoinAccepted: null,
+    onAnimationTrigger: null,
 
     init(role, roomID = null) {
         this.role = role;
@@ -70,6 +71,17 @@ const NetworkManager = {
         });
     },
 
+    broadcastAnimation(animData) {
+        const msg = { type: 'ANIMATION', payload: animData };
+        if (this.role === 'host') {
+            this.connections.forEach(conn => {
+                if (conn.open) conn.send(msg);
+            });
+        } else if (this.conn && this.conn.open) {
+            this.conn.send(msg);
+        }
+    },
+
     sendChatMessage(text) {
         const sender = sessionStorage.getItem('webbs_active_player') || 'guest';
         const msg = { type: 'CHAT', payload: { text, sender } };
@@ -91,7 +103,6 @@ const NetworkManager = {
 
         this.conn.on('open', () => {
             console.log("Connected to host!");
-            // Auto-join request when connection opens
             setTimeout(() => this.requestJoin(), 500); 
         });
 
@@ -122,6 +133,15 @@ const NetworkManager = {
             case 'STATE_UPDATE':
                 if (this.onStateUpdate) this.onStateUpdate(data.payload);
                 break;
+            case 'ANIMATION':
+                if (this.onAnimationTrigger) this.onAnimationTrigger(data.payload);
+                if (this.role === 'host') {
+                    // Relay animation to other clients
+                    this.connections.forEach(conn => {
+                        if (conn !== senderConn && conn.open) conn.send(data);
+                    });
+                }
+                break;
             case 'MOVE':
                 if (this.onMoveReceived) this.onMoveReceived(data.payload, senderConn);
                 break;
@@ -130,7 +150,6 @@ const NetworkManager = {
                 break;
             case 'JOIN_ACCEPTED':
                 const pos = data.assignedPosition || '2';
-                alert(`You are now Player ${pos}!`);
                 if (this.onJoinAccepted) this.onJoinAccepted(pos);
                 break;
             case 'CHAT':
@@ -144,3 +163,4 @@ const NetworkManager = {
         }
     }
 };
+
