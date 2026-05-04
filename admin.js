@@ -89,8 +89,8 @@ function toggleAdminSettings() {
                 </div>
             </div>
             <div style="margin-top:15px; display:flex; gap:10px;">
-                <button onclick="testAudio()" style="background:#555; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Test Sound</button>
-                <button onclick="saveAudioSettings()" style="background:var(--accent-color); color:black; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">Save Global Settings</button>
+                <button onclick="testAudio()" data-no-sound="true" style="background:#555; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Test Sound</button>
+                <button onclick="saveAudioSettings()" data-no-sound="true" style="background:var(--accent-color); color:black; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">Save Global Settings</button>
             </div>
         </div>
     `;
@@ -123,17 +123,19 @@ function testAudio() {
     const vol = parseFloat(document.getElementById('audio-vol').value);
     
     if (window.AudioEngine) {
-        // Temp override for testing
-        const oldSettings = JSON.parse(JSON.stringify(AudioEngine.settings));
-        AudioEngine.settings[target] = { type, freq, duration, vol };
-        
-        if (target === 'click') AudioEngine.playClick();
-        else if (target === 'move') AudioEngine.playMove();
-        else if (target === 'win') AudioEngine.playWin();
-        else if (target === 'error') AudioEngine.playError();
-        
-        // Restore
-        AudioEngine.settings = oldSettings;
+        if (target === 'click') {
+            AudioEngine.playTone(freq, type, duration, vol);
+        } else if (target === 'move') {
+            AudioEngine.playTone(freq, type, duration, vol);
+            setTimeout(() => AudioEngine.playTone(freq * 1.5, type, duration, vol), 50);
+        } else if (target === 'win') {
+            [1, 1.25, 1.5, 2].forEach((ratio, i) => {
+                setTimeout(() => AudioEngine.playTone(freq * ratio, type, duration, vol), i * 150);
+            });
+        } else if (target === 'error') {
+            AudioEngine.playTone(freq, type, duration, vol);
+            setTimeout(() => AudioEngine.playTone(freq * 0.75, type, duration * 1.3, vol), 150);
+        }
     }
 }
 

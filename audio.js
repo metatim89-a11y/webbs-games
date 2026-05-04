@@ -85,6 +85,7 @@ const AudioEngine = {
 // Global click listener to initialize audio and play click sound on buttons
 document.addEventListener('click', (e) => {
     AudioEngine.init();
+    if (e.target.closest('[data-no-sound]')) return;
     if (e.target.tagName === 'BUTTON' || e.target.classList.contains('cell') || e.target.classList.contains('player-card')) {
         AudioEngine.playClick();
     }
