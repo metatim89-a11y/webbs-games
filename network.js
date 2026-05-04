@@ -24,6 +24,10 @@ const NetworkManager = {
         this.roomID = roomID || this.generateShortID();
         this.lastStateSeq = 0;
         
+        // Track the current game if we are in a game folder
+        const path = window.location.pathname;
+        this.currentGame = path.includes('/games/') ? path.split('/games/')[1].split('/')[0] : null;
+
         this.peer = new Peer(role === 'host' ? this.roomID : undefined, { debug: 1 });
 
         this.peer.on('open', (id) => {
@@ -131,9 +135,30 @@ const NetworkManager = {
         this.conn.send({ type: 'REQUEST_JOIN', playerID });
     },
 
+    queryGame(hostID, callback) {
+        if (!this.peer) this.init('client');
+        const conn = this.peer.connect(hostID);
+        conn.on('open', () => conn.send({ type: 'QUERY_GAME' }));
+        conn.on('data', (data) => {
+            if (data.type === 'GAME_INFO') {
+                callback(data.game);
+                conn.close();
+            }
+        });
+        setTimeout(() => { if (conn.open) conn.close(); }, 5000); // Timeout
+    },
+
     // --- Message Handling ---
     handleMessage(data, senderConn = null) {
         switch (data.type) {
+            case 'QUERY_GAME':
+                if (this.role === 'host' && senderConn) {
+                    senderConn.send({ type: 'GAME_INFO', game: this.currentGame });
+                }
+                break;
+            case 'GAME_INFO':
+                // Handled in queryGame callback
+                break;
             case 'STATE_UPDATE':
                 if (data.seq && data.seq <= this.lastStateSeq && this.role === 'client') {
                     console.log("Ignoring out-of-order state update");

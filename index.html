@@ -77,23 +77,12 @@
         <div id="join-game-modal" class="game-over-modal">
             <div class="modal-content">
                 <div id="join-step-1">
-                    <h3>Enter Table PIN</h3>
+                    <h3>Join with Table PIN</h3>
+                    <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 20px;">We'll find the game for you!</p>
                     <input type="number" id="join-table-pin" pattern="[0-9]*" placeholder="0000" style="font-size: 2.5em; width: 80%; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 15px; border: none; margin-bottom: 20px; background: #333; color: white;">
-                    <br>
-                    <button onclick="nextJoinStep()" class="modal-btn">Next</button>
+                    <div id="join-status" style="margin-bottom: 20px; color: gold; font-weight: bold; min-height: 1.2em;"></div>
+                    <button id="join-btn-final" onclick="performAutoJoin()" class="modal-btn">Join Table</button>
                     <button onclick="closeJoinModal()" class="modal-btn" style="background:none;">Cancel</button>
-                </div>
-                <div id="join-step-2" style="display: none;">
-                    <h3>Which Game?</h3>
-                    <div class="game-grid">
-                        <button onclick="confirmJoin('tic-tac-toe')">Tic-Tac-Toe</button>
-                        <button onclick="confirmJoin('357')">357</button>
-                        <button onclick="confirmJoin('mancala')">Mancala</button>
-                        <button onclick="confirmJoin('sorry')">Sorry</button>
-                        <button onclick="confirmJoin('chutes-and-ladders')">Chutes & Ladders</button>
-                        <button onclick="confirmJoin('uno-no-mercy')">Uno No Mercy</button>
-                    </div>
-                    <button onclick="prevJoinStep()" class="modal-btn" style="background:none; width: 100%;">← Back</button>
                 </div>
             </div>
         </div>
@@ -149,6 +138,7 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="network.js?v=1.2.0"></script>
     <script src="profile.js?v=1.2.0"></script>
     <script src="admin.js?v=1.2.0"></script>
     <script src="auth.js?v=1.2.0"></script>

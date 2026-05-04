@@ -261,8 +261,8 @@
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-        async function handleRoll() {
-            if (!canMove()) return;
+        async function handleRoll(isProgrammatic = false) {
+            if (!canMove() && !isProgrammatic) return;
 
             const roll = Math.floor(Math.random() * 6) + 1;
             if (myRole === 'player2') {
@@ -289,7 +289,7 @@
         async function executeRoll(roll, isLocal = true) {
             const dice = document.getElementById('dice-container');
             const rollBtn = document.getElementById('roll-btn');
-            rollBtn.disabled = true; // Block during animation
+            if (rollBtn) rollBtn.disabled = true; // Block during animation
 
             dice.classList.add('rolling');
             for(let i=0; i<10; i++) {
@@ -338,14 +338,14 @@
                 updateStatus();
 
                 if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                    setTimeout(cpuMove, 1000);
+                    setTimeout(() => cpuMove(), 1000);
                 }
             }
         }
 
         function cpuMove() {
             if (!active) return;
-            handleRoll();
+            handleRoll(true);
         }
 
         function showGameOver(winner) {
@@ -367,7 +367,7 @@
             }
 
             if (!active) {
-                rollBtn.disabled = true;
+                if (rollBtn) rollBtn.disabled = true;
                 return;
             }
 
@@ -380,7 +380,7 @@
             info.innerText = text;
             
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
-            rollBtn.disabled = !isMyTurn || isSpectator;
+            if (rollBtn) rollBtn.disabled = !isMyTurn || isSpectator;
         }
 
         function resetGame() {

@@ -20,6 +20,8 @@
 20. **UX Guidance:** "Need help" subtext added to rules toggle.
 21. **Uno No Mercy Multiplayer:** Refactored to support multiple hands and separate state for local/online play.
 22. **Admin/Security Bypass:** (Note: Still partially vulnerable due to client-side nature, but `ProfileManager` now prefers `sessionStorage` for identity validation).
+23. **CPU Mode Deadlocks:** Fixed logic in Chutes & Ladders and Uno No Mercy where the computer was blocking its own turns.
+24. **Online Join UX:** Removed manual game selection for joining players; clients now auto-discover the host's game via the PIN.
 
 ## Remaining Bug List
 2.  **Asset Loading:** Certain image assets fail to cache properly on mobile browsers, leading to flickering.

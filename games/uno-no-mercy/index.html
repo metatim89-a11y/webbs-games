@@ -258,8 +258,8 @@
             info.innerText = text;
         }
 
-        function handlePlayCard(i) {
-            if (!canMove()) return;
+        function handlePlayCard(i, isProgrammatic = false) {
+            if (!canMove() && !isProgrammatic) return;
             
             const currentHand = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
             const card = currentHand[i];
@@ -277,8 +277,8 @@
             }
         }
 
-        function handleDraw() {
-            if (!canMove()) return;
+        function handleDraw(isProgrammatic = false) {
+            if (!canMove() && !isProgrammatic) return;
 
             const action = { type: 'DRAW' };
             if (myRole === 'player2') {
@@ -324,7 +324,7 @@
                 render();
 
                 if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                    setTimeout(cpuMove, 1000);
+                    setTimeout(() => cpuMove(), 1000);
                 }
             }
         }
@@ -337,9 +337,9 @@
             );
 
             if (playableIdx !== -1) {
-                handlePlayCard(playableIdx);
+                handlePlayCard(playableIdx, true);
             } else {
-                handleDraw();
+                handleDraw(true);
             }
         }
 

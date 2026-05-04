@@ -159,24 +159,44 @@ function closeJoinModal() {
     document.getElementById('join-game-modal').style.display = 'none';
 }
 
-function nextJoinStep() {
+function performAutoJoin() {
     const pin = document.getElementById('join-table-pin').value;
     if (pin.length !== 4) {
-        alert("Enter 4-digit PIN");
+        alert("Enter a 4-digit Table PIN");
         return;
     }
-    document.getElementById('join-step-1').style.display = 'none';
-    document.getElementById('join-step-2').style.display = 'block';
-}
 
-function prevJoinStep() {
-    document.getElementById('join-step-1').style.display = 'block';
-    document.getElementById('join-step-2').style.display = 'none';
-}
+    const statusEl = document.getElementById('join-status');
+    const joinBtn = document.getElementById('join-btn-final');
+    
+    statusEl.innerText = "Connecting to table...";
+    joinBtn.disabled = true;
 
-function confirmJoin(game) {
-    const pin = document.getElementById('join-table-pin').value;
-    window.location.href = `games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`;
+    // Use PeerJS via NetworkManager to query the host
+    if (typeof NetworkManager !== 'undefined') {
+        NetworkManager.queryGame(pin, (game) => {
+            if (game) {
+                statusEl.innerText = "Table Found! Redirecting...";
+                setTimeout(() => {
+                    window.location.href = `games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`;
+                }, 1000);
+            } else {
+                statusEl.innerText = "Error: Game not found on this table.";
+                joinBtn.disabled = false;
+            }
+        });
+
+        // Set a failure timeout
+        setTimeout(() => {
+            if (statusEl.innerText === "Connecting to table...") {
+                statusEl.innerText = "Failed to connect. Is the PIN correct?";
+                joinBtn.disabled = false;
+            }
+        }, 6000);
+    } else {
+        alert("Network module not loaded. Please refresh.");
+        joinBtn.disabled = false;
+    }
 }
 
 function logout() {
