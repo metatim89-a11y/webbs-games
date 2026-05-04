@@ -4,48 +4,83 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chutes & Ladders | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.3.7">
+    <link rel="stylesheet" href="../../style.css?v=1.3.8">
     <style>
-        #board-wrapper { position: relative; width: fit-content; margin: 20px auto; }
+        #board-wrapper { 
+            position: relative; width: 400px; height: 400px; margin: 20px auto; 
+            background: #222; border: 8px solid #333; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: visible;
+        }
         #board {
-            display: grid; grid-template-columns: repeat(10, 32px); grid-template-rows: repeat(10, 32px);
-            gap: 2px; background: #444; border: 5px solid #222;
+            display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(10, 1fr);
+            width: 100%; height: 100%; position: relative; z-index: 10;
         }
         .sq {
-            width: 32px; height: 32px; background: #fff; color: #ccc;
-            font-size: 8px; display: flex; align-items: center; justify-content: center;
-            position: relative;
+            width: 100%; height: 100%; border: 1px solid rgba(255,255,255,0.05);
+            color: rgba(255,255,255,0.3); font-size: 8px; display: flex; 
+            align-items: center; justify-content: center; position: relative;
+            background: rgba(255,255,255,0.02);
         }
-        .sq.special { background: #ffe0b2; color: #fb8c00; font-weight: bold; }
-        .pawn {
-            width: 20px; height: 20px; background: var(--accent-color);
-            border-radius: 50%; border: 2px solid #000; position: absolute;
-            z-index: 20; transition: all 0.4s ease-in-out;
-        }
-        .trajectory {
-            position: absolute; pointer-events: none; z-index: 5;
-            stroke-dasharray: 5,5; stroke-width: 2;
-        }
-        .ladder { stroke: #4caf50; }
-        .chute { stroke: #f44336; }
+        .sq:nth-child(even) { background: rgba(255,255,255,0.04); }
+        .sq.special { background: rgba(255, 215, 0, 0.05); color: gold; font-weight: bold; }
         
+        .pawn {
+            width: 24px; height: 24px; border-radius: 50%; border: 2px solid #000;
+            position: absolute; z-index: 50; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+        }
+        .pawn::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+        }
+
+        .trajectory { fill: none; stroke-width: 4; stroke-linecap: round; filter: drop-shadow(0 0 5px rgba(0,0,0,0.5)); }
+        .ladder { stroke: url(#ladderGradient); stroke-dasharray: 10,5; animation: flow 2s linear infinite; }
+        .chute { stroke: url(#chuteGradient); stroke-dasharray: 5,5; animation: flow 1s linear infinite reverse; }
+        
+        @keyframes flow { to { stroke-dashoffset: 30; } }
+
+        .hop-anim { animation: hop 0.4s ease-out; }
+        @keyframes hop {
+            0% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.3) translateY(-15px); }
+            100% { transform: scale(1) translateY(0); }
+        }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+
         #dice-container {
-            width: 60px; height: 60px; background: white; border: 2px solid #444;
-            border-radius: 10px; margin: 20px auto; display: flex;
-            align-items: center; justify-content: center; font-size: 2em;
-            color: #222; box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-            transition: transform 0.1s;
+            width: 70px; height: 70px; background: #fff; border-radius: 15px;
+            margin: 20px auto; display: flex; align-items: center; justify-content: center;
+            font-size: 2.5em; font-weight: bold; color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4); transition: transform 0.2s;
         }
         .rolling { animation: diceRoll 0.1s infinite; }
         @keyframes diceRoll {
-            0% { transform: rotate(0deg) scale(1); }
-            50% { transform: rotate(10deg) scale(1.1); }
-            100% { transform: rotate(-10deg) scale(1); }
+            0% { transform: rotate(0deg) scale(1.1) translate(2px, -2px); }
+            50% { transform: rotate(5deg) scale(1) translate(-2px, 2px); }
+            100% { transform: rotate(-5deg) scale(1.1) translate(0, 0); }
+        }
+
+        .particle {
+            position: absolute; pointer-events: none; border-radius: 50%;
+            z-index: 100; animation: particleAnim 0.8s ease-out forwards;
+        }
+        @keyframes particleAnim {
+            0% { transform: scale(1); opacity: 1; }
+            100% { transform: scale(0) translateY(-50px); opacity: 0; }
         }
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.3.7</div>
+    <div id="version-tag">v1.3.8</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -83,29 +118,40 @@
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
 
-        <h1>Chutes & Ladders</h1>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+        <h1 style="margin-top: 0;">Chutes & Ladders</h1>
+        <p id="turn-info" style="font-weight: bold; color: var(--accent-color); margin-bottom: 10px;">Your Turn</p>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
         <div id="board-wrapper">
-            <svg id="trajectories" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:5;"></svg>
+            <svg id="trajectories" style="position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:20;">
+                <defs>
+                    <linearGradient id="ladderGradient" x1="0%" y1="100%" x2="0%" y2="0%">
+                        <stop offset="0%" style="stop-color:#4caf50;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#8bc34a;stop-opacity:1" />
+                    </linearGradient>
+                    <linearGradient id="chuteGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" style="stop-color:#f44336;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#ff9800;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+            </svg>
             <div id="board"></div>
         </div>
 
         <div id="controls" style="margin-top:20px;">
             <div id="dice-container">?</div>
-            <button id="roll-btn" class="modal-btn" onclick="handleRoll()">Spin / Roll</button>
-            <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
+            <button id="roll-btn" class="modal-btn" onclick="handleRoll()">SPIN</button>
+            <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="resetGame()">Reset</button>
         </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.3.7"></script>
-    <script src="../../profile.js?v=1.3.7"></script>
-    <script src="../../audio.js?v=1.3.7"></script>
+    <script src="../../network.js?v=1.3.8"></script>
+    <script src="../../profile.js?v=1.3.8"></script>
+    <script src="../../audio.js?v=1.3.8"></script>
     <script>
         let p1Pos = 1, p2Pos = 1;
         let currentPlayer = "X"; 
@@ -204,6 +250,7 @@
 
         function initBoard() {
             const boardEl = document.getElementById('board');
+            boardEl.innerHTML = '';
             for (let r = 9; r >= 0; r--) {
                 for (let c = 0; c < 10; c++) {
                     let num = (r % 2 === 0) ? (r * 10 + c + 1) : (r * 10 + (9 - c) + 1);
@@ -225,7 +272,9 @@
 
         function drawTrajectories() {
             const svg = document.getElementById('trajectories');
-            const boardRect = document.getElementById('board').getBoundingClientRect();
+            svg.innerHTML = svg.querySelector('defs').outerHTML;
+            const boardRect = document.getElementById('board-wrapper').getBoundingClientRect();
+            
             Object.keys(specials).forEach(start => {
                 const end = specials[start];
                 const sEl = document.getElementById('sq-' + start);
@@ -233,13 +282,18 @@
                 const sRect = sEl.getBoundingClientRect();
                 const eRect = eEl.getBoundingClientRect();
                 
-                const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-                line.setAttribute("x1", sRect.left - boardRect.left + 16);
-                line.setAttribute("y1", sRect.top - boardRect.top + 16);
-                line.setAttribute("x2", eRect.left - boardRect.left + 16);
-                line.setAttribute("y2", eRect.top - boardRect.top + 16);
-                line.setAttribute("class", "trajectory " + (end > start ? "ladder" : "chute"));
-                svg.appendChild(line);
+                const x1 = sRect.left - boardRect.left + 20;
+                const y1 = sRect.top - boardRect.top + 20;
+                const x2 = eRect.left - boardRect.left + 20;
+                const y2 = eRect.top - boardRect.top + 20;
+
+                const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+                const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 40;
+                const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 40;
+                
+                path.setAttribute("d", `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`);
+                path.setAttribute("class", "trajectory " + (end > start ? "ladder" : "chute"));
+                svg.appendChild(path);
             });
         }
 
@@ -255,7 +309,7 @@
             const sq = document.getElementById('sq-' + pos);
             const pawn = document.getElementById('pawn-' + id);
             if (!sq || !pawn) return;
-            const boardRect = document.getElementById('board').getBoundingClientRect();
+            const boardRect = document.getElementById('board-wrapper').getBoundingClientRect();
             const sqRect = sq.getBoundingClientRect();
             
             if (animate) {
@@ -264,19 +318,32 @@
                 pawn.classList.add('hop-anim');
             }
             
-            pawn.style.left = (sqRect.left - boardRect.left + (id === 'p1' ? 2 : 10)) + 'px';
-            pawn.style.top = (sqRect.top - boardRect.top + (id === 'p1' ? 2 : 10)) + 'px';
+            pawn.style.left = (sqRect.left - boardRect.left + (id === 'p1' ? 4 : 12)) + 'px';
+            pawn.style.top = (sqRect.top - boardRect.top + (id === 'p1' ? 4 : 12)) + 'px';
         }
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
+        function spawnParticles(x, y, color) {
+            const wrapper = document.getElementById('board-wrapper');
+            for(let i=0; i<8; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.background = color;
+                p.style.left = x + 'px';
+                p.style.top = y + 'px';
+                p.style.width = (Math.random() * 6 + 2) + 'px';
+                p.style.height = p.style.width;
+                wrapper.appendChild(p);
+                setTimeout(() => p.remove(), 800);
+            }
+        }
+
         async function handleRoll(isProgrammatic = false) {
             if (!canMove() && !isProgrammatic) return;
-
             const roll = Math.floor(Math.random() * 6) + 1;
             if (myRole === 'player2') {
                 NetworkManager.sendMove(roll);
-                // Optimistic execution for client
                 await executeRoll(roll, false);
             } else {
                 if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
@@ -286,24 +353,22 @@
 
         function canMove() {
             if (isSpectator || !active) return false;
-            
-            // Validate turn roles
             if (gameType === 'cpu' && currentPlayer === "O") return false;
             if (myRole === 'host' && currentPlayer !== "X") return false;
             if (myRole === 'player2' && currentPlayer !== "O") return false;
-
             return true;
         }
 
         async function executeRoll(roll, isLocal = true) {
             const dice = document.getElementById('dice-container');
             const rollBtn = document.getElementById('roll-btn');
-            if (rollBtn) rollBtn.disabled = true; // Block during animation
+            if (rollBtn) rollBtn.disabled = true;
 
             dice.classList.add('rolling');
-            for(let i=0; i<10; i++) {
+            AudioManager.play('roll');
+            for(let i=0; i<12; i++) {
                 dice.innerText = Math.floor(Math.random() * 6) + 1;
-                await sleep(50);
+                await sleep(60);
             }
             dice.classList.remove('rolling');
             dice.innerText = roll;
@@ -316,23 +381,33 @@
                     current++;
                     if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
                     movePawn(pId, current, true);
-                    await sleep(400);
+                    AudioManager.play('move');
+                    await sleep(350);
                 }
                 
                 if (specials[current]) {
+                    const isLadder = specials[current] > current;
                     await sleep(400);
                     current = specials[current];
                     if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                    
+                    const pawn = document.getElementById('pawn-' + pId);
+                    spawnParticles(pawn.offsetLeft + 12, pawn.offsetTop + 12, isLadder ? '#4caf50' : '#f44336');
+                    
+                    if (!isLadder) document.getElementById('board-wrapper').classList.add('shake');
                     movePawn(pId, current, true);
+                    AudioManager.play(isLadder ? 'climb' : 'slide');
+                    await sleep(600);
+                    document.getElementById('board-wrapper').classList.remove('shake');
                 }
                 
                 if (current === 100) {
                     active = false;
                     const names = getNames();
                     showGameOver(currentPlayer === "X" ? names.p1 : names.p2);
+                    AudioManager.play('win');
                     
                     const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
-
                     if (gameType === 'online') {
                         const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
                         ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
@@ -346,17 +421,11 @@
                 currentPlayer = (currentPlayer === "X") ? "O" : "X";
                 if (isLocal) broadcast();
                 updateStatus();
-
-                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                    setTimeout(() => cpuMove(), 1000);
-                }
+                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) setTimeout(() => cpuMove(), 800);
             }
         }
 
-        function cpuMove() {
-            if (!active) return;
-            handleRoll(true);
-        }
+        function cpuMove() { if (active) handleRoll(true); }
 
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner + " WINS!";
@@ -366,36 +435,18 @@
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
-            const resetBtn = document.getElementById('reset-btn');
             const rollBtn = document.getElementById('roll-btn');
-
-            if (gameType === 'online') {
-                resetBtn.disabled = (myRole !== 'host');
-                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
-            } else {
-                resetBtn.disabled = !active;
-            }
-
-            if (!active) {
-                if (rollBtn) rollBtn.disabled = true;
-                return;
-            }
-
             const names = getNames();
+            if (!active) { if (rollBtn) rollBtn.disabled = true; return; }
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
-            
-            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN";
-            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN";
-            
-            info.innerText = text;
-            
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            if (isMyTurn) text = "YOUR TURN";
+            info.innerText = text;
             if (rollBtn) rollBtn.disabled = !isMyTurn || isSpectator;
         }
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
-
             document.getElementById('game-over-modal').style.display = 'none';
             p1Pos = 1; p2Pos = 1; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
