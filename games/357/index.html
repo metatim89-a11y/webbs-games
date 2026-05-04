@@ -105,7 +105,7 @@
                     }
                 };
                 NetworkManager.onMoveReceived = (move) => {
-                    if (currentPlayer === "O") executeMove(move.row, move.count);
+                    if (currentPlayer === "O") executeMove(move.row, move.count, true);
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -158,17 +158,33 @@
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
+            const resetBtn = document.getElementById('reset-btn');
+            const endTurnBtn = document.getElementById('end-turn-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
             if (!active) return;
+            
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
+
+            // Also disable end turn button if not your turn
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            endTurnBtn.disabled = selectedCount === 0 || !active || isSpectator || !isMyTurn;
         }
 
         function selectPiece(row) {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
+            if (!canMove()) return;
 
             if (selectedRow !== null && selectedRow !== row) { selectedCount = 1; }
             else { selectedCount = (selectedCount % piles[row]) + 1; }
@@ -176,25 +192,41 @@
             render();
         }
 
+        function canMove() {
+            if (isSpectator || !active) return false;
+            
+            // Validate turn roles
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+
+            return true;
+        }
+
         function endTurn() {
+            if (!canMove() || selectedCount === 0) return;
+
             if (myRole === 'player2') {
                 NetworkManager.sendMove({ row: selectedRow, count: selectedCount });
+                executeMove(selectedRow, selectedCount, false);
             } else {
-                executeMove(selectedRow, selectedCount);
+                executeMove(selectedRow, selectedCount, true);
             }
         }
 
-        function executeMove(row, count) {
+        function executeMove(row, count, isLocal = true) {
             piles[row] -= count;
             selectedRow = null; selectedCount = 0;
+            render(); // Update visuals immediately
+
             if (!checkGameOver()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
-                if (gameType === 'cpu' && currentPlayer === "O") {
+                if (gameType === 'cpu' && currentPlayer === "O" && isLocal) {
                     setTimeout(cpuMove, 800);
                 }
             }
-            broadcast();
-            render();
+            if (isLocal) broadcast();
+            updateStatus();
         }
 
         function cpuMove() {
@@ -203,7 +235,7 @@
             if (rowsWithItems.length === 0) return;
             let row = rowsWithItems[Math.floor(Math.random() * rowsWithItems.length)];
             let count = Math.floor(Math.random() * piles[row]) + 1;
-            executeMove(row, count);
+            executeMove(row, count, true);
         }
 
         function checkGameOver() {
@@ -212,11 +244,13 @@
                 const winner = currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2";
                 showGameOver(winner);
                 
+                const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+
                 if (gameType === 'online') {
                     const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                    ProfileManager.recordResult('357', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                    ProfileManager.recordResult('357', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
                 } else if (gameType === 'cpu') {
-                    ProfileManager.recordResult('357', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
+                    ProfileManager.recordResult('357', sessionPlayer, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
                 }
                 return true;
             }
@@ -226,9 +260,12 @@
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             piles = [3, 5, 7];
             selectedRow = null; selectedCount = 0; active = true;

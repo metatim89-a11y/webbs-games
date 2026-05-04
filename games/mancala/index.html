@@ -145,7 +145,12 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (pit) => { if (currentPlayer === 1) sow(pit); };
+                NetworkManager.onMoveReceived = (pit) => { 
+                    if (currentPlayer === 1) {
+                        NetworkManager.broadcastAnimation({ type: 'SOW', pit });
+                        sow(pit, true); 
+                    }
+                };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${id}`;
@@ -167,7 +172,12 @@
                     if (!active) checkEnd();
                     render();
                 };
-                NetworkManager.onAnimationTrigger = (data) => { if (data.type === 'SOW') sow(data.pit, false); };
+                NetworkManager.onAnimationTrigger = (data) => { 
+                    if (data.type === 'SOW') {
+                        const isMyTurn = (myRole === 'host' && currentPlayer === 0) || (myRole === 'player2' && currentPlayer === 1);
+                        if (!isMyTurn) sow(data.pit, false); 
+                    }
+                };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
                     myRole = 'player2';
@@ -184,34 +194,68 @@
                 const el = document.getElementById(i === 6 ? 'store-0' : i === 13 ? 'store-1' : `pit-${i}`);
                 if (el) {
                     el.innerHTML = `<span class="stone-count">${board[i]}</span>`;
-                    el.classList.toggle('disabled', isSpectator || (currentPlayer === 0 && i > 5) || (currentPlayer === 1 && i < 7) || board[i] === 0);
+                    
+                    // Visual feedback for disabled pits
+                    const isMyPit = (currentPlayer === 0 && i >= 0 && i <= 5) || (currentPlayer === 1 && i >= 7 && i <= 12);
+                    const isMyTurn = (myRole === 'host' && currentPlayer === 0) || (myRole === 'player2' && currentPlayer === 1) || (myRole === 'local');
+                    
+                    el.classList.toggle('disabled', !active || !isMyPit || !isMyTurn || board[i] === 0);
                 }
             }
             updateStatus();
         }
 
         function updateStatus() {
-            const info = document.getElementById('turn-info');
+            const info = document.getElementById('status');
+            const turnInfo = document.getElementById('turn-info');
+            const resetBtn = document.getElementById('reset-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
             if (!active) return;
+
             let text = currentPlayer === 0 ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === 0) text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === 1) text += " (YOU)";
-            info.innerText = text;
+            if (myRole === 'host' && currentPlayer === 0) text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === 1) text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === 1) text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === 0) text = "WAITING FOR P1...";
+            
+            turnInfo.innerText = text;
         }
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
         async function handlePitClick(pit) {
-            if (isSpectator || !active || board[pit] === 0) return;
-            if (myRole === 'host' && (currentPlayer !== 0 || pit > 5)) return;
-            if (myRole === 'player2' && (currentPlayer !== 1 || pit < 7)) return;
+            if (!canMove(pit)) return;
 
             if (myRole === 'player2') {
                 NetworkManager.sendMove(pit);
+                // Optimistic execution for client
+                await sow(pit, false);
             } else {
                 if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'SOW', pit });
-                await sow(pit);
+                await sow(pit, true);
             }
+        }
+
+        function canMove(pit) {
+            if (isSpectator || !active || board[pit] === 0) return false;
+            
+            // Validate pit ownership
+            if (currentPlayer === 0 && (pit < 0 || pit > 5)) return false;
+            if (currentPlayer === 1 && (pit < 7 || pit > 12)) return false;
+
+            // Validate turn roles
+            if (gameType === 'cpu' && currentPlayer === 1) return false;
+            if (myRole === 'host' && currentPlayer !== 0) return false;
+            if (myRole === 'player2' && currentPlayer !== 1) return false;
+
+            return true;
         }
 
         async function sow(pit, isLocal = true) {
@@ -260,6 +304,7 @@
                 }
             }
             
+            // Extra turn logic
             if ((currentPlayer === 0 && current !== 6) || (currentPlayer === 1 && current !== 13)) {
                 currentPlayer = currentPlayer === 0 ? 1 : 0;
             }
@@ -274,6 +319,7 @@
         }
 
         async function cpuMove() {
+            if (!active) return;
             let validPits = [7, 8, 9, 10, 11, 12].filter(p => board[p] > 0);
             if (validPits.length > 0) {
                 await sow(validPits[Math.floor(Math.random() * validPits.length)]);
@@ -290,11 +336,13 @@
                 const winner = pTotal > cTotal ? "PLAYER 1" : (cTotal > pTotal ? "PLAYER 2" : "DRAW");
                 showGameOver(winner, pTotal, cTotal);
                 
+                const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+
                 if (gameType === 'online') {
                     const iWon = (myRole === 'host' && pTotal > cTotal) || (myRole === 'player2' && cTotal > pTotal);
-                    ProfileManager.recordResult('Mancala', playerID, (myRole === 'host' ? player2ID : 'host'), pTotal === cTotal ? 'draw' : (iWon ? 'win' : 'loss'));
+                    ProfileManager.recordResult('Mancala', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), pTotal === cTotal ? 'draw' : (iWon ? 'win' : 'loss'));
                 } else if (gameType === 'cpu') {
-                    ProfileManager.recordResult('Mancala', playerID, 'CPU', pTotal === cTotal ? 'draw' : (pTotal > cTotal ? 'win' : 'loss'));
+                    ProfileManager.recordResult('Mancala', sessionPlayer, 'CPU', pTotal === cTotal ? 'draw' : (pTotal > cTotal ? 'win' : 'loss'));
                 }
             }
         }
@@ -303,9 +351,12 @@
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
             document.getElementById('winner-text').innerHTML += `<div style="font-size:0.5em; color:white;">Score: ${p1} - ${p2}</div>`;
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
             active = true;

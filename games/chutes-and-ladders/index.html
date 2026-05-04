@@ -147,7 +147,12 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (roll) => { if (currentPlayer === "O") executeRoll(roll); };
+                NetworkManager.onMoveReceived = (roll) => { 
+                    if (currentPlayer === "O") {
+                        NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
+                        executeRoll(roll, true); 
+                    }
+                };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${id}`;
@@ -172,7 +177,10 @@
                     updateStatus();
                 };
                 NetworkManager.onAnimationTrigger = (data) => {
-                    if (data.type === 'ROLL') executeRoll(data.roll, false);
+                    if (data.type === 'ROLL') {
+                        const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                        if (!isMyTurn) executeRoll(data.roll, false);
+                    }
                 };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
@@ -254,21 +262,35 @@
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
         async function handleRoll() {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
+            if (!canMove()) return;
 
             const roll = Math.floor(Math.random() * 6) + 1;
             if (myRole === 'player2') {
                 NetworkManager.sendMove(roll);
+                // Optimistic execution for client
+                await executeRoll(roll, false);
             } else {
                 if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
-                await executeRoll(roll);
+                await executeRoll(roll, true);
             }
+        }
+
+        function canMove() {
+            if (isSpectator || !active) return false;
+            
+            // Validate turn roles
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+
+            return true;
         }
 
         async function executeRoll(roll, isLocal = true) {
             const dice = document.getElementById('dice-container');
+            const rollBtn = document.getElementById('roll-btn');
+            rollBtn.disabled = true; // Block during animation
+
             dice.classList.add('rolling');
             for(let i=0; i<10; i++) {
                 dice.innerText = Math.floor(Math.random() * 6) + 1;
@@ -298,11 +320,14 @@
                 if (current === 100) {
                     active = false;
                     showGameOver(currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
+                    
+                    const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+
                     if (gameType === 'online') {
                         const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                        ProfileManager.recordResult('Chutes & Ladders', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-                    } else if (gameType !== 'local') {
-                        ProfileManager.recordResult('Chutes & Ladders', playerID, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
+                        ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                    } else if (gameType === 'cpu') {
+                        ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
                     }
                 }
             }
@@ -311,25 +336,56 @@
                 currentPlayer = (currentPlayer === "X") ? "O" : "X";
                 if (isLocal) broadcast();
                 updateStatus();
+
+                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
+                    setTimeout(cpuMove, 1000);
+                }
             }
+        }
+
+        function cpuMove() {
+            if (!active) return;
+            handleRoll();
         }
 
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
-            if (!active) return;
+            const resetBtn = document.getElementById('reset-btn');
+            const rollBtn = document.getElementById('roll-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
+            if (!active) {
+                rollBtn.disabled = true;
+                return;
+            }
+
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
-            document.getElementById('roll-btn').disabled = (myRole === 'host' && currentPlayer !== 'X') || (myRole === 'player2' && currentPlayer !== 'O') || isSpectator;
+            
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            rollBtn.disabled = !isMyTurn || isSpectator;
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             p1Pos = 1; p2Pos = 1; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
@@ -337,6 +393,7 @@
             movePawn('p1', 1); movePawn('p2', 1);
             if (myRole === 'host') broadcast();
             updateStatus();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
         }
     </script>
 </body>

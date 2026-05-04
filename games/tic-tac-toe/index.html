@@ -118,7 +118,7 @@
                     }
                 };
                 NetworkManager.onMoveReceived = (idx) => {
-                    if (currentPlayer === "O") executeMove(idx);
+                    if (currentPlayer === "O") executeMove(idx, true);
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -155,23 +155,52 @@
         }
 
         function handleCellClick(idx) {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
+            if (!canMove()) return;
 
             if (board[idx] === "") {
-                if (myRole === 'player2') NetworkManager.sendMove(idx);
-                else executeMove(idx);
+                if (myRole === 'player2') {
+                    NetworkManager.sendMove(idx);
+                    executeMove(idx, false);
+                } else {
+                    executeMove(idx, true);
+                }
             }
         }
 
-        function executeMove(idx) {
+        function canMove() {
+            if (isSpectator || !active) return false;
+            
+            // In CPU mode, block human if it's O's turn (CPU)
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            
+            // In Online mode, block if it's not our turn
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+            
+            return true;
+        }
+
+        function executeMove(idx, isLocal = true) {
             board[idx] = currentPlayer;
+            render(); // Render piece immediately
+
             if (!checkWin()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
+                if (gameType === 'cpu' && currentPlayer === "O" && isLocal) {
+                    setTimeout(cpuMove, 800);
+                }
             }
-            broadcast();
-            render();
+            if (isLocal) broadcast();
+            updateStatus();
+        }
+
+        function cpuMove() {
+            if (!active) return;
+            let available = board.map((v, i) => v === "" ? i : -1).filter(i => i !== -1);
+            if (available.length > 0) {
+                let move = available[Math.floor(Math.random() * available.length)];
+                executeMove(move, true);
+            }
         }
 
         function render() {
@@ -179,16 +208,32 @@
             board.forEach((val, i) => {
                 cells[i].innerText = val;
                 cells[i].classList.toggle('piece', val !== "");
+                // Add color classes for clarity
+                cells[i].style.color = val === 'X' ? 'var(--accent-color)' : '#ff5555';
             });
             updateStatus();
         }
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
+            const resetBtn = document.getElementById('reset-btn');
+            
+            // Update Reset Button visibility/state
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
             if (!active) return;
+            
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
         }
 
@@ -201,11 +246,14 @@
                     active = false;
                     showGameOver(winnerName);
                     
+                    // Use actual active player from session storage for stats
+                    const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+                    
                     if (gameType === 'online') {
                         const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
-                        ProfileManager.recordResult('Tic-Tac-Toe', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                        ProfileManager.recordResult('Tic-Tac-Toe', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
                     } else if (gameType === 'cpu') {
-                        ProfileManager.recordResult('Tic-Tac-Toe', playerID, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
+                        ProfileManager.recordResult('Tic-Tac-Toe', sessionPlayer, 'CPU', winnerSymbol === 'X' ? 'win' : 'loss');
                     }
                     return true;
                 }
@@ -221,16 +269,20 @@
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+            
             document.getElementById('game-over-modal').style.display = 'none';
             board = ["","","","","","","","",""];
             active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
-            broadcast();
+            if (myRole === 'host') broadcast();
             render();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 800);
         }
     </script>
 </body>

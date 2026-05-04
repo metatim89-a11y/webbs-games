@@ -90,7 +90,9 @@
     <script src="../../network.js?v=1.2.0"></script>
     <script src="../../profile.js?v=1.2.0"></script>
     <script>
-        let hand = [];
+        let myHand = [];
+        let opponentHandCount = 7;
+        let cpuHand = []; // Used in CPU mode
         let discard = { color: 'wild', value: '--' };
         let currentPlayer = "X"; 
         let active = true;
@@ -129,7 +131,9 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (move) => { if (currentPlayer === "O") executeAction(move); };
+                NetworkManager.onMoveReceived = (action) => { 
+                    if (currentPlayer === "O") executeAction(action, true); 
+                };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${id}`;
@@ -143,6 +147,13 @@
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
                     active = state.active;
+                    // In online mode, we track opponent's hand count from state
+                    if (myRole === 'player2') {
+                        opponentHandCount = state.hostHandCount;
+                    } else if (isSpectator) {
+                        opponentHandCount = state.p2HandCount;
+                    }
+
                     if (player2ID === playerID) {
                         isSpectator = false;
                         myRole = 'player2';
@@ -160,7 +171,18 @@
             }
         }
 
-        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ discard, currentPlayer, player2ID, active }); }
+        function broadcast() { 
+            if (myRole === 'host') {
+                NetworkManager.broadcastState({ 
+                    discard, 
+                    currentPlayer, 
+                    player2ID, 
+                    active,
+                    hostHandCount: myHand.length,
+                    p2HandCount: opponentHandCount
+                }); 
+            }
+        }
 
         function createCard() {
             const color = colors[Math.floor(Math.random() * colors.length)];
@@ -169,8 +191,13 @@
         }
 
         function initGame() {
-            hand = [];
-            for(let i=0; i<7; i++) hand.push(createCard());
+            myHand = [];
+            cpuHand = [];
+            for(let i=0; i<7; i++) {
+                myHand.push(createCard());
+                if (gameType === 'cpu') cpuHand.push(createCard());
+            }
+            opponentHandCount = 7;
             if (myRole !== 'client') discard = createCard();
             render();
         }
@@ -179,10 +206,17 @@
             const discardEl = document.getElementById('discard-pile');
             discardEl.className = discard.color;
             discardEl.innerText = discard.value;
+            
             const handEl = document.getElementById('player-hand');
             handEl.innerHTML = '';
+            
+            // In CPU mode or Local mode, we might want to see both hands?
+            // For now, let's just show the active player's hand if it's local
+            let visibleHand = myHand;
+            if (gameType === 'cpu' && currentPlayer === 'O') visibleHand = cpuHand;
+            
             if (!isSpectator) {
-                hand.forEach((card, i) => {
+                visibleHand.forEach((card, i) => {
                     const cardEl = document.createElement('div');
                     cardEl.className = `card ${card.color}`;
                     cardEl.innerText = card.value;
@@ -190,8 +224,11 @@
                     handEl.appendChild(cardEl);
                 });
             }
-            document.getElementById('mercy-count').innerText = `Cards: ${hand.length}/25`;
-            if(hand.length >= 25 && active) {
+
+            const currentHandSize = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand.length : myHand.length;
+            document.getElementById('mercy-count').innerText = `Cards: ${currentHandSize}/25 | Opponent: ${opponentHandCount}`;
+            
+            if(currentHandSize >= 25 && active) {
                 active = false;
                 showGameOver(currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1", "MERCY RULE!");
                 recordResult(currentPlayer === 'X' ? 'O' : 'X');
@@ -201,55 +238,108 @@
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
+            const resetBtn = document.getElementById('reset-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
             if (!active) return;
+
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
         }
 
         function handlePlayCard(i) {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
-            const card = hand[i];
-            if(card.color === discard.color || card.value === discard.value || discard.color === 'wild') {
+            if (!canMove()) return;
+            
+            const currentHand = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
+            const card = currentHand[i];
+
+            if(card.color === discard.color || card.value === discard.value || discard.color === 'wild' || card.value.includes('+')) {
+                currentHand.splice(i, 1);
+                const action = { type: 'PLAY', card, handCount: currentHand.length };
+                
                 if (myRole === 'player2') {
-                    NetworkManager.sendMove({ type: 'PLAY', card });
-                    hand.splice(i, 1);
+                    NetworkManager.sendMove(action);
+                    executeAction(action, false);
                 } else {
-                    hand.splice(i, 1);
-                    executeAction({ type: 'PLAY', card });
+                    executeAction(action, true);
                 }
-                render();
             }
         }
 
         function handleDraw() {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
-            if (myRole === 'player2') NetworkManager.sendMove({ type: 'DRAW' });
-            else executeAction({ type: 'DRAW' });
+            if (!canMove()) return;
+
+            const action = { type: 'DRAW' };
+            if (myRole === 'player2') {
+                NetworkManager.sendMove(action);
+                executeAction(action, false);
+            } else {
+                executeAction(action, true);
+            }
         }
 
-        function executeAction(action) {
+        function canMove() {
+            if (isSpectator || !active) return false;
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+            return true;
+        }
+
+        function executeAction(action, isLocal = true) {
             if (action.type === 'PLAY') {
                 discard = action.card;
-                if (hand.length === 0 && active) {
+                if (!isLocal) {
+                    opponentHandCount = action.handCount;
+                }
+                
+                if (action.handCount === 0 && active) {
                     active = false;
                     showGameOver(currentPlayer === 'X' ? 'PLAYER 1' : 'PLAYER 2');
                     recordResult(currentPlayer);
                 }
             } else if (action.type === 'DRAW') {
-                if ((myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O')) {
-                    hand.push(createCard());
+                if (isLocal) {
+                    if (gameType === 'cpu' && currentPlayer === 'O') cpuHand.push(createCard());
+                    else myHand.push(createCard());
+                } else {
+                    opponentHandCount++;
                 }
             }
+
             if (active) {
                 currentPlayer = (currentPlayer === "X") ? "O" : "X";
-                broadcast();
+                if (isLocal) broadcast();
                 render();
+
+                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
+                    setTimeout(cpuMove, 1000);
+                }
+            }
+        }
+
+        function cpuMove() {
+            if (!active) return;
+            // Simple AI: play first matching card or draw
+            let playableIdx = cpuHand.findIndex(card => 
+                card.color === discard.color || card.value === discard.value || discard.color === 'wild'
+            );
+
+            if (playableIdx !== -1) {
+                handlePlayCard(playableIdx);
+            } else {
+                handleDraw();
             }
         }
 
@@ -257,18 +347,22 @@
             document.getElementById('winner-text').innerText = winner + " WINS!";
             if(sub) document.getElementById('winner-text').innerHTML += `<div style="font-size:0.5em; color:white;">${sub}</div>`;
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function recordResult(winner) {
+            const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
             if (gameType === 'online') {
                 const iWon = (myRole === 'host' && winner === 'X') || (myRole === 'player2' && winner === 'O');
-                ProfileManager.recordResult('Uno No Mercy', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                ProfileManager.recordResult('Uno No Mercy', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
             } else if (gameType !== 'local') {
-                ProfileManager.recordResult('Uno No Mercy', playerID, 'CPU', winner === 'X' ? 'win' : 'loss');
+                ProfileManager.recordResult('Uno No Mercy', sessionPlayer, 'CPU', winner === 'X' ? 'win' : 'loss');
             }
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             initGame();
             startingPlayer = startingPlayer === "X" ? "O" : "X";
@@ -276,6 +370,7 @@
             active = true;
             if (myRole === 'host') broadcast();
             render();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
         }
     </script>
 </body>

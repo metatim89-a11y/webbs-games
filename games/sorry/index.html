@@ -130,7 +130,13 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (move) => { if (currentPlayer === "O") executeDraw(move); };
+                NetworkManager.onMoveReceived = (move) => { 
+                    if (currentPlayer === "O") {
+                        // Host receives move from Player 2, broadcasts animation to spectators
+                        NetworkManager.broadcastAnimation({ type: 'DRAW', move });
+                        executeDraw(move, true); 
+                    }
+                };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${id}`;
@@ -155,7 +161,11 @@
                     updateStatus();
                 };
                 NetworkManager.onAnimationTrigger = (data) => {
-                    if (data.type === 'DRAW') executeDraw(data.move, false);
+                    if (data.type === 'DRAW') {
+                        // Avoid re-playing animation if we are the one who triggered it optimistically
+                        const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                        if (!isMyTurn) executeDraw(data.move, false);
+                    }
                 };
                 NetworkManager.onJoinAccepted = () => {
                     isSpectator = false;
@@ -233,21 +243,36 @@
         }
 
         async function handleDraw() {
-            if (isSpectator || !active) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
+            if (!canMove()) return;
 
             const move = Math.floor(Math.random() * 5) + 1;
+            
             if (myRole === 'player2') {
                 NetworkManager.sendMove(move);
+                // Optimistic execution for client
+                await executeDraw(move, false);
             } else {
-                if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'DRAW', move });
-                await executeDraw(move);
+                // Host broadcast and execute
+                NetworkManager.broadcastAnimation({ type: 'DRAW', move });
+                await executeDraw(move, true);
             }
         }
 
+        function canMove() {
+            if (isSpectator || !active) return false;
+            
+            // Validate turn roles
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+
+            return true;
+        }
+
         async function executeDraw(move, isLocal = true) {
-            document.getElementById('draw-btn').disabled = true;
+            const drawBtn = document.getElementById('draw-btn');
+            drawBtn.disabled = true; // Block during animation
+            
             await flyCard(move);
             document.getElementById('game-info').innerText = (currentPlayer === 'X' ? 'Player 1' : 'Player 2') + ` moved ${move} spaces!`;
             const pId = (currentPlayer === 'X' ? 'p1' : 'p2');
@@ -278,36 +303,71 @@
                 currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
                 if (isLocal) broadcast();
                 updateStatus();
+                
+                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
+                    setTimeout(cpuMove, 1000);
+                }
             }
+        }
+
+        async function cpuMove() {
+            if (!active) return;
+            const move = Math.floor(Math.random() * 5) + 1;
+            await executeDraw(move, true);
         }
 
         function win(player) {
             active = false;
             showGameOver(player);
+            
+            const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+
             if (gameType === 'online') {
                 const iWon = (myRole === 'host' && player === 'PLAYER 1') || (myRole === 'player2' && player === 'PLAYER 2');
-                ProfileManager.recordResult('Sorry', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-            } else if (gameType !== 'local') {
-                ProfileManager.recordResult('Sorry', playerID, 'CPU', player === 'PLAYER 1' ? 'win' : 'loss');
+                ProfileManager.recordResult('Sorry', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+            } else if (gameType === 'cpu') {
+                ProfileManager.recordResult('Sorry', sessionPlayer, 'CPU', player === 'PLAYER 1' ? 'win' : 'loss');
             }
         }
 
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
-            if (!active) return;
+            const resetBtn = document.getElementById('reset-btn');
+            const drawBtn = document.getElementById('draw-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
+            if (!active) {
+                drawBtn.disabled = true;
+                return;
+            }
+
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
-            document.getElementById('draw-btn').disabled = (myRole === 'host' && currentPlayer !== 'X') || (myRole === 'player2' && currentPlayer !== 'O') || isSpectator;
+            
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            drawBtn.disabled = !isMyTurn || isSpectator;
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             p1Pos = 0; p2Pos = 0; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
@@ -315,6 +375,7 @@
             updatePawn('p1', 0); updatePawn('p2', 0);
             if (myRole === 'host') broadcast();
             updateStatus();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
         }
     </script>
 </body>

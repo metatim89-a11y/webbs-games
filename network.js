@@ -16,10 +16,13 @@ const NetworkManager = {
     onChatMessage: null,
     onJoinAccepted: null,
     onAnimationTrigger: null,
+    
+    lastStateSeq: 0,
 
     init(role, roomID = null) {
         this.role = role;
         this.roomID = roomID || this.generateShortID();
+        this.lastStateSeq = 0;
         
         this.peer = new Peer(role === 'host' ? this.roomID : undefined, { debug: 1 });
 
@@ -65,14 +68,15 @@ const NetworkManager = {
 
     broadcastState(state) {
         if (this.role !== 'host') return;
-        const msg = { type: 'STATE_UPDATE', payload: state };
+        this.lastStateSeq++;
+        const msg = { type: 'STATE_UPDATE', payload: state, seq: this.lastStateSeq };
         this.connections.forEach(conn => {
             if (conn.open) conn.send(msg);
         });
     },
 
     broadcastAnimation(animData) {
-        const msg = { type: 'ANIMATION', payload: animData };
+        const msg = { type: 'ANIMATION', payload: animData, timestamp: Date.now() };
         if (this.role === 'host') {
             this.connections.forEach(conn => {
                 if (conn.open) conn.send(msg);
@@ -131,6 +135,11 @@ const NetworkManager = {
     handleMessage(data, senderConn = null) {
         switch (data.type) {
             case 'STATE_UPDATE':
+                if (data.seq && data.seq <= this.lastStateSeq && this.role === 'client') {
+                    console.log("Ignoring out-of-order state update");
+                    return;
+                }
+                if (data.seq) this.lastStateSeq = data.seq;
                 if (this.onStateUpdate) this.onStateUpdate(data.payload);
                 break;
             case 'ANIMATION':

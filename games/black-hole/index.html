@@ -169,7 +169,7 @@
             const sel = document.getElementById('number-selector');
             sel.innerHTML = '';
             const myNums = (currentPlayer === 'X') ? p1Nums : p2Nums;
-            const canControl = (!isSpectator && ((myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || myRole === 'local'));
+            const canControl = canMove();
             
             myNums.forEach(n => {
                 const btn = document.createElement('button');
@@ -183,26 +183,52 @@
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
+            const resetBtn = document.getElementById('reset-btn');
+
+            if (gameType === 'online') {
+                resetBtn.disabled = (myRole !== 'host');
+                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
+            } else {
+                resetBtn.disabled = !active;
+            }
+
             if (!active) return;
+
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
-            if (myRole === 'host' && currentPlayer === "X") text += " (YOU)";
-            if (myRole === 'player2' && currentPlayer === "O") text += " (YOU)";
+            if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
+            if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
+            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
+            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
+            
             info.innerText = text;
         }
 
         function handleNodeClick(idx) {
-            if (isSpectator || !active || board[idx] || !currentNum) return;
-            if (myRole === 'host' && currentPlayer !== "X") return;
-            if (myRole === 'player2' && currentPlayer !== "O") return;
+            if (!canMove() || board[idx] || !currentNum) return;
+
             if (myRole === 'player2') NetworkManager.sendMove({ idx, num: currentNum });
-            else executeMove(idx, currentNum);
+            else executeMove(idx, currentNum, true);
         }
 
-        function executeMove(idx, num) {
+        function canMove() {
+            if (isSpectator || !active) return false;
+            
+            // Validate turn roles
+            if (gameType === 'cpu' && currentPlayer === "O") return false;
+            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'player2' && currentPlayer !== "O") return false;
+
+            return true;
+        }
+
+        function executeMove(idx, num, isLocal = true) {
             board[idx] = { num, owner: currentPlayer };
+            renderSelector(); // Refresh selector for next player
+
             if (currentPlayer === 'X') {
                 p1Nums = p1Nums.filter(n => n !== num);
                 currentPlayer = 'O';
+                if (gameType === 'cpu' && active && isLocal) setTimeout(cpuMove, 1000);
             } else {
                 p2Nums = p2Nums.filter(n => n !== num);
                 currentPlayer = 'X';
@@ -212,8 +238,18 @@
                 active = false;
                 calculateWinner();
             }
-            broadcast();
+            if (isLocal) broadcast();
             buildBoard();
+        }
+
+        function cpuMove() {
+            if (!active) return;
+            let availableNodes = board.map((v, i) => v === null ? i : -1).filter(i => i !== -1);
+            if (availableNodes.length > 1 && p2Nums.length > 0) { // Keep one for black hole
+                let idx = availableNodes[Math.floor(Math.random() * availableNodes.length)];
+                let num = p2Nums[Math.floor(Math.random() * p2Nums.length)];
+                executeMove(idx, num, true);
+            }
         }
 
         function calculateWinner() {
@@ -226,10 +262,14 @@
             const winner = p1Score > p2Score ? 'PLAYER 1' : (p2Score > p1Score ? 'PLAYER 2' : 'DRAW');
             showGameOver(winner, p1Score, p2Score);
             
+            const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+
             if (gameType === 'online') {
                 const winnerSymbol = winner === 'PLAYER 1' ? 'X' : 'O';
                 const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
-                ProfileManager.recordResult('Black Hole', playerID, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                ProfileManager.recordResult('Black Hole', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+            } else if (gameType === 'cpu') {
+                ProfileManager.recordResult('Black Hole', sessionPlayer, 'CPU', p1Score > p2Score ? 'win' : (p1Score < p2Score ? 'loss' : 'draw'));
             }
         }
 
@@ -237,9 +277,12 @@
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
             document.getElementById('score-summary').innerText = `P1: ${p1} | P2: ${p2}`;
             document.getElementById('game-over-modal').style.display = 'flex';
+            updateStatus();
         }
 
         function resetGame() {
+            if (gameType === 'online' && myRole !== 'host') return;
+
             document.getElementById('game-over-modal').style.display = 'none';
             board = Array(21).fill(null);
             p1Nums = [1,2,3,4,5,6,7,8,9,10]; p2Nums = [1,2,3,4,5,6,7,8,9,10];
@@ -248,6 +291,7 @@
             currentPlayer = startingPlayer;
             if (myRole === 'host') broadcast();
             buildBoard();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
         }
     </script>
 </body>
