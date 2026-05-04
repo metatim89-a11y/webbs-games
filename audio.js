@@ -7,9 +7,12 @@ const AudioEngine = {
     ctx: null,
     enabled: true,
     
-    // Default settings for the click sound
+    // Default settings for various game sounds
     settings: JSON.parse(localStorage.getItem('webbs_audio_settings')) || {
-        click: { freq: 600, type: 'sine', duration: 0.1, vol: 0.1 }
+        click: { freq: 600, type: 'sine', duration: 0.1, vol: 0.1 },
+        move: { freq: 400, type: 'triangle', duration: 0.15, vol: 0.1 },
+        win: { freq: 523, type: 'square', duration: 0.3, vol: 0.1 },
+        error: { freq: 200, type: 'sawtooth', duration: 0.3, vol: 0.1 }
     },
 
     init() {
@@ -55,8 +58,9 @@ const AudioEngine = {
     },
 
     playMove() {
-        this.playTone(400, 'triangle', 0.15, 0.1);
-        setTimeout(() => this.playTone(600, 'triangle', 0.15, 0.1), 50);
+        const s = this.settings.move || { freq: 400, type: 'triangle', duration: 0.15, vol: 0.1 };
+        this.playTone(s.freq, s.type, s.duration, s.vol);
+        setTimeout(() => this.playTone(s.freq * 1.5, s.type, s.duration, s.vol), 50);
     },
 
     playWin() {
@@ -64,14 +68,17 @@ const AudioEngine = {
         this.init();
         if (!this.ctx) return;
         
-        [523.25, 659.25, 783.99, 1046.50].forEach((freq, i) => {
-            setTimeout(() => this.playTone(freq, 'square', 0.3, 0.1), i * 150);
+        const s = this.settings.win || { freq: 523, type: 'square', duration: 0.3, vol: 0.1 };
+        // Generate a major arpeggio based on the root frequency
+        [1, 1.25, 1.5, 2].forEach((ratio, i) => {
+            setTimeout(() => this.playTone(s.freq * ratio, s.type, s.duration, s.vol), i * 150);
         });
     },
 
     playError() {
-        this.playTone(200, 'sawtooth', 0.3, 0.1);
-        setTimeout(() => this.playTone(150, 'sawtooth', 0.4, 0.1), 150);
+        const s = this.settings.error || { freq: 200, type: 'sawtooth', duration: 0.3, vol: 0.1 };
+        this.playTone(s.freq, s.type, s.duration, s.vol);
+        setTimeout(() => this.playTone(s.freq * 0.75, s.type, s.duration * 1.3, s.vol), 150);
     }
 };
 

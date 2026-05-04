@@ -55,7 +55,16 @@ function toggleAdminSettings() {
         </div>
         <hr>
         <div id="audio-settings">
-            <h3>Global Sound Settings (Button Click)</h3>
+            <h3>Global Sound Settings</h3>
+            <div style="margin-bottom:15px;">
+                <label>Select Sound to Edit:</label><br>
+                <select id="audio-target" onchange="loadAudioSetting()" style="width:100%; padding:10px; margin-top:5px; background:#333; color:white; border:1px solid var(--accent-color); border-radius:5px;">
+                    <option value="click">Button Click</option>
+                    <option value="move">Game Move</option>
+                    <option value="win">Victory Melody</option>
+                    <option value="error">Error/Buzzer</option>
+                </select>
+            </div>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
                 <div>
                     <label>Wave Type:</label><br>
@@ -67,7 +76,7 @@ function toggleAdminSettings() {
                     </select>
                 </div>
                 <div>
-                    <label>Frequency (Hz):</label><br>
+                    <label>Base Frequency (Hz):</label><br>
                     <input type="number" id="audio-freq" min="100" max="2000" step="50" style="width:100%; padding:5px; margin-top:5px; background:#333; color:white; border:1px solid #555;">
                 </div>
                 <div>
@@ -88,38 +97,56 @@ function toggleAdminSettings() {
 
     document.body.appendChild(panel);
     
-    // Fill audio settings
-    const s = AudioEngine.settings.click;
-    document.getElementById('audio-type').value = s.type;
-    document.getElementById('audio-freq').value = s.freq;
-    document.getElementById('audio-duration').value = s.duration;
-    document.getElementById('audio-vol').value = s.vol;
+    // Initial fill
+    loadAudioSetting();
 
     renderUserList();
     renderApprovalQueue();
 }
 
 /* --- Audio Settings Logic --- */
+function loadAudioSetting() {
+    const target = document.getElementById('audio-target').value;
+    const s = AudioEngine.settings[target] || AudioEngine.settings.click;
+    
+    document.getElementById('audio-type').value = s.type;
+    document.getElementById('audio-freq').value = s.freq;
+    document.getElementById('audio-duration').value = s.duration;
+    document.getElementById('audio-vol').value = s.vol;
+}
+
 function testAudio() {
+    const target = document.getElementById('audio-target').value;
     const type = document.getElementById('audio-type').value;
     const freq = parseFloat(document.getElementById('audio-freq').value);
     const duration = parseFloat(document.getElementById('audio-duration').value);
     const vol = parseFloat(document.getElementById('audio-vol').value);
     
     if (window.AudioEngine) {
-        AudioEngine.playTone(freq, type, duration, vol);
+        // Temp override for testing
+        const oldSettings = JSON.parse(JSON.stringify(AudioEngine.settings));
+        AudioEngine.settings[target] = { type, freq, duration, vol };
+        
+        if (target === 'click') AudioEngine.playClick();
+        else if (target === 'move') AudioEngine.playMove();
+        else if (target === 'win') AudioEngine.playWin();
+        else if (target === 'error') AudioEngine.playError();
+        
+        // Restore
+        AudioEngine.settings = oldSettings;
     }
 }
 
 function saveAudioSettings() {
+    const target = document.getElementById('audio-target').value;
     const type = document.getElementById('audio-type').value;
     const freq = parseFloat(document.getElementById('audio-freq').value);
     const duration = parseFloat(document.getElementById('audio-duration').value);
     const vol = parseFloat(document.getElementById('audio-vol').value);
 
-    AudioEngine.settings.click = { type, freq, duration, vol };
+    AudioEngine.settings[target] = { type, freq, duration, vol };
     AudioEngine.saveSettings();
-    alert("Global sound settings saved!");
+    alert(`Global settings for ${target} saved!`);
 }
 
 /* --- User Management --- */
