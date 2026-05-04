@@ -4,46 +4,62 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorry | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.2">
+    <link rel="stylesheet" href="../../style.css?v=1.4.3">
     <style>
         :root {
-            --p1-color: #2196f3;
-            --p2-color: #f44336;
+            --p1-color: var(--accent-color);
+            --p2-color: #ff5555;
         }
         #game-container { position: relative; width: 100%; max-width: 600px; margin: 0 auto; padding-bottom: 20px; }
+        
         #board-wrapper { 
-            position: relative; width: 500px; height: 500px; margin: 20px auto; 
-            background: #fff; border-radius: 50%; border: 8px solid #333;
+            position: relative; width: 500px; height: 500px; max-width: 95vw; aspect-ratio: 1/1; margin: 20px auto; 
+            background: #222; border: 8px solid #333; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: visible;
         }
+
+        @media (max-width: 500px) {
+            #board-wrapper { height: auto; }
+            h1 { font-size: 1.5em; margin: 10px 0; }
+            #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
+            .square { width: 18px; height: 18px; font-size: 5px; }
+            .pawn { width: 14px; height: 14px; }
+        }
+
         .square { 
-            width: 22px; height: 22px; border: 1px solid #ddd; position: absolute; 
+            width: 22px; height: 22px; border: 1px solid rgba(255,255,255,0.05); position: absolute; 
             box-sizing: border-box; display: flex; align-items: center; justify-content: center;
-            font-size: 7px; color: #999; background: #fafafa;
+            font-size: 7px; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.02);
             border-radius: 3px;
         }
-        .square.p1-path { background: rgba(33, 150, 243, 0.1); }
-        .square.p2-path { background: rgba(244, 67, 54, 0.1); }
-        .square.safe { background: #e8f5e9; }
+        .square.p1-path { background: rgba(33, 150, 243, 0.15); border-color: rgba(33, 150, 243, 0.3); }
+        .square.p2-path { background: rgba(244, 67, 54, 0.15); border-color: rgba(244, 67, 54, 0.3); }
+        .square.safe { background: rgba(76, 175, 80, 0.1); border-color: rgba(76, 175, 80, 0.3); }
         
         .base-zone {
             position: absolute; width: 60px; height: 60px; border-radius: 50%;
             display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-            gap: 2px; padding: 2px; box-sizing: border-box; border: 2px dashed rgba(0,0,0,0.2);
+            gap: 2px; padding: 2px; box-sizing: border-box; border: 2px dashed rgba(255,255,255,0.1);
             z-index: 10;
         }
-        #p1-start { background: rgba(33, 150, 243, 0.2); }
-        #p1-home { background: rgba(33, 150, 243, 0.4); border: 2px solid var(--p1-color); }
-        #p2-start { background: rgba(244, 67, 54, 0.2); }
-        #p2-home { background: rgba(244, 67, 54, 0.4); border: 2px solid var(--p2-color); }
+        #p1-start { background: rgba(33, 150, 243, 0.1); }
+        #p1-home { background: rgba(33, 150, 243, 0.2); border: 2px solid var(--p1-color); }
+        #p2-start { background: rgba(244, 67, 54, 0.1); }
+        #p2-home { background: rgba(244, 67, 54, 0.2); border: 2px solid var(--p2-color); }
 
         .pawn { 
-            width: 18px; height: 18px; border-radius: 50%; 
-            border: 1px solid #000; z-index: 20; 
+            width: 22px; height: 22px; border-radius: 50%; 
+            border: 2px solid #000; z-index: 20; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.5);
             position: absolute; cursor: pointer;
         }
+        .pawn::after {
+            content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            border-radius: 50%; background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 100%);
+        }
+
         .pawn.selectable { animation: pulseSelect 1s infinite; transform: scale(1.2); z-index: 30; }
         @keyframes pulseSelect {
             0% { box-shadow: 0 0 0 0px gold; }
@@ -51,20 +67,42 @@
             100% { box-shadow: 0 0 0 0px rgba(255, 215, 0, 0); }
         }
 
-        #dice-trigger {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            width: 80px; height: 80px; background: #333; border-radius: 50%;
-            border: 5px solid gold; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; color: white; font-weight: bold; font-size: 1.5em;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 40;
-            transition: all 0.2s;
+        .hop-anim { animation: hop 0.4s ease-out; }
+        @keyframes hop {
+            0% { transform: scale(1) translateY(0); }
+            50% { transform: scale(1.3) translateY(-15px); }
+            100% { transform: scale(1) translateY(0); }
         }
-        #dice-trigger:active { transform: translate(-50%, -50%) scale(0.9); box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
-        #dice-trigger.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
+
+        #dice-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 70px; height: 70px; background: #fff; border-radius: 15px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 2.5em; font-weight: bold; color: #333;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.4); z-index: 40;
+            cursor: pointer; transition: transform 0.2s;
+        }
+        #dice-container:active { transform: translate(-50%, -50%) scale(0.9); }
+        #dice-container.disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .rolling { animation: diceRoll 0.1s infinite; }
+        @keyframes diceRoll {
+            0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.1) translate(2px, -2px); }
+            50% { transform: translate(-50%, -50%) rotate(5deg) scale(1) translate(-2px, 2px); }
+            100% { transform: translate(-50%, -50%) rotate(-5deg) scale(1.1) translate(0, 0); }
+        }
+
+        .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
+        @keyframes shake {
+            10%, 90% { transform: translate3d(-1px, 0, 0); }
+            20%, 80% { transform: translate3d(2px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+            40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.2</div>
+    <div id="version-tag">v1.4.3</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -112,7 +150,7 @@
 
         <div id="game-container">
             <div id="board-wrapper">
-                <div id="dice-trigger" onclick="handleRoll()">PUSH</div>
+                <div id="dice-container" onclick="handleRoll()">?</div>
                 
                 <!-- Zones -->
                 <div id="p1-start" class="base-zone"></div>
@@ -129,9 +167,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.4.2"></script>
-    <script src="../../profile.js?v=1.4.2"></script>
-    <script src="../../audio.js?v=1.4.2"></script>
+    <script src="../../network.js?v=1.4.3"></script>
+    <script src="../../profile.js?v=1.4.3"></script>
+    <script src="../../audio.js?v=1.4.3"></script>
     <script>
         // State: -1 = Start, 0-51 = Path, 100-105 = P1 Stretch/Home, 200-205 = P2 Stretch/Home
         let p1Pawns = [-1, -1, -1, -1];
@@ -360,6 +398,14 @@
                 targetX = sq.offsetLeft + 2;
                 targetY = sq.offsetTop + 2;
             }
+            
+            // Apply hop animation if it's a new position
+            if (p.style.left !== targetX + 'px' || p.style.top !== targetY + 'px') {
+                p.classList.remove('hop-anim');
+                void p.offsetWidth;
+                p.classList.add('hop-anim');
+            }
+
             p.style.left = targetX + 'px';
             p.style.top = targetY + 'px';
             
@@ -383,12 +429,19 @@
         }
 
         async function executeRoll(roll, isLocal) {
-            const btn = document.getElementById('dice-trigger');
-            btn.innerText = "...";
-            btn.classList.add('disabled');
-            await sleep(600);
+            const dice = document.getElementById('dice-container');
+            if (!dice) return;
+            
+            dice.classList.add('rolling');
+            if (window.AudioManager) AudioManager.play('roll');
+            for(let i=0; i<12; i++) {
+                dice.innerText = Math.floor(Math.random() * 6) + 1;
+                await sleep(60);
+            }
+            dice.classList.remove('rolling');
+            dice.innerText = roll;
+            
             currentRoll = roll;
-            btn.innerText = roll;
             document.getElementById('game-info').innerText = `Rolled a ${roll}! Select a pawn to move.`;
             render();
             
@@ -449,13 +502,15 @@
                 pos = currentPlayer === 'X' ? p1Enter : p2Enter;
                 pawns[idx] = pos;
                 render();
+                if (window.AudioManager) AudioManager.play('move');
                 await sleep(400);
             } else {
                 for (let i = 0; i < currentRoll; i++) {
                     pos = getNextPos(pos, currentPlayer);
                     pawns[idx] = pos;
                     render();
-                    await sleep(250);
+                    if (window.AudioManager) AudioManager.play('move');
+                    await sleep(350);
                 }
             }
             pawns[idx] = pos;
@@ -463,8 +518,11 @@
             
             isMoving = false;
             currentRoll = null;
-            document.getElementById('dice-trigger').classList.remove('disabled');
-            document.getElementById('dice-trigger').innerText = "PUSH";
+            const dice = document.getElementById('dice-container');
+            if (dice) {
+                dice.classList.remove('disabled');
+                dice.innerText = "?";
+            }
 
             if (checkWin()) return;
 
@@ -508,8 +566,11 @@
         function skipTurn() {
             if (isMoving) return;
             currentRoll = null;
-            document.getElementById('dice-trigger').classList.remove('disabled');
-            document.getElementById('dice-trigger').innerText = "PUSH";
+            const dice = document.getElementById('dice-container');
+            if (dice) {
+                dice.classList.remove('disabled');
+                dice.innerText = "?";
+            }
             currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
             if (myRole === 'host') broadcast();
             updateStatus();
@@ -608,8 +669,11 @@
             currentRoll = null; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
-            document.getElementById('dice-trigger').innerText = "PUSH";
-            document.getElementById('dice-trigger').classList.remove('disabled');
+            const dice = document.getElementById('dice-container');
+            if (dice) {
+                dice.classList.remove('disabled');
+                dice.innerText = "?";
+            }
             if (myRole === 'host') broadcast();
             updateStatus();
             render();
