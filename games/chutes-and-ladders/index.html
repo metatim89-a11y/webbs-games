@@ -118,7 +118,8 @@
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
 
-        <h1 style="margin-top: 0;">Chutes & Ladders</h1>
+        <h1>Chutes & Ladders</h1>
+        <p id="game-info" style="min-height: 1.2em; color: gold; font-weight: bold; margin-bottom: 5px;">Spin to start!</p>
         <p id="turn-info" style="font-weight: bold; color: var(--accent-color); margin-bottom: 10px;">Your Turn</p>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
@@ -165,6 +166,7 @@
             1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, // Ladders
             16: 6, 47: 26, 49: 11, 56: 53, 62: 19, 64: 60, 87: 24, 93: 73, 95: 75, 98: 78 // Chutes
         };
+        let hiddenSpecials = {};
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -173,6 +175,26 @@
         const hostPIN = urlParams.get('host');
 
         document.body.classList.add('theme-' + playerID);
+
+        function initHiddenSpecials() {
+            if (networkRole === 'client') return;
+            hiddenSpecials = {};
+            const types = ['swap', 'back', 'forward', 'ladder'];
+            const occupied = new Set([...Object.keys(specials).map(Number), ...Object.values(specials), 1, 100]);
+            
+            types.forEach(type => {
+                let pos;
+                let attempts = 0;
+                do {
+                    pos = Math.floor(Math.random() * 90) + 5;
+                    attempts++;
+                } while (occupied.has(pos) && attempts < 100);
+                if (attempts < 100) {
+                    hiddenSpecials[pos] = type;
+                    occupied.add(pos);
+                }
+            });
+        }
 
         function getNames() {
             const p1 = ProfileManager.resolveName(playerID);
@@ -183,6 +205,7 @@
         }
 
         window.onload = () => {
+            initHiddenSpecials();
             initBoard();
             if (gameType === 'online') setupMultiplayer();
             updateStatus();
@@ -221,6 +244,7 @@
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
                     active = state.active;
+                    if (state.hiddenSpecials) hiddenSpecials = state.hiddenSpecials;
                     if (player2ID === playerID) {
                         isSpectator = false;
                         myRole = 'player2';
@@ -246,7 +270,7 @@
             }
         }
 
-        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active }); }
+        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active, hiddenSpecials }); }
 
         function initBoard() {
             const boardEl = document.getElementById('board');
@@ -360,68 +384,134 @@
         }
 
         async function executeRoll(roll, isLocal = true) {
-            const dice = document.getElementById('dice-container');
-            const rollBtn = document.getElementById('roll-btn');
-            if (rollBtn) rollBtn.disabled = true;
+            try {
+                const dice = document.getElementById('dice-container');
+                const rollBtn = document.getElementById('roll-btn');
+                if (rollBtn) rollBtn.disabled = true;
 
-            dice.classList.add('rolling');
-            AudioManager.play('roll');
-            for(let i=0; i<12; i++) {
-                dice.innerText = Math.floor(Math.random() * 6) + 1;
-                await sleep(60);
-            }
-            dice.classList.remove('rolling');
-            dice.innerText = roll;
-            
-            let pId = currentPlayer === "X" ? 'p1' : 'p2';
-            let current = (currentPlayer === "X") ? p1Pos : p2Pos;
-            
-            if (current + roll <= 100) {
-                for(let i=0; i<roll; i++) {
-                    current++;
-                    if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
-                    movePawn(pId, current, true);
-                    AudioManager.play('move');
-                    await sleep(350);
+                dice.classList.add('rolling');
+                if (window.AudioManager) AudioManager.play('roll');
+                for(let i=0; i<12; i++) {
+                    dice.innerText = Math.floor(Math.random() * 6) + 1;
+                    await sleep(60);
                 }
+                dice.classList.remove('rolling');
+                dice.innerText = roll;
                 
-                if (specials[current]) {
-                    const isLadder = specials[current] > current;
-                    await sleep(400);
-                    current = specials[current];
-                    if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
-                    
-                    const pawn = document.getElementById('pawn-' + pId);
-                    spawnParticles(pawn.offsetLeft + 12, pawn.offsetTop + 12, isLadder ? '#4caf50' : '#f44336');
-                    
-                    if (!isLadder) document.getElementById('board-wrapper').classList.add('shake');
-                    movePawn(pId, current, true);
-                    AudioManager.play(isLadder ? 'climb' : 'slide');
-                    await sleep(600);
-                    document.getElementById('board-wrapper').classList.remove('shake');
-                }
+                let pId = currentPlayer === "X" ? 'p1' : 'p2';
+                let current = (currentPlayer === "X") ? p1Pos : p2Pos;
                 
-                if (current === 100) {
-                    active = false;
-                    const names = getNames();
-                    showGameOver(currentPlayer === "X" ? names.p1 : names.p2);
-                    AudioManager.play('win');
+                if (current + roll <= 100) {
+                    for(let i=0; i<roll; i++) {
+                        current++;
+                        if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                        movePawn(pId, current, true);
+                        if (window.AudioManager) AudioManager.play('move');
+                        await sleep(350);
+                    }
                     
-                    const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
-                    if (gameType === 'online') {
-                        const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                        ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-                    } else if (gameType === 'cpu') {
-                        ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
+                    if (specials[current]) {
+                        const isLadder = specials[current] > current;
+                        await sleep(400);
+                        current = specials[current];
+                        if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                        
+                        const pawn = document.getElementById('pawn-' + pId);
+                        if (pawn) spawnParticles(pawn.offsetLeft + 12, pawn.offsetTop + 12, isLadder ? '#4caf50' : '#f44336');
+                        
+                        if (!isLadder) document.getElementById('board-wrapper').classList.add('shake');
+                        movePawn(pId, current, true);
+                        if (window.AudioManager) AudioManager.play(isLadder ? 'climb' : 'slide');
+                        await sleep(600);
+                        document.getElementById('board-wrapper').classList.remove('shake');
+                    }
+
+                    if (hiddenSpecials[current]) {
+                        const type = hiddenSpecials[current];
+                        await sleep(600);
+                        let message = "";
+                        
+                        if (type === 'swap') {
+                            message = "HIDDEN SWAP!";
+                            const tempP1 = p1Pos;
+                            p1Pos = p2Pos;
+                            p2Pos = tempP1;
+                            movePawn('p1', p1Pos, true);
+                            movePawn('p2', p2Pos, true);
+                            current = (currentPlayer === "X") ? p1Pos : p2Pos;
+                            if (window.AudioManager) AudioManager.play('slide');
+                        } else {
+                            let target = current;
+                            if (type === 'back') {
+                                message = "HIDDEN TRAP: BACK 5!";
+                                target = Math.max(1, current - 5);
+                                if (window.AudioManager) AudioManager.play('slide');
+                            } else if (type === 'forward') {
+                                message = "HIDDEN BOOST: FORWARD 5!";
+                                target = Math.min(99, current + 5);
+                                if (window.AudioManager) AudioManager.play('climb');
+                            } else if (type === 'ladder') {
+                                message = "HIDDEN SHORTCUT: TO NEAREST LADDER!";
+                                let closest = -1;
+                                let minDist = 101;
+                                Object.keys(specials).forEach(s => {
+                                    const start = parseInt(s);
+                                    if (specials[start] > start) {
+                                        let dist = Math.abs(start - current);
+                                        if (dist < minDist) { minDist = dist; closest = start; }
+                                    }
+                                });
+                                if (closest !== -1) target = closest;
+                                if (window.AudioManager) AudioManager.play('climb');
+                            }
+                            current = target;
+                            if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                            movePawn(pId, current, true);
+                        }
+                        
+                        const info = document.getElementById('game-info');
+                        if (info) {
+                            info.innerText = message;
+                            await sleep(1000);
+                            info.innerText = "";
+                        }
+
+                        if (specials[current]) {
+                            await sleep(400);
+                            const isLadder = specials[current] > current;
+                            current = specials[current];
+                            if (currentPlayer === "X") p1Pos = current; else p2Pos = current;
+                            movePawn(pId, current, true);
+                            if (window.AudioManager) AudioManager.play(isLadder ? 'climb' : 'slide');
+                            await sleep(600);
+                        }
+                    }
+                    
+                    if (current === 100) {
+                        active = false;
+                        const names = getNames();
+                        showGameOver(currentPlayer === "X" ? names.p1 : names.p2);
+                        if (window.AudioManager) AudioManager.play('win');
+                        
+                        const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+                        if (gameType === 'online') {
+                            const iWon = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                            ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                        } else if (gameType === 'cpu') {
+                            ProfileManager.recordResult('Chutes & Ladders', sessionPlayer, 'CPU', currentPlayer === 'X' ? 'win' : 'loss');
+                        }
                     }
                 }
-            }
-            
-            if (active) {
-                currentPlayer = (currentPlayer === "X") ? "O" : "X";
-                if (isLocal) broadcast();
+                
+                if (active) {
+                    currentPlayer = (currentPlayer === "X") ? "O" : "X";
+                    if (isLocal) broadcast();
+                    updateStatus();
+                    if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) setTimeout(() => cpuMove(), 800);
+                }
+            } catch (err) {
+                console.error(err);
                 updateStatus();
-                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) setTimeout(() => cpuMove(), 800);
             }
         }
 
@@ -448,6 +538,7 @@
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
             document.getElementById('game-over-modal').style.display = 'none';
+            initHiddenSpecials();
             p1Pos = 1; p2Pos = 1; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
