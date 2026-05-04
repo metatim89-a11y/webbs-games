@@ -53,11 +53,73 @@ function toggleAdminSettings() {
             <h3>Pending Guest Approvals</h3>
             <div id="queue-list">Loading...</div>
         </div>
+        <hr>
+        <div id="audio-settings">
+            <h3>Global Sound Settings (Button Click)</h3>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px; background:rgba(255,255,255,0.05); padding:15px; border-radius:10px;">
+                <div>
+                    <label>Wave Type:</label><br>
+                    <select id="audio-type" style="width:100%; padding:5px; margin-top:5px; background:#333; color:white; border:1px solid #555;">
+                        <option value="sine">Sine (Smooth)</option>
+                        <option value="square">Square (Retro)</option>
+                        <option value="sawtooth">Sawtooth (Sharp)</option>
+                        <option value="triangle">Triangle (Soft)</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Frequency (Hz):</label><br>
+                    <input type="number" id="audio-freq" min="100" max="2000" step="50" style="width:100%; padding:5px; margin-top:5px; background:#333; color:white; border:1px solid #555;">
+                </div>
+                <div>
+                    <label>Duration (s):</label><br>
+                    <input type="number" id="audio-duration" min="0.05" max="1.0" step="0.05" style="width:100%; padding:5px; margin-top:5px; background:#333; color:white; border:1px solid #555;">
+                </div>
+                <div>
+                    <label>Volume:</label><br>
+                    <input type="number" id="audio-vol" min="0.01" max="0.5" step="0.01" style="width:100%; padding:5px; margin-top:5px; background:#333; color:white; border:1px solid #555;">
+                </div>
+            </div>
+            <div style="margin-top:15px; display:flex; gap:10px;">
+                <button onclick="testAudio()" style="background:#555; color:white; border:none; padding:10px 20px; border-radius:5px; cursor:pointer;">Test Sound</button>
+                <button onclick="saveAudioSettings()" style="background:var(--accent-color); color:black; border:none; padding:10px 20px; border-radius:5px; cursor:pointer; font-weight:bold;">Save Global Settings</button>
+            </div>
+        </div>
     `;
 
     document.body.appendChild(panel);
+    
+    // Fill audio settings
+    const s = AudioEngine.settings.click;
+    document.getElementById('audio-type').value = s.type;
+    document.getElementById('audio-freq').value = s.freq;
+    document.getElementById('audio-duration').value = s.duration;
+    document.getElementById('audio-vol').value = s.vol;
+
     renderUserList();
     renderApprovalQueue();
+}
+
+/* --- Audio Settings Logic --- */
+function testAudio() {
+    const type = document.getElementById('audio-type').value;
+    const freq = parseFloat(document.getElementById('audio-freq').value);
+    const duration = parseFloat(document.getElementById('audio-duration').value);
+    const vol = parseFloat(document.getElementById('audio-vol').value);
+    
+    if (window.AudioEngine) {
+        AudioEngine.playTone(freq, type, duration, vol);
+    }
+}
+
+function saveAudioSettings() {
+    const type = document.getElementById('audio-type').value;
+    const freq = parseFloat(document.getElementById('audio-freq').value);
+    const duration = parseFloat(document.getElementById('audio-duration').value);
+    const vol = parseFloat(document.getElementById('audio-vol').value);
+
+    AudioEngine.settings.click = { type, freq, duration, vol };
+    AudioEngine.saveSettings();
+    alert("Global sound settings saved!");
 }
 
 /* --- User Management --- */

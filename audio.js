@@ -6,6 +6,11 @@
 const AudioEngine = {
     ctx: null,
     enabled: true,
+    
+    // Default settings for the click sound
+    settings: JSON.parse(localStorage.getItem('webbs_audio_settings')) || {
+        click: { freq: 600, type: 'sine', duration: 0.1, vol: 0.1 }
+    },
 
     init() {
         if (!this.ctx) {
@@ -14,10 +19,13 @@ const AudioEngine = {
                 this.ctx = new AudioContext();
             }
         }
-        // Resume context on user interaction if suspended
         if (this.ctx && this.ctx.state === 'suspended') {
             this.ctx.resume();
         }
+    },
+
+    saveSettings() {
+        localStorage.setItem('webbs_audio_settings', JSON.stringify(this.settings));
     },
 
     playTone(frequency, type, duration, vol = 0.1) {
@@ -42,7 +50,8 @@ const AudioEngine = {
     },
 
     playClick() {
-        this.playTone(600, 'sine', 0.1, 0.1);
+        const s = this.settings.click;
+        this.playTone(s.freq, s.type, s.duration, s.vol);
     },
 
     playMove() {
