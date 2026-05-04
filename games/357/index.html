@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>357 | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.3.5">
+    <link rel="stylesheet" href="../../style.css?v=1.3.6">
 </head>
 <body>
-    <div id="version-tag">v1.3.5</div>
+    <div id="version-tag">v1.3.6</div>
     
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -65,9 +65,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.3.5"></script>
-    <script src="../../profile.js?v=1.3.5"></script>
-    <script src="../../audio.js?v=1.3.5"></script>
+    <script src="../../network.js?v=1.3.6"></script>
+    <script src="../../profile.js?v=1.3.6"></script>
+    <script src="../../audio.js?v=1.3.6"></script>
     <script>
         let piles = [3, 5, 7];
         let selectedRow = null, selectedCount = 0;
@@ -134,7 +134,10 @@
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
                     }
-                    if (!active) showGameOver(currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1");
+                    if (!active) {
+                        const winner = state.winner || (currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
+                        showGameOver(winner);
+                    }
                     render();
                 };
                 NetworkManager.onJoinAccepted = () => {
@@ -147,7 +150,12 @@
         }
 
         function broadcast() {
-            if (myRole === 'host') NetworkManager.broadcastState({ piles, currentPlayer, player2ID, active });
+            if (myRole === 'host') {
+                const names = getNames();
+                const allEmpty = piles.every(p => p === 0);
+                const winnerName = allEmpty ? (currentPlayer === "X" ? names.p1 : names.p2) : null;
+                NetworkManager.broadcastState({ piles, currentPlayer, player2ID, active, winner: winnerName });
+            }
         }
 
         function render() {
@@ -161,14 +169,14 @@
                     
                     if (j < piles[i]) {
                         const piece = document.createElement('div');
-                        piece.className = 'nim-piece' + (selectedRow === i && j >= piles[i] - selectedCount ? ' selected' : '');
-                        piece.onclick = () => selectPiece(i);
+                        const isSelected = selectedRow === i && j >= piles[i] - selectedCount;
+                        piece.className = 'nim-piece' + (isSelected ? ' selected' : '');
+                        piece.onclick = () => selectPiece(i, j);
                         slot.appendChild(piece);
                     }
                     rowEl.appendChild(slot);
                 }
             });
-            document.getElementById('end-turn-btn').disabled = selectedCount === 0 || !active || isSpectator;
             updateStatus();
         }
 
@@ -196,16 +204,21 @@
             info.innerText = text;
 
             // Also disable end turn button if not your turn
-            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
             endTurnBtn.disabled = selectedCount === 0 || !active || isSpectator || !isMyTurn;
         }
 
-        function selectPiece(row) {
+        function selectPiece(row, index) {
             if (!canMove()) return;
 
-            if (selectedRow !== null && selectedRow !== row) { selectedCount = 1; }
-            else { selectedCount = (selectedCount % piles[row]) + 1; }
-            selectedRow = row;
+            const count = piles[row] - index;
+            if (selectedRow === row && selectedCount === count) {
+                // Deselect if clicking the same count
+                selectedRow = null;
+                selectedCount = 0;
+            } else {
+                selectedRow = row;
+                selectedCount = count;
+            }
             render();
         }
 
