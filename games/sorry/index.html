@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorry | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.3.4">
+    <link rel="stylesheet" href="../../style.css?v=1.3.5">
     <style>
         :root {
             --p1-color: #2196f3;
@@ -64,7 +64,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.3.4</div>
+    <div id="version-tag">v1.3.5</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -129,9 +129,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.3.4"></script>
-    <script src="../../profile.js?v=1.3.4"></script>
-    <script src="../../audio.js?v=1.3.4"></script>
+    <script src="../../network.js?v=1.3.5"></script>
+    <script src="../../profile.js?v=1.3.5"></script>
+    <script src="../../audio.js?v=1.3.5"></script>
     <script>
         // State: -1 = Start, 0-51 = Path, 100-105 = P1 Stretch/Home, 200-205 = P2 Stretch/Home
         let p1Pawns = [-1, -1, -1, -1];
@@ -491,7 +491,7 @@
         }
 
         function checkBump(pos) {
-            if (pos >= 100) return; // Safe zone
+            if (pos < 0 || pos >= 100) return; // Only perimeter squares can bump
             const opponents = currentPlayer === 'X' ? p2Pawns : p1Pawns;
             let bumped = false;
             opponents.forEach((oPos, i) => {
@@ -536,14 +536,14 @@
                     }
                     
                     const opponentPawns = currentPlayer === 'X' ? p2Pawns : p1Pawns;
-                    if (simulatedPos < 100 && opponentPawns.includes(simulatedPos)) {
+                    if (simulatedPos >= 0 && simulatedPos < 100 && opponentPawns.includes(simulatedPos)) {
                         bumpIdx = idx;
                     }
 
                     // Progress metric: higher is better
                     let progress = simulatedPos;
-                    if (simulatedPos >= 200) progress += 100; // P2 Safe zone
-                    if (simulatedPos === 206) progress += 500; // Goal
+                    if (simulatedPos >= 100) progress += 100;
+                    if (simulatedPos === 106 || simulatedPos === 206) progress += 500;
 
                     if (progress > maxProgress) {
                         maxProgress = progress;
