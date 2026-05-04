@@ -4,35 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorry | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.2.0">
+    <link rel="stylesheet" href="../../style.css?v=1.3.0">
     <style>
-        #board { width: 320px; height: 320px; border: 5px solid #444; position: relative; margin: 20px auto; background: #eee; }
-        .square { width: 40px; height: 40px; border: 1px solid #ccc; position: absolute; box-sizing: border-box; display: flex; align-items: center; justify-content: center; }
+        :root {
+            --p1-color: #2196f3;
+            --p2-color: #f44336;
+        }
+        #game-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; padding-bottom: 20px; }
+        #board-wrapper { 
+            position: relative; width: 360px; height: 360px; margin: 20px auto; 
+            background: #fff; border-radius: 20px; border: 8px solid #333;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            overflow: hidden;
+        }
+        .square { 
+            width: 30px; height: 30px; border: 1px solid #ddd; position: absolute; 
+            box-sizing: border-box; display: flex; align-items: center; justify-content: center;
+            font-size: 8px; color: #999; background: #fafafa;
+        }
+        .square.p1-path { background: rgba(33, 150, 243, 0.1); }
+        .square.p2-path { background: rgba(244, 67, 54, 0.1); }
+        .square.safe { background: #e8f5e9; }
+        
+        .base-zone {
+            position: absolute; width: 80px; height: 80px; border-radius: 50%;
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+            gap: 5px; padding: 10px; box-sizing: border-box; border: 3px dashed rgba(0,0,0,0.2);
+        }
+        #p1-start { top: 40px; left: 40px; background: rgba(33, 150, 243, 0.2); }
+        #p1-home { top: 140px; left: 40px; background: rgba(33, 150, 243, 0.4); border: 3px solid var(--p1-color); }
+        #p2-start { bottom: 40px; right: 40px; background: rgba(244, 67, 54, 0.2); }
+        #p2-home { bottom: 140px; right: 40px; background: rgba(244, 67, 54, 0.4); border: 3px solid var(--p2-color); }
+
         .pawn { 
-            width: 25px; height: 25px; border-radius: 50%; background: var(--primary-color); 
-            border: 2px solid #000; z-index: 10; 
-            transition: left 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94), top 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            width: 22px; height: 22px; border-radius: 50%; 
+            border: 2px solid #000; z-index: 20; 
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 3px 6px rgba(0,0,0,0.4);
-            position: absolute;
+            position: absolute; cursor: pointer;
         }
-        .pawn::after { content: ""; position: absolute; top: 20%; left: 20%; width: 30%; height: 30%; border-radius: 50%; background: rgba(255,255,255,0.4); }
-        #draw-btn { margin-top: 20px; padding: 10px 20px; font-size: 1.1em; cursor: pointer; }
-        #deck-container { position: relative; width: 60px; height: 90px; margin: 20px auto; }
-        .card-back { 
-            width: 60px; height: 90px; background: #800; border: 2px solid white; border-radius: 5px; 
-            position: absolute; top: 0; left: 0; box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+        .pawn.selectable { animation: pulseSelect 1s infinite; transform: scale(1.2); z-index: 30; }
+        @keyframes pulseSelect {
+            0% { box-shadow: 0 0 0 0px gold; }
+            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0px rgba(255, 215, 0, 0); }
         }
-        .card-flying {
-            width: 60px; height: 90px; background: white; border: 2px solid #444; border-radius: 5px;
-            position: fixed; z-index: 100; display: flex; align-items: center; justify-content: center;
-            font-size: 2em; font-weight: bold; color: #222; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
-            transition: all 0.6s ease-out; pointer-events: none;
+
+        #dice-trigger {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80px; height: 80px; background: #333; border-radius: 50%;
+            border: 5px solid gold; cursor: pointer; display: flex; align-items: center;
+            justify-content: center; color: white; font-weight: bold; font-size: 1.5em;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); z-index: 40;
+            transition: all 0.2s;
         }
-        .card-hidden { opacity: 0; transform: scale(0.5) translateY(100px); }
+        #dice-trigger:active { transform: translate(-50%, -50%) scale(0.9); box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
+        #dice-trigger.disabled { opacity: 0.5; cursor: not-allowed; filter: grayscale(1); }
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.2.0</div>
+    <div id="version-tag">v1.3.0</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -41,12 +72,13 @@
             <span class="rules-subtext">Need help?</span>
         </div>
         <div class="rules-content-mini" id="rules-content">
-            <strong>Objective:</strong> Get both of your pawns HOME.<br><br>
+            <strong>Objective:</strong> Get all 4 pawns HOME.<br><br>
             <strong>Rules:</strong>
             <ul>
-                <li>Draw cards to move.</li>
-                <li>Landing on an opponent's pawn sends them back to START.</li>
-                <li>"Sorry" cards let you take an opponent's place and send them back!</li>
+                <li>Click the center dice to roll (1-6).</li>
+                <li>Roll a 1 or 2 to enter the board from START.</li>
+                <li>Landing on an opponent sends them back to START!</li>
+                <li>Home Stretch is safe zone.</li>
             </ul>
         </div>
     </div>
@@ -65,42 +97,55 @@
             <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
         </div>
 
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
             <button onclick="location.href='../../index.html'">← Back</button>
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
 
-        <h1 id="status">Sorry</h1>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+        <h1 id="status" style="margin-top: 0;">Sorry</h1>
+        <p id="turn-info" style="font-weight: bold; color: var(--accent-color); margin-bottom: 5px;">Your Turn</p>
 
-        <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
+        <div id="multiplayer-controls" style="margin-bottom: 10px; display: none;">
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
-        <div id="board"></div>
-        <div id="deck-container">
-            <div class="card-back" style="transform: translate(-2px, -2px);"></div>
-            <div class="card-back" style="transform: translate(-1px, -1px);"></div>
-            <div class="card-back" onclick="handleDraw()" style="cursor: pointer;"></div>
+        <div id="game-container">
+            <div id="board-wrapper">
+                <div id="dice-trigger" onclick="handleRoll()">PUSH</div>
+                
+                <!-- Zones -->
+                <div id="p1-start" class="base-zone"></div>
+                <div id="p1-home" class="base-zone"></div>
+                <div id="p2-start" class="base-zone"></div>
+                <div id="p2-home" class="base-zone"></div>
+
+                <div id="squares"></div>
+            </div>
         </div>
 
-        <button id="draw-btn" class="modal-btn" onclick="handleDraw()">Draw Card</button>
-        <p id="game-info" style="min-height: 1.5em; font-weight: bold; color: gold;">Click the deck to move!</p>
-        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
+        <p id="game-info" style="min-height: 1.5em; font-weight: bold; color: gold; margin-top: 10px;">Push the center button to roll!</p>
+        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="resetGame()">Reset</button>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.2.0"></script>
-    <script src="../../profile.js?v=1.2.0"></script>
+    <script src="../../network.js?v=1.3.0"></script>
+    <script src="../../profile.js?v=1.3.0"></script>
+    <script src="../../audio.js?v=1.3.0"></script>
     <script>
-        let p1Pos = 0, p2Pos = 0;
+        // State: -1 = Start, 0-51 = Path, 100-105 = P1 Stretch/Home, 200-205 = P2 Stretch/Home
+        let p1Pawns = [-1, -1, -1, -1];
+        let p2Pawns = [-1, -1, -1, -1];
+        let currentRoll = null;
         let currentPlayer = "X"; 
         let active = true;
         let myRole = 'local';
         let isSpectator = false;
         let player2ID = null;
         let startingPlayer = "X";
-        const boardSize = 28;
+
+        const boardSize = 52; // Perimeter squares
+        const p1Enter = 4, p1HomeStretch = 2; // P1 enters at 4, home stretch starts at 2
+        const p2Enter = 30, p2HomeStretch = 28; // P2 enters at 30, home stretch starts at 28
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -114,6 +159,7 @@
             createBoard();
             if (gameType === 'online') setupMultiplayer();
             updateStatus();
+            render();
         };
 
         function toggleRules() {
@@ -130,11 +176,11 @@
                         broadcast();
                     }
                 };
-                NetworkManager.onMoveReceived = (move) => { 
-                    if (currentPlayer === "O") {
-                        // Host receives move from Player 2, broadcasts animation to spectators
-                        NetworkManager.broadcastAnimation({ type: 'DRAW', move });
-                        executeDraw(move, true); 
+                NetworkManager.onMoveReceived = (data) => { 
+                    if (data.type === 'ROLL') {
+                        if (currentPlayer === "O") executeRoll(data.roll, true);
+                    } else if (data.type === 'MOVE') {
+                        if (currentPlayer === "O") executeMove(data.pawnIdx, true);
                     }
                 };
                 NetworkManager.init('host');
@@ -146,7 +192,7 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
-                    p1Pos = state.p1Pos; p2Pos = state.p2Pos;
+                    p1Pawns = state.p1Pawns; p2Pawns = state.p2Pawns;
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
                     active = state.active;
@@ -155,16 +201,20 @@
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
                     }
-                    if (!active) showGameOver(currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
-                    updatePawn('p1', p1Pos);
-                    updatePawn('p2', p2Pos);
+                    if (!active) {
+                        const winner = state.winner || (currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1");
+                        showGameOver(winner);
+                    }
+                    render();
                     updateStatus();
                 };
                 NetworkManager.onAnimationTrigger = (data) => {
-                    if (data.type === 'DRAW') {
-                        // Avoid re-playing animation if we are the one who triggered it optimistically
+                    if (data.type === 'ROLL') {
                         const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                        if (!isMyTurn) executeDraw(data.move, false);
+                        if (!isMyTurn) executeRoll(data.roll, false);
+                    } else if (data.type === 'MOVE') {
+                        const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                        if (!isMyTurn) executeMove(data.pawnIdx, false);
                     }
                 };
                 NetworkManager.onJoinAccepted = () => {
@@ -176,206 +226,312 @@
             }
         }
 
-        function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active }); }
+        function broadcast(extra = {}) { 
+            if (myRole === 'host') {
+                const p1Win = p1Pawns.every(p => p === 106);
+                const p2Win = p2Pawns.every(p => p === 206);
+                const winnerName = p1Win ? "PLAYER 1" : (p2Win ? "PLAYER 2" : null);
+                NetworkManager.broadcastState({ p1Pawns, p2Pawns, currentPlayer, player2ID, active, winner: winnerName, ...extra }); 
+            }
+        }
 
         function createBoard() {
-            const board = document.getElementById('board');
-            for(let i=0; i<8; i++) addSquare(i*40, 0); 
-            for(let i=1; i<8; i++) addSquare(280, i*40); 
-            for(let i=1; i<8; i++) addSquare(280-(i*40), 280); 
-            for(let i=1; i<7; i++) addSquare(0, 280-(i*40)); 
-            createPawn('p1', 'var(--accent-color)');
-            createPawn('p2', '#ff5555');
-            updatePawn('p1', 0);
-            updatePawn('p2', 0);
-        }
+            const container = document.getElementById('squares');
+            container.innerHTML = '';
+            
+            // Perimeter Path (52 squares)
+            for(let i=0; i<13; i++) addSquare(i*27.5, 0, i, i === p1Enter ? 'p1-path' : ''); // Top
+            for(let i=1; i<13; i++) addSquare(330, i*27.5, 13+i-1, 13+i-1 === p2Enter ? 'p2-path' : ''); // Right
+            for(let i=12; i>=0; i--) addSquare(i*27.5, 330, 26+(12-i)); // Bottom
+            for(let i=11; i>=1; i--) addSquare(0, i*27.5, 39+(11-i)); // Left
 
-        function addSquare(x, y) {
-            const sq = document.createElement('div');
-            sq.className = 'square';
-            sq.style.left = x + 'px'; sq.style.top = y + 'px';
-            document.getElementById('board').appendChild(sq);
-        }
+            // P1 Home Stretch (5 squares)
+            for(let i=1; i<=5; i++) addSquare(27.5*2, i*27.5, 100+i, 'p1-path safe');
+            // P2 Home Stretch (5 squares)
+            for(let i=1; i<=5; i++) addSquare(27.5*10, 330-(i*27.5), 200+i, 'p2-path safe');
 
-        function createPawn(id, color) {
-            const pawn = document.createElement('div');
-            pawn.id = 'pawn-' + id;
-            pawn.className = 'pawn';
-            pawn.style.background = color;
-            document.getElementById('board').appendChild(pawn);
-        }
+            // Visual markers for turn-ins
+            document.getElementById('sq-' + p1HomeStretch).style.border = '2px solid var(--p1-color)';
+            document.getElementById('sq-' + p2HomeStretch).style.border = '2px solid var(--p2-color)';
 
-        function updatePawn(id, pos, animate = false) {
-            const squares = document.querySelectorAll('.square');
-            const pawn = document.getElementById('pawn-' + id);
-            const target = squares[pos];
-            if (!target || !pawn) return;
-            if (animate) {
-                pawn.classList.remove('hop-anim');
-                void pawn.offsetWidth; 
-                pawn.classList.add('hop-anim');
+            // Pawns
+            for(let i=0; i<4; i++) {
+                createPawn('p1', i, 'var(--p1-color)');
+                createPawn('p2', i, 'var(--p2-color)');
             }
-            const offset = (id === 'p2') ? 12 : 3;
-            pawn.style.left = (target.offsetLeft + offset) + 'px';
-            pawn.style.top = (target.offsetTop + offset) + 'px';
+        }
+
+        function addSquare(x, y, id, cls = '') {
+            const sq = document.createElement('div');
+            sq.className = 'square ' + cls;
+            sq.id = 'sq-' + id;
+            sq.style.left = x + 'px'; sq.style.top = y + 'px';
+            document.getElementById('squares').appendChild(sq);
+        }
+
+        function createPawn(player, idx, color) {
+            const p = document.createElement('div');
+            p.id = `pawn-${player}-${idx}`;
+            p.className = 'pawn';
+            p.style.background = color;
+            p.onclick = () => handlePawnClick(player, idx);
+            document.getElementById('board-wrapper').appendChild(p);
+        }
+
+        function render() {
+            p1Pawns.forEach((pos, i) => updatePawnPos('p1', i, pos));
+            p2Pawns.forEach((pos, i) => updatePawnPos('p2', i, pos));
+            
+            const canMoveAny = getSelectablePawns().length > 0;
+            if (currentRoll && !canMoveAny) {
+                document.getElementById('game-info').innerText = "No moves possible! Turn skipped.";
+                setTimeout(skipTurn, 1500);
+            }
+        }
+
+        function updatePawnPos(player, idx, pos) {
+            const p = document.getElementById(`pawn-${player}-${idx}`);
+            let targetX, targetY;
+
+            if (pos === -1) {
+                const zone = document.getElementById(`${player}-start`);
+                targetX = zone.offsetLeft + (idx % 2) * 25 + 15;
+                targetY = zone.offsetTop + Math.floor(idx / 2) * 25 + 15;
+            } else if (pos === 106 || pos === 206) {
+                const zone = document.getElementById(`${player}-home`);
+                targetX = zone.offsetLeft + (idx % 2) * 25 + 15;
+                targetY = zone.offsetTop + Math.floor(idx / 2) * 25 + 15;
+            } else {
+                const sq = document.getElementById('sq-' + pos);
+                targetX = sq.offsetLeft + 4;
+                targetY = sq.offsetTop + 4;
+            }
+            p.style.left = targetX + 'px';
+            p.style.top = targetY + 'px';
+            
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            const selectable = isMyTurn && currentRoll && getSelectablePawns().includes(idx) && ((player === 'p1' && currentPlayer === 'X') || (player === 'p2' && currentPlayer === 'O'));
+            p.classList.toggle('selectable', !!selectable);
         }
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-        async function flyCard(num) {
-            const deck = document.getElementById('deck-container');
-            const rect = deck.getBoundingClientRect();
-            const card = document.createElement('div');
-            card.className = 'card-flying card-hidden';
-            card.style.left = rect.left + 'px'; card.style.top = rect.top + 'px';
-            card.innerText = num;
-            document.body.appendChild(card);
-            card.offsetHeight;
-            card.classList.remove('card-hidden');
-            card.style.left = 'calc(50% - 30px)';
-            card.style.top = 'calc(50% - 45px)';
-            card.style.transform = 'scale(2) rotate(360deg)';
-            await sleep(1000);
-            card.style.opacity = '0';
-            card.style.transform = 'scale(3) rotate(720deg)';
-            await sleep(400);
-            card.remove();
+        function handleRoll() {
+            if (!active || currentRoll || isSpectator) return;
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local');
+            if (!isMyTurn) return;
+
+            const roll = Math.floor(Math.random() * 6) + 1;
+            if (myRole === 'player2') NetworkManager.sendMove({ type: 'ROLL', roll });
+            else if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
+            
+            executeRoll(roll, true);
         }
 
-        async function handleDraw() {
-            if (!canMove()) return;
-
-            const move = Math.floor(Math.random() * 5) + 1;
+        async function executeRoll(roll, isLocal) {
+            const btn = document.getElementById('dice-trigger');
+            btn.innerText = "...";
+            btn.classList.add('disabled');
+            await sleep(600);
+            currentRoll = roll;
+            btn.innerText = roll;
+            document.getElementById('game-info').innerText = `Rolled a ${roll}! Select a pawn to move.`;
+            render();
             
-            if (myRole === 'player2') {
-                NetworkManager.sendMove(move);
-                // Optimistic execution for client
-                await executeDraw(move, false);
+            if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
+                setTimeout(cpuLogic, 1000);
+            }
+        }
+
+        function handlePawnClick(player, idx) {
+            if (!currentRoll || !active) return;
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local');
+            if (!isMyTurn) return;
+            if (player === 'p1' && currentPlayer !== 'X') return;
+            if (player === 'p2' && currentPlayer !== 'O') return;
+
+            if (getSelectablePawns().includes(idx)) {
+                if (myRole === 'player2') NetworkManager.sendMove({ type: 'MOVE', pawnIdx: idx });
+                else if (myRole === 'host') NetworkManager.broadcastAnimation({ type: 'MOVE', pawnIdx: idx });
+                executeMove(idx, true);
+            }
+        }
+
+        function getSelectablePawns() {
+            if (!currentRoll) return [];
+            const pawns = currentPlayer === 'X' ? p1Pawns : p2Pawns;
+            const selectable = [];
+            
+            pawns.forEach((pos, i) => {
+                if (pos === -1) {
+                    if (currentRoll === 1 || currentRoll === 2) selectable.push(i);
+                } else if (pos < 100 && pos >= 0) {
+                    selectable.push(i);
+                } else if (pos >= 100 && pos < 106) {
+                    if (pos + currentRoll <= (currentPlayer === 'X' ? 106 : 206)) selectable.push(i);
+                }
+            });
+            return selectable;
+        }
+
+        async function executeMove(idx, isLocal) {
+            let pawns = currentPlayer === 'X' ? p1Pawns : p2Pawns;
+            let pos = pawns[idx];
+            
+            if (pos === -1) {
+                pos = currentPlayer === 'X' ? p1Enter : p2Enter;
             } else {
-                // Host broadcast and execute
-                NetworkManager.broadcastAnimation({ type: 'DRAW', move });
-                await executeDraw(move, true);
-            }
-        }
-
-        function canMove() {
-            if (isSpectator || !active) return false;
-            
-            // Validate turn roles
-            if (gameType === 'cpu' && currentPlayer === "O") return false;
-            if (myRole === 'host' && currentPlayer !== "X") return false;
-            if (myRole === 'player2' && currentPlayer !== "O") return false;
-
-            return true;
-        }
-
-        async function executeDraw(move, isLocal = true) {
-            const drawBtn = document.getElementById('draw-btn');
-            drawBtn.disabled = true; // Block during animation
-            
-            await flyCard(move);
-            document.getElementById('game-info').innerText = (currentPlayer === 'X' ? 'Player 1' : 'Player 2') + ` moved ${move} spaces!`;
-            const pId = (currentPlayer === 'X' ? 'p1' : 'p2');
-            let currentPos = (currentPlayer === 'X' ? p1Pos : p2Pos);
-
-            for (let i = 0; i < move; i++) {
-                currentPos = (currentPos + 1) % boardSize;
-                updatePawn(pId, currentPos, true);
-                await sleep(350);
-            }
-
-            if (currentPlayer === 'X') {
-                p1Pos = currentPos;
-                if (p1Pos === 0 && move > 0) win("PLAYER 1");
-            } else {
-                p2Pos = currentPos;
-                if (p2Pos === 0 && move > 0) win("PLAYER 2");
-            }
-
-            if (p1Pos === p2Pos && p1Pos !== 0) {
-                if (currentPlayer === 'X') { p2Pos = 0; updatePawn('p2', 0, true); }
-                else { p1Pos = 0; updatePawn('p1', 0, true); }
-                document.getElementById('game-info').innerText += " SORRY!";
-                await sleep(500);
-            }
-
-            if (active) {
-                currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
-                if (isLocal) broadcast();
-                updateStatus();
-                
-                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                    setTimeout(cpuMove, 1000);
+                for (let i = 0; i < currentRoll; i++) {
+                    pos = getNextPos(pos, currentPlayer);
+                    pawns[idx] = pos;
+                    render();
+                    await sleep(250);
                 }
             }
-        }
-
-        async function cpuMove() {
-            if (!active) return;
-            const move = Math.floor(Math.random() * 5) + 1;
-            await executeDraw(move, true);
-        }
-
-        function win(player) {
-            active = false;
-            showGameOver(player);
+            pawns[idx] = pos;
+            checkBump(pos);
             
-            const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+            currentRoll = null;
+            document.getElementById('dice-trigger').classList.remove('disabled');
+            document.getElementById('dice-trigger').innerText = "PUSH";
 
-            if (gameType === 'online') {
-                const iWon = (myRole === 'host' && player === 'PLAYER 1') || (myRole === 'player2' && player === 'PLAYER 2');
-                ProfileManager.recordResult('Sorry', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
-            } else if (gameType === 'cpu') {
-                ProfileManager.recordResult('Sorry', sessionPlayer, 'CPU', player === 'PLAYER 1' ? 'win' : 'loss');
+            if (checkWin()) return;
+
+            currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+            if (isLocal) broadcast();
+            updateStatus();
+            render();
+            
+            if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
+                setTimeout(handleRoll, 1000);
             }
+        }
+
+        function getNextPos(pos, player) {
+            if (player === 'X') {
+                if (pos === p1HomeStretch) return 101;
+                if (pos >= 101 && pos < 106) return pos + 1;
+            } else {
+                if (pos === p2HomeStretch) return 201;
+                if (pos >= 201 && pos < 206) return pos + 1;
+            }
+            return (pos + 1) % boardSize;
+        }
+
+        function checkBump(pos) {
+            if (pos >= 100) return; // Safe zone
+            const opponents = currentPlayer === 'X' ? p2Pawns : p1Pawns;
+            opponents.forEach((oPos, i) => {
+                if (oPos === pos) {
+                    opponents[i] = -1;
+                    document.getElementById('game-info').innerText = "SORRY! BUMPED!";
+                }
+            });
+        }
+
+        function skipTurn() {
+            currentRoll = null;
+            document.getElementById('dice-trigger').classList.remove('disabled');
+            document.getElementById('dice-trigger').innerText = "PUSH";
+            currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+            updateStatus();
+            render();
+            if (gameType === 'cpu' && currentPlayer === 'O') setTimeout(handleRoll, 1000);
+        }
+
+        function cpuLogic() {
+            const selectable = getSelectablePawns();
+            if (selectable.length > 0) {
+                // Priority: Bump > Move furthest > random
+                let bestIdx = -1;
+                let maxProgress = -1;
+                let bumpIdx = -1;
+
+                selectable.forEach(idx => {
+                    let pos = currentPlayer === 'X' ? p1Pawns[idx] : p2Pawns[idx];
+                    
+                    // Simulate the move for the full roll
+                    let simulatedPos = pos;
+                    if (simulatedPos === -1) {
+                        simulatedPos = currentPlayer === 'X' ? p1Enter : p2Enter;
+                    } else {
+                        for (let r = 0; r < currentRoll; r++) {
+                            simulatedPos = getNextPos(simulatedPos, currentPlayer);
+                        }
+                    }
+                    
+                    // Check for bump
+                    const opponentPawns = currentPlayer === 'X' ? p2Pawns : p1Pawns;
+                    if (simulatedPos < 100 && opponentPawns.includes(simulatedPos)) {
+                        bumpIdx = idx;
+                    }
+
+                    // Check progress
+                    if (simulatedPos > maxProgress) {
+                        maxProgress = simulatedPos;
+                        bestIdx = idx;
+                    }
+                });
+
+                const finalIdx = bumpIdx !== -1 ? bumpIdx : (bestIdx !== -1 ? bestIdx : selectable[0]);
+                executeMove(finalIdx, true);
+            }
+        }
+
+        function checkWin() {
+            const p1Win = p1Pawns.every(p => p === 106);
+            const p2Win = p2Pawns.every(p => p === 206);
+            if (p1Win || p2Win) {
+                active = false;
+                showGameOver(p1Win ? "PLAYER 1" : "PLAYER 2");
+                const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+                if (gameType === 'online') {
+                    const iWon = (myRole === 'host' && p1Win) || (myRole === 'player2' && p2Win);
+                    ProfileManager.recordResult('Sorry', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                } else if (gameType === 'cpu') {
+                    ProfileManager.recordResult('Sorry', sessionPlayer, 'CPU', p1Win ? 'win' : 'loss');
+                }
+                return true;
+            }
+            return false;
         }
 
         function showGameOver(winner) {
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
-            updateStatus();
         }
 
         function updateStatus() {
             const info = document.getElementById('turn-info');
             const resetBtn = document.getElementById('reset-btn');
-            const drawBtn = document.getElementById('draw-btn');
-
             if (gameType === 'online') {
                 resetBtn.disabled = (myRole !== 'host');
                 resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
             } else {
                 resetBtn.disabled = !active;
             }
-
-            if (!active) {
-                drawBtn.disabled = true;
-                return;
-            }
-
+            if (!active) return;
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
             if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
             if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
             if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
             if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
-            
             info.innerText = text;
-            
-            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
-            drawBtn.disabled = !isMyTurn || isSpectator;
         }
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
-
             document.getElementById('game-over-modal').style.display = 'none';
-            p1Pos = 0; p2Pos = 0; active = true;
+            p1Pawns = [-1, -1, -1, -1]; p2Pawns = [-1, -1, -1, -1];
+            currentRoll = null; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
-            updatePawn('p1', 0); updatePawn('p2', 0);
+            document.getElementById('dice-trigger').innerText = "PUSH";
+            document.getElementById('dice-trigger').classList.remove('disabled');
             if (myRole === 'host') broadcast();
             updateStatus();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
+            render();
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(handleRoll, 1000);
         }
     </script>
 </body>

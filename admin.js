@@ -3,7 +3,11 @@ let pendingApprovals = JSON.parse(localStorage.getItem('webbs_pending')) || [];
 
 /* --- Toggle Admin Panel --- */
 function toggleAdminSettings() {
-    if (activePlayer !== 'tim') return;
+    const sessionUser = sessionStorage.getItem('webbs_active_player');
+    if (activePlayer !== 'tim' || sessionUser !== 'tim') {
+        console.error("Access Denied: Admin privileges required.");
+        return;
+    }
 
     let panel = document.getElementById('admin-panel');
     if (panel) {

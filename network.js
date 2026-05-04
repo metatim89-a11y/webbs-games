@@ -35,6 +35,7 @@ const NetworkManager = {
             if (role === 'client' && roomID) {
                 this.connectToHost(roomID);
             }
+            if (this.currentGame) this.setupChatUI();
         });
 
         this.peer.on('connection', (conn) => {
@@ -187,6 +188,7 @@ const NetworkManager = {
                 if (this.onJoinAccepted) this.onJoinAccepted(pos);
                 break;
             case 'CHAT':
+                this.renderChatMessage(data.payload);
                 if (this.onChatMessage) this.onChatMessage(data.payload);
                 if (this.role === 'host') {
                     this.connections.forEach(conn => {
@@ -195,6 +197,55 @@ const NetworkManager = {
                 }
                 break;
         }
+    },
+
+    setupChatUI() {
+        if (document.getElementById('network-chat')) return;
+        
+        const chat = document.createElement('div');
+        chat.id = 'network-chat';
+        chat.style.cssText = `
+            position: fixed; bottom: 20px; left: 20px; width: 200px; 
+            background: rgba(0,0,0,0.7); border: 1px solid var(--primary-color);
+            border-radius: 10px; z-index: 4500; display: flex; flex-direction: column;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); font-size: 0.8em;
+        `;
+        
+        chat.innerHTML = `
+            <div id="chat-messages" style="height: 100px; overflow-y: auto; padding: 10px; color: white;"></div>
+            <div style="display: flex; border-top: 1px solid rgba(255,255,255,0.1);">
+                <input type="text" id="chat-input" placeholder="Chat..." style="flex: 1; background: none; border: none; color: white; padding: 8px; outline: none;">
+                <button id="chat-send" style="background: none; border: none; color: gold; padding: 8px; cursor: pointer;">↵</button>
+            </div>
+        `;
+        
+        document.body.appendChild(chat);
+        
+        const input = document.getElementById('chat-input');
+        const send = document.getElementById('chat-send');
+        
+        const doSend = () => {
+            const text = input.value.trim();
+            if (text) {
+                this.sendChatMessage(text);
+                input.value = '';
+            }
+        };
+        
+        send.onclick = doSend;
+        input.onkeypress = (e) => { if (e.key === 'Enter') doSend(); };
+    },
+
+    renderChatMessage(data) {
+        this.setupChatUI();
+        const container = document.getElementById('chat-messages');
+        if (!container) return;
+        
+        const msg = document.createElement('div');
+        msg.style.marginBottom = '4px';
+        msg.innerHTML = `<strong style="color: gold;">${data.sender.toUpperCase()}:</strong> ${data.text}`;
+        container.appendChild(msg);
+        container.scrollTop = container.scrollHeight;
     }
 };
 

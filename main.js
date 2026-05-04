@@ -132,6 +132,9 @@ function submitSignup() {
     const name = document.getElementById('signup-name').value.trim();
     const animal = document.getElementById('signup-animal').value.trim();
     const game = document.getElementById('signup-game').value.trim();
+    const color1 = document.getElementById('signup-color-1').value;
+    const color2 = document.getElementById('signup-color-2').value;
+    const color3 = document.getElementById('signup-color-3').value;
 
     if (!name || !animal || !game) {
         alert("Please fill out all fields!");
@@ -139,7 +142,13 @@ function submitSignup() {
     }
 
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
-    pending.push({ name, animal, game, timestamp: Date.now() });
+    pending.push({ 
+        name, 
+        animal, 
+        game, 
+        colors: [color1, color2, color3],
+        timestamp: Date.now() 
+    });
     localStorage.setItem('webbs_pending', JSON.stringify(pending));
 
     alert("Request sent to Tim!");

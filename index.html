@@ -4,15 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wubs Games | Lobby</title>
-    <link rel="stylesheet" href="style.css?v=1.2.0">
+    <link rel="stylesheet" href="style.css?v=1.3.0">
 </head>
 <body class="theme-guest">
-    <div id="version-tag">v1.2.0</div>
+    <div id="version-tag">v1.3.0</div>
     
     <div id="lobby-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 style="margin: 0;">Wubs Games</h1>
-            <div id="admin-gear" class="admin-only" onclick="location.href='admin.html'">
+            <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
                 <img src="assets/icons/settings.svg" width="30" height="30" alt="Admin" style="filter: invert(1);">
             </div>
         </div>
@@ -118,6 +118,9 @@
             <div class="modal-content">
                 <h2 id="pin-msg">Enter PIN</h2>
                 <div id="pin-display" style="font-size: 3em; letter-spacing: 15px; margin: 20px 0; font-weight: bold; color: gold;">----</div>
+                <div style="margin-bottom: 20px;">
+                    <button class="modal-btn" style="background:none; border: 1px solid gold; color: gold; font-size: 0.8em; padding: 5px 15px;" onclick="togglePinVisibility()">Show PIN</button>
+                </div>
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 250px; margin: 0 auto;">
                     <button class="modal-btn" onclick="appendPin('1')">1</button>
                     <button class="modal-btn" onclick="appendPin('2')">2</button>
@@ -138,10 +141,11 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="network.js?v=1.2.0"></script>
-    <script src="profile.js?v=1.2.0"></script>
-    <script src="admin.js?v=1.2.0"></script>
-    <script src="auth.js?v=1.2.0"></script>
-    <script src="main.js?v=1.2.0"></script>
+    <script src="network.js?v=1.3.0"></script>
+    <script src="profile.js?v=1.3.0"></script>
+    <script src="audio.js?v=1.3.0"></script>
+    <script src="admin.js?v=1.3.0"></script>
+    <script src="auth.js?v=1.3.0"></script>
+    <script src="main.js?v=1.3.0"></script>
 </body>
 </html>

@@ -1,6 +1,24 @@
 # Wubs Games - Known Bugs & Feature Gaps
 
-## Resolved Bugs (Verified 2026-05-04 10:45 AM)
+## Resolved Bugs (Verified 2026-05-04 11:45 AM)
+25. **Signup Color Persistence:** `submitSignup` now captures all three color inputs.
+26. **Admin Access Security:** Added `.admin-only` CSS and session-based validation in `admin.js`.
+27. **Uno No Mercy Hand Sync:** Corrected hand count mapping for Host/Client/Spectators.
+28. **Uno Spectator Data Gaps:** Spectators now see correct opponent hand counts.
+29. **Admin Queue Visuals:** Approval cards now display guest's chosen theme color dots.
+30. **Nim/357 Board Architecture:** Implemented mandatory high-contrast square slots and column alignment.
+31. **Sorry! CPU Logic Crash:** Fixed function name and simulated full roll distance.
+32. **Black Hole Game Logic Gap:** Implemented triangular neighbor elimination mechanic.
+33. **Multiplayer Animation Broadcasts:** Unified animation triggers across all games.
+34. **CSS Versioning:** Synchronized all files to v1.3.0.
+35. **Missing PIN Visibility Toggle:** Added "Show PIN" button to the lobby overlay.
+36. **Mancala Concurrent Sowing:** Added click-protection during sowing animations.
+37. **Mancala End-Game Cleanup:** Pits are now explicitly cleared when the game ends.
+38. **Uno Wild Color Roulette Inversion:** Corrected logic so the card player picks the color for the next player.
+39. **Admin Dashboard Security:** Reinforced with sessionStorage validation and identity checks.
+2.  **Asset Loading:** Preloading implemented for mobile browser flickering.
+5.  **Audio Latency:** Implemented procedural Web Audio API engine (`audio.js`) for low-latency SFX and synthesized missing assets.
+18. **Mancala Latency:** Seed-sowing animation speed significantly increased (sleep reduced to 80ms) for ultra-low latency, and audio feedback added per seed.
 1.  **Multiplayer Sync (General):** Resolved with Optimistic UI updates and `NetworkManager` sequence numbering (v1.2.1).
 3.  **Touch Targets:** Main menu buttons resized for mobile compatibility.
 4.  **Session Persistence:** Browser refreshes no longer wipe sessions (sessionStorage).
@@ -24,9 +42,4 @@
 24. **Online Join UX:** Removed manual game selection for joining players; clients now auto-discover the host's game via the PIN.
 
 ## Remaining Bug List
-2.  **Asset Loading:** Certain image assets fail to cache properly on mobile browsers, leading to flickering.
-5.  **Audio Latency:** Sound effects (SFX) engine not yet implemented; assets are missing.
-18. **Mancala Latency:** While improved with Optimistic UI, seed-sowing logic could be further optimized for ultra-low latency.
-
-
-
+*All pending bugs from the current batch have been successfully resolved.*

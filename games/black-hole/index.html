@@ -4,12 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Black Hole | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.2.0">
+    <link rel="stylesheet" href="../../style.css?v=1.3.0">
     <style>
         #pyramid { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0; }
         .row { display: flex; gap: 10px; }
-        .node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary-color); background: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary-color); background: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .node.filled { background: var(--primary-color); color: var(--secondary-color); cursor: default; }
+        .node.eliminated { opacity: 0.1; transform: scale(0.7); filter: grayscale(1); border-style: dashed; }
+        .node.black-hole { background: #000; border: 3px solid #f0f; box-shadow: 0 0 20px #f0f; animation: pulseBH 1s infinite alternate; }
+        @keyframes pulseBH { from { transform: scale(1); box-shadow: 0 0 10px #f0f; } to { transform: scale(1.1); box-shadow: 0 0 30px #f0f; } }
         #number-selector { display: flex; gap: 8px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; padding: 10px; }
         .num-btn { width: 40px; height: 40px; border: 2px solid var(--accent-color); background: none; color: var(--accent-color); cursor: pointer; border-radius: 8px; font-weight: bold; transition: 0.2s; }
         .num-btn.active { background: var(--accent-color); color: var(--secondary-color); transform: scale(1.1); box-shadow: 0 0 15px var(--accent-color); }
@@ -17,7 +20,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.2.0</div>
+    <div id="version-tag">v1.3.0</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -70,8 +73,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.2.0"></script>
-    <script src="../../profile.js?v=1.2.0"></script>
+    <script src="../../network.js?v=1.3.0"></script>
+    <script src="../../profile.js?v=1.3.0"></script>
+    <script src="../../audio.js?v=1.3.0"></script>
     <script>
         let board = Array(21).fill(null);
         let p1Nums = [1,2,3,4,5,6,7,8,9,10];
@@ -148,13 +152,21 @@
         function buildBoard() {
             const container = document.getElementById('pyramid');
             container.innerHTML = ''; let count = 0;
+            const blackHoleIdx = active ? -1 : board.findIndex(b => b === null);
+
             for(let i=1; i<=6; i++) {
                 const row = document.createElement('div'); row.className = 'row';
                 for(let j=0; j<i; j++) {
                     const idx = count++;
                     const node = document.createElement('div');
-                    node.className = 'node' + (board[idx] ? ' filled' : '');
-                    node.style.borderColor = board[idx] ? (board[idx].owner === 'X' ? 'var(--accent-color)' : '#ff5555') : 'var(--primary-color)';
+                    node.className = 'node';
+                    if (idx === blackHoleIdx) node.classList.add('black-hole');
+                    else if (board[idx]) {
+                        node.classList.add('filled');
+                        if (board[idx].eliminated) node.classList.add('eliminated');
+                    }
+
+                    node.style.borderColor = board[idx] ? (board[idx].owner === 'X' ? 'var(--accent-color)' : '#ff5555') : (idx === blackHoleIdx ? '#f0f' : 'var(--primary-color)');
                     node.innerText = board[idx] ? board[idx].num : '';
                     node.onclick = () => handleNodeClick(idx);
                     row.appendChild(node);
@@ -163,6 +175,36 @@
             }
             renderSelector();
             updateStatus();
+        }
+
+        function getNeighbors(idx) {
+            const rows = [1, 2, 3, 4, 5, 6];
+            let r = 0, c = 0, count = 0;
+            for (let i = 0; i < 6; i++) {
+                if (idx < count + rows[i]) {
+                    r = i;
+                    c = idx - count;
+                    break;
+                }
+                count += rows[i];
+            }
+
+            const possible = [
+                [r, c-1], [r, c+1], // Horizontal
+                [r-1, c-1], [r-1, c], // Up
+                [r+1, c], [r+1, c+1] // Down
+            ];
+
+            const neighbors = [];
+            possible.forEach(([nr, nc]) => {
+                if (nr >= 0 && nr < 6 && nc >= 0 && nc <= nr) {
+                    let nIdx = 0;
+                    for (let i = 0; i < nr; i++) nIdx += rows[i];
+                    nIdx += nc;
+                    neighbors.push(nIdx);
+                }
+            });
+            return neighbors;
         }
 
         function renderSelector() {
@@ -253,9 +295,17 @@
         }
 
         function calculateWinner() {
+            const bhIdx = board.findIndex(b => b === null);
+            const neighbors = getNeighbors(bhIdx);
+            
+            // Suck in neighbors
+            neighbors.forEach(nIdx => {
+                if (board[nIdx]) board[nIdx].eliminated = true;
+            });
+
             let p1Score = 0, p2Score = 0;
             board.forEach(b => {
-                if (!b) return;
+                if (!b || b.eliminated) return;
                 if (b.owner === 'X') p1Score += b.num;
                 else p2Score += b.num;
             });
@@ -265,9 +315,9 @@
             const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
 
             if (gameType === 'online') {
-                const winnerSymbol = winner === 'PLAYER 1' ? 'X' : 'O';
+                const winnerSymbol = winner === 'PLAYER 1' ? 'X' : (winner === 'DRAW' ? 'draw' : 'O');
                 const iWon = (myRole === 'host' && winnerSymbol === 'X') || (myRole === 'player2' && winnerSymbol === 'O');
-                ProfileManager.recordResult('Black Hole', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), iWon ? 'win' : 'loss');
+                ProfileManager.recordResult('Black Hole', sessionPlayer, (myRole === 'host' ? player2ID : 'host'), winnerSymbol === 'draw' ? 'draw' : (iWon ? 'win' : 'loss'));
             } else if (gameType === 'cpu') {
                 ProfileManager.recordResult('Black Hole', sessionPlayer, 'CPU', p1Score > p2Score ? 'win' : (p1Score < p2Score ? 'loss' : 'draw'));
             }

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Uno No Mercy | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.2.0">
+    <link rel="stylesheet" href="../../style.css?v=1.3.0">
     <style>
         #game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px; }
         #discard-pile { 
@@ -13,6 +13,7 @@
             font-size: 1.8em; font-weight: bold; box-shadow: 0 0 20px rgba(0,0,0,0.5);
             text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
         }
         #player-hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 15px; }
         .card { 
@@ -28,10 +29,31 @@
             border-radius: 12px; cursor: pointer; display: flex; align-items: center; 
             justify-content: center; font-weight: bold; color: #aaa;
         }
+        .color-picker {
+            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.9); padding: 20px; border-radius: 20px; border: 3px solid gold;
+            grid-template-columns: 1fr 1fr; gap: 10px; z-index: 6000;
+        }
+        .color-opt { width: 60px; height: 60px; border-radius: 10px; cursor: pointer; border: 2px solid #fff; }
+        .color-red { background: #ff5555; }
+        .color-blue { background: #5555ff; }
+        .color-green { background: #55aa55; }
+        .color-yellow { background: #ffaa00; }
+        #stack-indicator {
+            position: absolute; top: -20px; background: red; color: white; padding: 2px 8px;
+            border-radius: 10px; font-size: 0.8em; font-weight: bold;
+        }
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.2.0</div>
+    <div id="version-tag">v1.3.0</div>
+
+    <div id="color-picker-modal" class="color-picker">
+        <div class="color-opt color-red" onclick="selectWildColor('red')"></div>
+        <div class="color-opt color-blue" onclick="selectWildColor('blue')"></div>
+        <div class="color-opt color-green" onclick="selectWildColor('green')"></div>
+        <div class="color-opt color-yellow" onclick="selectWildColor('yellow')"></div>
+    </div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -46,6 +68,7 @@
                 <li>Match by color or number.</li>
                 <li>Stacking: +2, +4, +6, +10 cards stack!</li>
                 <li>Mercy Rule: 25 cards = Elimination.</li>
+                <li>0's Pass & 7's Swap hands.</li>
             </ul>
         </div>
     </div>
@@ -87,22 +110,29 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.2.0"></script>
-    <script src="../../profile.js?v=1.2.0"></script>
+    <script src="../../network.js?v=1.3.0"></script>
+    <script src="../../profile.js?v=1.3.0"></script>
+    <script src="../../audio.js?v=1.3.0"></script>
     <script>
         let myHand = [];
         let opponentHandCount = 7;
-        let cpuHand = []; // Used in CPU mode
-        let discard = { color: 'wild', value: '--' };
+        let cpuHand = []; 
+        let deck = [];
+        let discard = { color: 'red', value: '0' };
         let currentPlayer = "X"; 
+        let direction = 1;
+        let drawStack = 0;
         let active = true;
         let myRole = 'local';
         let isSpectator = false;
         let player2ID = null;
         let startingPlayer = "X";
+        let wildColorPending = null;
+        let rouletteTarget = null;
 
         const colors = ['red', 'blue', 'green', 'yellow'];
-        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+2', '+4', '+6', '+10'];
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'Skip', 'Reverse', 'Draw 2', 'Draw 4', 'Draw 6', 'Discard All', 'Skip Everyone', '7'];
+        const wildValues = ['Wild', 'Wild Draw 4', 'Wild Draw 6', 'Wild Draw 10', 'Wild Color Roulette', 'Wild Reverse Draw 4'];
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -132,7 +162,15 @@
                     }
                 };
                 NetworkManager.onMoveReceived = (action) => { 
-                    if (currentPlayer === "O") executeAction(action, true); 
+                    if (action.type === 'SWAP_RESPONSE') {
+                        myHand = action.hand;
+                        broadcast();
+                        render();
+                    } else if (action.type === 'ROULETTE_COLOR') {
+                        executeAction(action, true);
+                    } else if (currentPlayer === "O") {
+                        executeAction(action, true); 
+                    }
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -147,11 +185,20 @@
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
                     active = state.active;
-                    // In online mode, we track opponent's hand count from state
+                    drawStack = state.drawStack || 0;
+                    direction = state.direction || 1;
+                    rouletteTarget = state.rouletteTarget;
+                    
                     if (myRole === 'player2') {
                         opponentHandCount = state.hostHandCount;
                     } else if (isSpectator) {
-                        opponentHandCount = state.p2HandCount;
+                        opponentHandCount = state.hostHandCount; 
+                    }
+
+                    if (state.type === 'SWAP_REQUEST' && myRole === 'player2') {
+                        let oldHand = [...myHand];
+                        myHand = state.hand;
+                        NetworkManager.sendMove({ type: 'SWAP_RESPONSE', hand: oldHand });
                     }
 
                     if (player2ID === playerID) {
@@ -159,7 +206,6 @@
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
                     }
-                    if (!active) checkWinState();
                     render();
                 };
                 NetworkManager.onJoinAccepted = () => {
@@ -171,34 +217,54 @@
             }
         }
 
-        function broadcast() { 
+        function broadcast(extra = {}) { 
             if (myRole === 'host') {
                 NetworkManager.broadcastState({ 
-                    discard, 
-                    currentPlayer, 
-                    player2ID, 
-                    active,
+                    discard, currentPlayer, player2ID, active, drawStack, direction, rouletteTarget,
                     hostHandCount: myHand.length,
-                    p2HandCount: opponentHandCount
+                    p2HandCount: (gameType === 'cpu' ? cpuHand.length : opponentHandCount),
+                    ...extra
                 }); 
             }
         }
 
-        function createCard() {
-            const color = colors[Math.floor(Math.random() * colors.length)];
-            const value = values[Math.floor(Math.random() * values.length)];
-            return { color, value };
+        function buildDeck() {
+            let d = [];
+            colors.forEach(c => {
+                for(let i=1; i<=9; i++) { d.push({color:c, value: i.toString()}); d.push({color:c, value: i.toString()}); }
+                d.push({color:c, value:'0'});
+                ['Skip', 'Reverse', 'Draw 2', 'Draw 4', 'Draw 6', '7'].forEach(v => {
+                    d.push({color:c, value:v}); d.push({color:c, value:v});
+                });
+                ['Discard All', 'Skip Everyone'].forEach(v => { d.push({color:c, value:v}); });
+            });
+            wildValues.forEach(v => {
+                for(let i=0; i<4; i++) { d.push({color:'wild', value:v}); }
+            });
+            return d.sort(() => Math.random() - 0.5);
+        }
+
+        function drawFromDeck() {
+            if (deck.length === 0) deck = buildDeck();
+            return deck.pop();
         }
 
         function initGame() {
+            deck = buildDeck();
             myHand = [];
             cpuHand = [];
             for(let i=0; i<7; i++) {
-                myHand.push(createCard());
-                if (gameType === 'cpu') cpuHand.push(createCard());
+                myHand.push(drawFromDeck());
+                if (gameType === 'cpu') cpuHand.push(drawFromDeck());
             }
             opponentHandCount = 7;
-            if (myRole !== 'client') discard = createCard();
+            drawStack = 0;
+            direction = 1;
+            rouletteTarget = null;
+            if (myRole !== 'client') {
+                discard = drawFromDeck();
+                while(discard.color === 'wild' || discard.value.includes('+')) discard = drawFromDeck();
+            }
             render();
         }
 
@@ -207,33 +273,66 @@
             discardEl.className = discard.color;
             discardEl.innerText = discard.value;
             
+            discardEl.innerHTML = discard.value;
+            if (drawStack > 0) {
+                discardEl.innerHTML += `<div id="stack-indicator">+${drawStack}</div>`;
+            }
+
             const handEl = document.getElementById('player-hand');
             handEl.innerHTML = '';
             
-            // In CPU mode or Local mode, we might want to see both hands?
-            // For now, let's just show the active player's hand if it's local
+            // Local hand is always myHand
             let visibleHand = myHand;
-            if (gameType === 'cpu' && currentPlayer === 'O') visibleHand = cpuHand;
+            if (isSpectator) visibleHand = []; 
             
             if (!isSpectator) {
                 visibleHand.forEach((card, i) => {
                     const cardEl = document.createElement('div');
                     cardEl.className = `card ${card.color}`;
                     cardEl.innerText = card.value;
-                    cardEl.onclick = () => handlePlayCard(i);
+                    const playable = canPlay(card);
+                    cardEl.style.opacity = playable ? "1" : "0.5";
+                    if (playable) cardEl.onclick = () => handlePlayCard(i);
                     handEl.appendChild(cardEl);
                 });
             }
 
-            const currentHandSize = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand.length : myHand.length;
-            document.getElementById('mercy-count').innerText = `Cards: ${currentHandSize}/25 | Opponent: ${opponentHandCount}`;
+            document.getElementById('mercy-count').innerText = `Cards: ${myHand.length}/25 | Opponent: ${opponentHandCount}`;
             
-            if(currentHandSize >= 25 && active) {
+            // Roulette logic: The player who played the card (previous player) should pick the color.
+            const lastPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+            const amITheOnePicking = (rouletteTarget === 'pending') && (
+                (myRole === 'host' && lastPlayer === 'X') || 
+                (myRole === 'player2' && lastPlayer === 'O') ||
+                (gameType === 'local' && lastPlayer === currentPlayer) // Local turn swap already happened
+            );
+
+            if (amITheOnePicking) {
+                document.getElementById('color-picker-modal').style.display = 'grid';
+            } else {
+                document.getElementById('color-picker-modal').style.display = 'none';
+            }
+
+            if(myHand.length >= 25 && active) {
                 active = false;
-                showGameOver(currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1", "MERCY RULE!");
-                recordResult(currentPlayer === 'X' ? 'O' : 'X');
+                showGameOver(myRole === 'player2' ? "PLAYER 1" : "PLAYER 2", "MERCY RULE!");
+                recordResult(myRole === 'player2' ? 'X' : 'O');
             }
             updateStatus();
+        }
+
+        function canPlay(card) {
+            if (!active || (rouletteTarget && rouletteTarget !== 'pending')) return false;
+            if (rouletteTarget === 'pending') return false; 
+            if (drawStack > 0) {
+                if (!card.value.includes('Draw')) return false;
+                const cardValue = parseInt(card.value.replace(/\D/g, '')) || 0;
+                const stackValue = parseInt(discard.value.replace(/\D/g, '')) || 0;
+                return cardValue >= stackValue;
+            }
+            if (card.color === 'wild') return true;
+            if (card.color === discard.color || card.value === discard.value) return true;
+            return false;
         }
 
         function updateStatus() {
@@ -249,25 +348,127 @@
 
             if (!active) return;
 
+            const lastPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+            const amITheOnePicking = (rouletteTarget === 'pending') && (
+                (myRole === 'host' && lastPlayer === 'X') || 
+                (myRole === 'player2' && lastPlayer === 'O')
+            );
+
             let text = currentPlayer === "X" ? "Player 1's Turn" : "Player 2's Turn";
             if (myRole === 'host' && currentPlayer === "X") text = "YOUR TURN (P1)";
             if (myRole === 'player2' && currentPlayer === "O") text = "YOUR TURN (P2)";
-            if (myRole === 'host' && currentPlayer === "O") text = "WAITING FOR P2...";
-            if (myRole === 'player2' && currentPlayer === "X") text = "WAITING FOR P1...";
             
+            if (amITheOnePicking) {
+                text = "ROULETTE: Pick a color for them!";
+            } else if (rouletteTarget === 'pending') {
+                text = "Waiting for color pick...";
+            } else if (rouletteTarget) {
+                const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
+                if (isMyTurn) text = `ROULETTE: Draw until ${rouletteTarget.toUpperCase()}!`;
+                else text = `ROULETTE: They are drawing until ${rouletteTarget.toUpperCase()}...`;
+            }
+
             info.innerText = text;
         }
 
-        function handlePlayCard(i, isProgrammatic = false) {
-            if (!canMove() && !isProgrammatic) return;
-            
+        function handlePlayCard(i) {
+            if (!canMove()) return;
             const currentHand = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
             const card = currentHand[i];
 
-            if(card.color === discard.color || card.value === discard.value || discard.color === 'wild' || card.value.includes('+')) {
-                currentHand.splice(i, 1);
-                const action = { type: 'PLAY', card, handCount: currentHand.length };
+            if (!canPlay(card)) return;
+
+            if (card.color === 'wild') {
+                wildColorPending = i;
+                document.getElementById('color-picker-modal').style.display = 'grid';
+                return;
+            }
+
+            playValidatedCard(i);
+        }
+
+        function selectWildColor(color) {
+            document.getElementById('color-picker-modal').style.display = 'none';
+            
+            const lastPlayer = (currentPlayer === 'X') ? 'O' : 'X';
+            const amITheOnePicking = (rouletteTarget === 'pending') && (
+                (myRole === 'host' && lastPlayer === 'X') || 
+                (myRole === 'player2' && lastPlayer === 'O') ||
+                (gameType === 'local' && lastPlayer === (currentPlayer === 'X' ? 'O' : 'X')) // Local turn already swapped
+            );
+
+            if (wildColorPending !== null) {
+                const currentHand = myHand;
+                const card = currentHand[wildColorPending];
+                card.color = color;
+                playValidatedCard(wildColorPending);
+                wildColorPending = null;
+            } else if (rouletteTarget === 'pending') {
+                rouletteTarget = color;
+                if (typeof AudioEngine !== 'undefined') AudioEngine.playClick();
                 
+                if (myRole === 'host') {
+                    broadcast();
+                } else if (myRole === 'player2') {
+                    NetworkManager.sendMove({ type: 'ROULETTE_COLOR', color });
+                }
+                render();
+            }
+        }
+
+        function playValidatedCard(i) {
+            const currentHand = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
+            const card = currentHand[i];
+
+            let removedCount = 1;
+            if (card.value === 'Discard All') {
+                for(let j=currentHand.length-1; j>=0; j--) {
+                    if (currentHand[j].color === card.color && j !== i) {
+                        currentHand.splice(j, 1);
+                        removedCount++;
+                    }
+                }
+                currentHand.splice(currentHand.indexOf(card), 1);
+            } else {
+                currentHand.splice(i, 1);
+            }
+
+            const action = { type: 'PLAY', card, handCount: currentHand.length, removedCount };
+            if (typeof AudioEngine !== 'undefined') AudioEngine.playMove();
+            
+            if (myRole === 'player2') {
+                NetworkManager.sendMove(action);
+                executeAction(action, false);
+            } else {
+                executeAction(action, true);
+            }
+        }
+
+        function handleDraw() {
+            if (!canMove()) return;
+            if (rouletteTarget) {
+                performRoulette();
+                return;
+            }
+
+            if (drawStack > 0) {
+                const action = { type: 'DRAW_STACK', count: drawStack };
+                if (myRole === 'player2') {
+                    NetworkManager.sendMove(action);
+                    executeAction(action, false);
+                } else {
+                    executeAction(action, true);
+                }
+            } else {
+                let drawn = [];
+                let card = drawFromDeck();
+                drawn.push(card);
+                while(!canPlay(card)) {
+                    card = drawFromDeck();
+                    drawn.push(card);
+                }
+                
+                const action = { type: 'DRAW_UNTIL', cards: drawn };
                 if (myRole === 'player2') {
                     NetworkManager.sendMove(action);
                     executeAction(action, false);
@@ -277,10 +478,16 @@
             }
         }
 
-        function handleDraw(isProgrammatic = false) {
-            if (!canMove() && !isProgrammatic) return;
-
-            const action = { type: 'DRAW' };
+        function performRoulette() {
+            let drawn = [];
+            let card = drawFromDeck();
+            drawn.push(card);
+            while(card.color !== rouletteTarget) {
+                card = drawFromDeck();
+                drawn.push(card);
+            }
+            
+            const action = { type: 'ROULETTE_RESULT', cards: drawn };
             if (myRole === 'player2') {
                 NetworkManager.sendMove(action);
                 executeAction(action, false);
@@ -298,52 +505,122 @@
         }
 
         function executeAction(action, isLocal = true) {
+            if (action.type === 'ROULETTE_COLOR') {
+                rouletteTarget = action.color;
+                if (isLocal) broadcast();
+                render();
+                return;
+            }
             if (action.type === 'PLAY') {
-                discard = action.card;
-                if (!isLocal) {
-                    opponentHandCount = action.handCount;
+                const card = action.card;
+                discard = card;
+                if (!isLocal) opponentHandCount = action.handCount;
+
+                if (card.value.includes('+')) {
+                    drawStack += parseInt(card.value.replace(/\D/g, '')) || 0;
                 }
-                
+
+                let selfTrap = false;
+                if (card.value === 'Wild Reverse Draw 4') {
+                    direction *= -1;
+                    selfTrap = true; 
+                }
+
+                if (card.value === '7' || card.value === '0') {
+                    if (isLocal) {
+                        if (gameType === 'cpu') {
+                            let temp = [...myHand]; myHand = [...cpuHand]; cpuHand = temp;
+                        } else if (gameType === 'online' && myRole === 'host') {
+                            let oldHostHand = [...myHand];
+                            myHand = []; 
+                            broadcast({ type: 'SWAP_REQUEST', hand: oldHostHand });
+                        }
+                    }
+                }
+
+                let skip = false;
+                if (card.value === 'Skip' || (card.value === 'Reverse' && gameType !== 'local')) skip = true;
+                if (card.value === 'Skip Everyone') skip = true;
+                if (card.value === 'Wild Color Roulette') rouletteTarget = 'pending';
+
                 if (action.handCount === 0 && active) {
                     active = false;
                     showGameOver(currentPlayer === 'X' ? 'PLAYER 1' : 'PLAYER 2');
                     recordResult(currentPlayer);
+                    return;
                 }
-            } else if (action.type === 'DRAW') {
+
+                if (!skip && !selfTrap) {
+                    currentPlayer = (currentPlayer === "X") ? "O" : "X";
+                } 
+                
+                if (isLocal && rouletteTarget === 'pending' && gameType === 'cpu' && currentPlayer === 'O') {
+                    rouletteTarget = colors[Math.floor(Math.random() * colors.length)];
+                    performRoulette();
+                }
+
+            } else if (action.type === 'DRAW_STACK') {
                 if (isLocal) {
-                    if (gameType === 'cpu' && currentPlayer === 'O') cpuHand.push(createCard());
-                    else myHand.push(createCard());
+                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
+                    for(let i=0; i<action.count; i++) target.push(drawFromDeck());
                 } else {
-                    opponentHandCount++;
+                    opponentHandCount += action.count;
                 }
+                drawStack = 0;
+                currentPlayer = (currentPlayer === "X") ? "O" : "X";
+            } else if (action.type === 'DRAW_UNTIL') {
+                if (isLocal) {
+                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
+                    action.cards.forEach(c => target.push(c));
+                } else {
+                    opponentHandCount += action.cards.length;
+                }
+            } else if (action.type === 'ROULETTE_RESULT') {
+                if (isLocal) {
+                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
+                    action.cards.forEach(c => target.push(c));
+                } else {
+                    opponentHandCount += action.cards.length;
+                }
+                rouletteTarget = null;
+                currentPlayer = (currentPlayer === "X") ? "O" : "X";
             }
 
             if (active) {
-                currentPlayer = (currentPlayer === "X") ? "O" : "X";
-                if (isLocal) broadcast();
-                render();
-
-                if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                    setTimeout(() => cpuMove(), 1000);
+                if (isLocal) {
+                    broadcast();
+                    render();
+                    if (gameType === 'cpu' && currentPlayer === 'O') {
+                        setTimeout(() => cpuMove(), 1000);
+                    }
+                } else {
+                    render();
                 }
             }
         }
 
         function cpuMove() {
             if (!active) return;
-            // Simple AI: play first matching card or draw
-            let playableIdx = cpuHand.findIndex(card => 
-                card.color === discard.color || card.value === discard.value || discard.color === 'wild'
-            );
+            if (rouletteTarget === 'pending') {
+                rouletteTarget = colors[Math.floor(Math.random() * colors.length)];
+                performRoulette();
+                return;
+            }
+            let playableIdx = cpuHand.findIndex(card => canPlay(card));
 
             if (playableIdx !== -1) {
-                handlePlayCard(playableIdx, true);
+                const card = cpuHand[playableIdx];
+                if (card.color === 'wild') {
+                    card.color = colors[Math.floor(Math.random() * colors.length)];
+                }
+                handlePlayCard(playableIdx);
             } else {
-                handleDraw(true);
+                handleDraw();
             }
         }
 
         function showGameOver(winner, sub = "") {
+            if (typeof AudioEngine !== 'undefined') AudioEngine.playWin();
             document.getElementById('winner-text').innerText = winner + " WINS!";
             if(sub) document.getElementById('winner-text').innerHTML += `<div style="font-size:0.5em; color:white;">${sub}</div>`;
             document.getElementById('game-over-modal').style.display = 'flex';
@@ -362,7 +639,6 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
-
             document.getElementById('game-over-modal').style.display = 'none';
             initGame();
             startingPlayer = startingPlayer === "X" ? "O" : "X";

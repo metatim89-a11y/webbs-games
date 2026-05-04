@@ -34,6 +34,14 @@ body.theme-cassie {
     --bg-pattern: url('assets/backgrounds/horse-pattern.svg');
 }
 
+/* Platypus: Brown & Orange (Platypus) */
+body.theme-platypus {
+    --primary-color: #8b4513;
+    --secondary-color: #1a0f00;
+    --accent-color: #ffa500;
+    --bg-pattern: url('assets/backgrounds/platypus-pattern.svg');
+}
+
 /* Tim: Black, Grey, Red, Silver & Gold */
 body.theme-tim {
     --primary-color: #ff0000;
@@ -214,37 +222,50 @@ body {
 .nim-board {
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 15px;
     align-items: center;
-    padding: 20px;
+    padding: 30px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 25px;
+    border: 2px solid rgba(255,255,255,0.1);
 }
 
 .nim-row {
     display: flex;
-    gap: 12px;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 15px;
-    min-width: 100px;
+    gap: 10px;
+    padding: 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 12px;
+    min-width: 380px; /* Fixed width for column alignment */
+    justify-content: center;
+}
+
+.nim-piece-slot {
+    width: 45px;
+    height: 45px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
     justify-content: center;
 }
 
 .nim-piece {
-    width: 45px;
-    height: 45px;
+    width: 35px;
+    height: 35px;
     background: var(--primary-color);
-    border: 3px solid var(--accent-color);
-    border-radius: 8px;
+    border: 2px solid var(--accent-color);
+    border-radius: 6px;
     cursor: pointer;
     transition: 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    box-shadow: 0 4px 0 rgba(0,0,0,0.3);
+    box-shadow: 0 3px 0 rgba(0,0,0,0.3);
 }
 
 .nim-piece.selected {
-    background: var(--accent-color);
-    transform: scale(1.1) translateY(-5px);
-    box-shadow: 0 8px 15px var(--accent-color);
+    background: gold;
+    border-color: white;
+    transform: scale(1.15) translateY(-5px);
+    box-shadow: 0 8px 15px rgba(255,215,0,0.5);
 }
 
 .nim-piece:hover {
@@ -324,4 +345,8 @@ body {
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
 ::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+
+/* Admin Security */
+.admin-only { display: none !important; }
+body.theme-tim .admin-only { display: block !important; }
 

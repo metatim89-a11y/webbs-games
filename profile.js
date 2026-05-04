@@ -42,8 +42,39 @@ const ProfileManager = {
         const defaultPrefs = {
             favoriteAnimal: "None set",
             favoriteColor: "#ffffff",
-            favoriteGame: "None set"
+            favoriteGame: "None set",
+            allColors: []
         };
         return JSON.parse(localStorage.getItem(`prefs_${playerID}`)) || defaultPrefs;
+    },
+
+    resolveName(id) {
+        if (!id) return "Unknown";
+        if (id === 'cpu') return "Computer";
+        if (id === 'guest') return "Guest";
+        
+        const defaults = { tim: 'Tim', arieal: 'Arieal', az: 'AZ', cassie: 'Cassie' };
+        if (defaults[id]) return defaults[id];
+        
+        const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
+        const player = approved.find(p => p.id === id);
+        return player ? player.name : id.charAt(0).toUpperCase() + id.slice(1);
     }
 };
+
+// Bug #2 Fix: Preload background and icon assets to prevent flickering on mobile
+(function preloadAssets() {
+    const isGameDir = window.location.pathname.includes('/games/');
+    const basePath = isGameDir ? '../../' : '';
+    const assets = [
+        'assets/backgrounds/axolotl-pattern.svg',
+        'assets/backgrounds/duck-pattern.svg',
+        'assets/backgrounds/horse-pattern.svg',
+        'assets/backgrounds/platypus-pattern.svg',
+        'assets/icons/settings.svg'
+    ];
+    assets.forEach(src => {
+        const img = new Image();
+        img.src = basePath + src;
+    });
+})();
