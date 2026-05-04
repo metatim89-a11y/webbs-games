@@ -4,43 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sorry | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.3.3">
+    <link rel="stylesheet" href="../../style.css?v=1.3.4">
     <style>
         :root {
             --p1-color: #2196f3;
             --p2-color: #f44336;
         }
-        #game-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; padding-bottom: 20px; }
+        #game-container { position: relative; width: 100%; max-width: 600px; margin: 0 auto; padding-bottom: 20px; }
         #board-wrapper { 
-            position: relative; width: 360px; height: 360px; margin: 20px auto; 
-            background: #fff; border-radius: 20px; border: 8px solid #333;
+            position: relative; width: 500px; height: 500px; margin: 20px auto; 
+            background: #fff; border-radius: 50%; border: 8px solid #333;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            overflow: hidden;
         }
         .square { 
-            width: 30px; height: 30px; border: 1px solid #ddd; position: absolute; 
+            width: 22px; height: 22px; border: 1px solid #ddd; position: absolute; 
             box-sizing: border-box; display: flex; align-items: center; justify-content: center;
-            font-size: 8px; color: #999; background: #fafafa;
+            font-size: 7px; color: #999; background: #fafafa;
+            border-radius: 3px;
         }
         .square.p1-path { background: rgba(33, 150, 243, 0.1); }
         .square.p2-path { background: rgba(244, 67, 54, 0.1); }
         .square.safe { background: #e8f5e9; }
         
         .base-zone {
-            position: absolute; width: 80px; height: 80px; border-radius: 50%;
+            position: absolute; width: 60px; height: 60px; border-radius: 50%;
             display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
-            gap: 5px; padding: 10px; box-sizing: border-box; border: 3px dashed rgba(0,0,0,0.2);
+            gap: 2px; padding: 2px; box-sizing: border-box; border: 2px dashed rgba(0,0,0,0.2);
+            z-index: 10;
         }
-        #p1-start { top: 40px; left: 40px; background: rgba(33, 150, 243, 0.2); }
-        #p1-home { top: 140px; left: 40px; background: rgba(33, 150, 243, 0.4); border: 3px solid var(--p1-color); }
-        #p2-start { bottom: 40px; right: 40px; background: rgba(244, 67, 54, 0.2); }
-        #p2-home { bottom: 140px; right: 40px; background: rgba(244, 67, 54, 0.4); border: 3px solid var(--p2-color); }
+        #p1-start { background: rgba(33, 150, 243, 0.2); }
+        #p1-home { background: rgba(33, 150, 243, 0.4); border: 2px solid var(--p1-color); }
+        #p2-start { background: rgba(244, 67, 54, 0.2); }
+        #p2-home { background: rgba(244, 67, 54, 0.4); border: 2px solid var(--p2-color); }
 
         .pawn { 
-            width: 22px; height: 22px; border-radius: 50%; 
-            border: 2px solid #000; z-index: 20; 
+            width: 18px; height: 18px; border-radius: 50%; 
+            border: 1px solid #000; z-index: 20; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            box-shadow: 0 3px 6px rgba(0,0,0,0.4);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
             position: absolute; cursor: pointer;
         }
         .pawn.selectable { animation: pulseSelect 1s infinite; transform: scale(1.2); z-index: 30; }
@@ -63,7 +64,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.3.3</div>
+    <div id="version-tag">v1.3.4</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -128,9 +129,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.3.3"></script>
-    <script src="../../profile.js?v=1.3.3"></script>
-    <script src="../../audio.js?v=1.3.3"></script>
+    <script src="../../network.js?v=1.3.4"></script>
+    <script src="../../profile.js?v=1.3.4"></script>
+    <script src="../../audio.js?v=1.3.4"></script>
     <script>
         // State: -1 = Start, 0-51 = Path, 100-105 = P1 Stretch/Home, 200-205 = P2 Stretch/Home
         let p1Pawns = [-1, -1, -1, -1];
@@ -144,8 +145,8 @@
         let startingPlayer = "X";
 
         const boardSize = 52; // Perimeter squares
-        const p1Enter = 4, p1HomeStretch = 2; 
-        const p2Enter = 30, p2HomeStretch = 28; 
+        const p1Enter = 2, p1HomeStretch = 0; 
+        const p2Enter = 28, p2HomeStretch = 26; 
 
         let isMoving = false;
 
@@ -250,13 +251,14 @@
             const container = document.getElementById('squares');
             container.innerHTML = '';
             
-            const step = 27.5;
+            const centerX = 250, centerY = 250;
+            const radius = 115;
+
+            // Perimeter Path (52 squares)
             for(let i=0; i<52; i++) {
-                let x, y;
-                if (i < 13) { x = i * step; y = 0; }
-                else if (i < 26) { x = 13 * step; y = (i - 13) * step; }
-                else if (i < 39) { x = (39 - i) * step; y = 13 * step; }
-                else { x = 0; y = (52 - i) * step; }
+                const angle = (i / 52) * 2 * Math.PI - Math.PI / 2;
+                const x = centerX + radius * Math.cos(angle) - 15;
+                const y = centerY + radius * Math.sin(angle) - 15;
                 
                 let cls = '';
                 if (i === p1Enter) cls = 'p1-path';
@@ -264,10 +266,40 @@
                 addSquare(x, y, i, cls);
             }
 
-            // P1 Home Stretch (5 squares)
-            for(let i=1; i<=5; i++) addSquare(step*2, i*step, 100+i, 'p1-path safe');
-            // P2 Home Stretch (5 squares)
-            for(let i=1; i<=5; i++) addSquare(step*11, (13-i)*step, 200+i, 'p2-path safe');
+            // P1 Home Stretch (index 0, top)
+            const p1Angle = (p1HomeStretch / 52) * 2 * Math.PI - Math.PI / 2;
+            for(let i=1; i<=5; i++) {
+                const dist = radius + (i * 28);
+                const x = centerX + dist * Math.cos(p1Angle) - 15;
+                const y = centerY + dist * Math.sin(p1Angle) - 15;
+                addSquare(x, y, 101+i-1, 'p1-path safe');
+            }
+            // Position Zones
+            const p1Home = document.getElementById('p1-home');
+            p1Home.style.left = (centerX + (radius + 185) * Math.cos(p1Angle) - 35) + 'px';
+            p1Home.style.top = (centerY + (radius + 185) * Math.sin(p1Angle) - 35) + 'px';
+            
+            const p1StartAngle = (p1Enter / 52) * 2 * Math.PI - Math.PI / 2;
+            const p1Start = document.getElementById('p1-start');
+            p1Start.style.left = (centerX + (radius + 60) * Math.cos(p1StartAngle + 0.3) - 35) + 'px';
+            p1Start.style.top = (centerY + (radius + 60) * Math.sin(p1StartAngle + 0.3) - 35) + 'px';
+
+            // P2 Home Stretch (index 26, bottom)
+            const p2Angle = (p2HomeStretch / 52) * 2 * Math.PI - Math.PI / 2;
+            for(let i=1; i<=5; i++) {
+                const dist = radius + (i * 28);
+                const x = centerX + dist * Math.cos(p2Angle) - 15;
+                const y = centerY + dist * Math.sin(p2Angle) - 15;
+                addSquare(x, y, 201+i-1, 'p2-path safe');
+            }
+            const p2Home = document.getElementById('p2-home');
+            p2Home.style.left = (centerX + (radius + 185) * Math.cos(p2Angle) - 35) + 'px';
+            p2Home.style.top = (centerY + (radius + 185) * Math.sin(p2Angle) - 35) + 'px';
+
+            const p2StartAngle = (p2Enter / 52) * 2 * Math.PI - Math.PI / 2;
+            const p2Start = document.getElementById('p2-start');
+            p2Start.style.left = (centerX + (radius + 60) * Math.cos(p2StartAngle + 0.3) - 35) + 'px';
+            p2Start.style.top = (centerY + (radius + 60) * Math.sin(p2StartAngle + 0.3) - 35) + 'px';
 
             // Visual markers for turn-ins
             document.getElementById('sq-' + p1HomeStretch).style.border = '2px solid var(--p1-color)';
@@ -316,17 +348,17 @@
 
             if (pos === -1) {
                 const zone = document.getElementById(`${player}-start`);
-                targetX = zone.offsetLeft + (idx % 2) * 25 + 15;
-                targetY = zone.offsetTop + Math.floor(idx / 2) * 25 + 15;
+                targetX = zone.offsetLeft + (idx % 2) * 22 + 9;
+                targetY = zone.offsetTop + Math.floor(idx / 2) * 22 + 9;
             } else if (pos === 106 || pos === 206) {
                 const zone = document.getElementById(`${player}-home`);
-                targetX = zone.offsetLeft + (idx % 2) * 25 + 15;
-                targetY = zone.offsetTop + Math.floor(idx / 2) * 25 + 15;
+                targetX = zone.offsetLeft + (idx % 2) * 22 + 9;
+                targetY = zone.offsetTop + Math.floor(idx / 2) * 22 + 9;
             } else {
                 const sq = document.getElementById('sq-' + pos);
                 if (!sq) return;
-                targetX = sq.offsetLeft + 4;
-                targetY = sq.offsetTop + 4;
+                targetX = sq.offsetLeft + 2;
+                targetY = sq.offsetTop + 2;
             }
             p.style.left = targetX + 'px';
             p.style.top = targetY + 'px';
