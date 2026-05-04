@@ -7,10 +7,17 @@
     <link rel="stylesheet" href="../../style.css?v=1.4.0">
     <style>
         #board-wrapper { 
-            position: relative; width: 400px; height: 400px; margin: 20px auto; 
+            position: relative; width: 400px; height: 400px; max-width: 95vw; aspect-ratio: 1/1; margin: 20px auto; 
             background: #222; border: 8px solid #333; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             overflow: visible;
+        }
+        @media (max-width: 500px) {
+            #board-wrapper { height: auto; }
+            h1 { font-size: 1.5em; margin: 10px 0; }
+            #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
+            .sq { font-size: 6px; }
+            .pawn { width: 18px; height: 18px; }
         }
         #board {
             display: grid; grid-template-columns: repeat(10, 1fr); grid-template-rows: repeat(10, 1fr);
@@ -306,20 +313,26 @@
                 const sRect = sEl.getBoundingClientRect();
                 const eRect = eEl.getBoundingClientRect();
                 
-                const x1 = sRect.left - boardRect.left + 20;
-                const y1 = sRect.top - boardRect.top + 20;
-                const x2 = eRect.left - boardRect.left + 20;
-                const y2 = eRect.top - boardRect.top + 20;
+                const x1 = sRect.left - boardRect.left + (sRect.width / 2);
+                const y1 = sRect.top - boardRect.top + (sRect.height / 2);
+                const x2 = eRect.left - boardRect.left + (eRect.width / 2);
+                const y2 = eRect.top - boardRect.top + (eRect.height / 2);
 
                 const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-                const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * 40;
-                const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * 40;
+                const midX = (x1 + x2) / 2 + (Math.random() - 0.5) * (boardRect.width * 0.1);
+                const midY = (y1 + y2) / 2 + (Math.random() - 0.5) * (boardRect.height * 0.1);
                 
                 path.setAttribute("d", `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`);
                 path.setAttribute("class", "trajectory " + (end > start ? "ladder" : "chute"));
                 svg.appendChild(path);
             });
         }
+
+        window.addEventListener('resize', () => {
+            drawTrajectories();
+            movePawn('p1', p1Pos);
+            movePawn('p2', p2Pos);
+        });
 
         function createPawn(id, color) {
             const pawn = document.createElement('div');
@@ -342,8 +355,14 @@
                 pawn.classList.add('hop-anim');
             }
             
-            pawn.style.left = (sqRect.left - boardRect.left + (id === 'p1' ? 4 : 12)) + 'px';
-            pawn.style.top = (sqRect.top - boardRect.top + (id === 'p1' ? 4 : 12)) + 'px';
+            const offset = id === 'p1' ? 0.1 : 0.4;
+            const left = sqRect.left - boardRect.left + (sqRect.width * offset);
+            const top = sqRect.top - boardRect.top + (sqRect.height * offset);
+            
+            pawn.style.left = left + 'px';
+            pawn.style.top = top + 'px';
+            pawn.style.width = (sqRect.width * 0.4) + 'px';
+            pawn.style.height = (sqRect.height * 0.4) + 'px';
         }
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
