@@ -18,6 +18,7 @@ const NetworkManager = {
     onAnimationTrigger: null,
     
     lastStateSeq: 0,
+    prefix: "webbs-", // Isolate our games from other PeerJS users
 
     init(role, roomID = null) {
         this.role = role;
@@ -30,7 +31,7 @@ const NetworkManager = {
 
         // Enhanced configuration with STUN servers for better NAT traversal
         const config = {
-            debug: 3,
+            debug: 1, // Reduced debug for production unless troubleshooting
             config: {
                 'iceServers': [
                     { urls: 'stun:stun.l.google.com:19302' },
@@ -40,12 +41,13 @@ const NetworkManager = {
             }
         };
 
-        this.peer = new Peer(role === 'host' ? this.roomID : undefined, config);
+        const finalID = role === 'host' ? (this.prefix + this.roomID) : undefined;
+        this.peer = new Peer(finalID, config);
 
         this.peer.on('open', (id) => {
             console.log(`My peer ID is: ${id}`);
-            if (role === 'client' && roomID) {
-                this.connectToHost(roomID);
+            if (role === 'client' && this.roomID) {
+                this.connectToHost(this.roomID);
             }
             if (this.currentGame) this.setupChatUI();
         });
@@ -63,7 +65,7 @@ const NetworkManager = {
             } else if (err.type === 'peer-dotnet-found' || err.type === 'browser-incompatible') {
                 alert("Your browser doesn't support the networking features needed for multiplayer.");
             } else if (err.type === 'network') {
-                console.warn("Signaling server connection lost. Retrying...");
+                console.warn("Signaling server connection lost.");
             }
         });
     },
@@ -122,7 +124,8 @@ const NetworkManager = {
     },
 
     // --- Client Logic ---
-    connectToHost(hostID) {
+    connectToHost(hostPIN) {
+        const hostID = this.prefix + hostPIN;
         console.log("Connecting to host:", hostID);
         
         // Timeout for connection
@@ -172,17 +175,40 @@ const NetworkManager = {
         this.conn.send({ type: 'REQUEST_JOIN', playerID });
     },
 
-    queryGame(hostID, callback) {
-        if (!this.peer) this.init('client');
+    queryGame(hostPIN, callback) {
+        if (!this.peer) {
+            this.init('client');
+            // Wait for peer to open before querying
+            this.peer.on('open', () => this._doQuery(hostPIN, callback));
+        } else {
+            this._doQuery(hostPIN, callback);
+        }
+    },
+
+    _doQuery(hostPIN, callback) {
+        const hostID = this.prefix + hostPIN;
+        console.log("Querying host:", hostID);
         const conn = this.peer.connect(hostID);
-        conn.on('open', () => conn.send({ type: 'QUERY_GAME' }));
+        
+        let found = false;
+        conn.on('open', () => {
+            conn.send({ type: 'QUERY_GAME' });
+        });
+        
         conn.on('data', (data) => {
             if (data.type === 'GAME_INFO') {
+                found = true;
                 callback(data.game);
                 conn.close();
             }
         });
-        setTimeout(() => { if (conn.open) conn.close(); }, 5000); // Timeout
+
+        setTimeout(() => { 
+            if (!found) {
+                callback(null);
+                if (conn.open) conn.close();
+            }
+        }, 8000); 
     },
 
     // --- Message Handling ---
@@ -194,7 +220,7 @@ const NetworkManager = {
                 }
                 break;
             case 'GAME_INFO':
-                // Handled in queryGame callback
+                // Handled in _doQuery callback
                 break;
             case 'STATE_UPDATE':
                 if (data.seq && data.seq <= this.lastStateSeq && this.role === 'client') {
@@ -284,4 +310,3 @@ const NetworkManager = {
         container.scrollTop = container.scrollHeight;
     }
 };
-
