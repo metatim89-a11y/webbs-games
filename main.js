@@ -23,7 +23,7 @@ function renderPlayerSelect() {
 
     // Standard players
     const defaults = [
-        { id: 'airel', name: 'Airel' },
+        { id: 'ariel', name: 'Ariel' },
         { id: 'az', name: 'AZ' },
         { id: 'cassie', name: 'Cassie' },
         { id: 'tim', name: 'Tim' }

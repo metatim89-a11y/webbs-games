@@ -33,7 +33,7 @@ function toggleAdminSettings() {
         <div id="admin-actions">
             <h3>Quick Resets & Actions</h3>
             <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; max-width:400px;">
-                <button onclick="resetPin('airel')">Reset Airel PIN</button>
+                <button onclick="resetPin('ariel')">Reset Ariel PIN</button>
                 <button onclick="resetPin('az')">Reset AZ PIN</button>
                 <button onclick="resetPin('cassie')">Reset Cassie PIN</button>
                 <button onclick="resetPin('tim')">Reset My Own PIN</button>
@@ -158,7 +158,7 @@ function renderUserList() {
 
     const defaults = [
         { id: 'tim', name: 'Tim' },
-        { id: 'airel', name: 'Airel' },
+        { id: 'ariel', name: 'Ariel' },
         { id: 'az', name: 'AZ' },
         { id: 'cassie', name: 'Cassie' }
     ];
