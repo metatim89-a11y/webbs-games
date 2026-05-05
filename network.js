@@ -28,7 +28,19 @@ const NetworkManager = {
         const path = window.location.pathname;
         this.currentGame = path.includes('/games/') ? path.split('/games/')[1].split('/')[0] : null;
 
-        this.peer = new Peer(role === 'host' ? this.roomID : undefined, { debug: 1 });
+        // Enhanced configuration with STUN servers for better NAT traversal
+        const config = {
+            debug: 3,
+            config: {
+                'iceServers': [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' },
+                    { urls: 'stun:stun2.l.google.com:19302' },
+                ]
+            }
+        };
+
+        this.peer = new Peer(role === 'host' ? this.roomID : undefined, config);
 
         this.peer.on('open', (id) => {
             console.log(`My peer ID is: ${id}`);
@@ -48,6 +60,10 @@ const NetworkManager = {
             console.error('PeerJS Error:', err);
             if (err.type === 'unavailable-id' && role === 'host') {
                 alert("This Table PIN is already in use. Please try again.");
+            } else if (err.type === 'peer-dotnet-found' || err.type === 'browser-incompatible') {
+                alert("Your browser doesn't support the networking features needed for multiplayer.");
+            } else if (err.type === 'network') {
+                console.warn("Signaling server connection lost. Retrying...");
             }
         });
     },
@@ -108,9 +124,22 @@ const NetworkManager = {
     // --- Client Logic ---
     connectToHost(hostID) {
         console.log("Connecting to host:", hostID);
-        this.conn = this.peer.connect(hostID);
+        
+        // Timeout for connection
+        const timeout = setTimeout(() => {
+            if (!this.conn || !this.conn.open) {
+                console.error("Connection attempt timed out.");
+                alert("Could not connect to the host. Please check the PIN and try again.");
+                window.location.href = "../../index.html";
+            }
+        }, 15000);
+
+        this.conn = this.peer.connect(hostID, {
+            reliable: true
+        });
 
         this.conn.on('open', () => {
+            clearTimeout(timeout);
             console.log("Connected to host!");
             setTimeout(() => this.requestJoin(), 500); 
         });
@@ -121,6 +150,13 @@ const NetworkManager = {
 
         this.conn.on('close', () => {
             alert("Lost connection to Host.");
+            window.location.href = "../../index.html";
+        });
+        
+        this.conn.on('error', (err) => {
+            console.error("Data connection error:", err);
+            clearTimeout(timeout);
+            alert("Connection error occurred. Returning to menu.");
             window.location.href = "../../index.html";
         });
     },
