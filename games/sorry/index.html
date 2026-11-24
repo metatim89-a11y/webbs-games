@@ -12,25 +12,23 @@
         }
         #game-container { position: relative; width: 100%; max-width: 600px; margin: 0 auto; padding-bottom: 20px; }
         
+        #board-fit { position: relative; width: 100%; height: 516px; margin: 12px auto; }
         #board-wrapper { 
-            position: relative; width: 500px; height: 500px; max-width: 95vw; aspect-ratio: 1/1; margin: 20px auto; 
+            position: absolute; top: 0; left: 50%; width: 500px; height: 500px; margin-left: -258px;
+            transform-origin: top center; 
             background: #222; border: 8px solid #333; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             overflow: visible;
         }
 
         @media (max-width: 500px) {
-            #board-wrapper { height: auto; }
             h1 { font-size: 1.5em; margin: 10px 0; }
-            #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
-            .square { width: 18px; height: 18px; font-size: 5px; }
-            .pawn { width: 14px; height: 14px; }
         }
 
         .square { 
             width: 22px; height: 22px; border: 1px solid rgba(255,255,255,0.05); position: absolute; 
             box-sizing: border-box; display: flex; align-items: center; justify-content: center;
-            font-size: 7px; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.02);
+            font-size: 7px; color: rgba(255,255,255,0.2); background: rgba(255,255,255,0.07);
             border-radius: 3px;
         }
         .square.p1-path { background: rgba(33, 150, 243, 0.15); border-color: rgba(33, 150, 243, 0.3); }
@@ -49,7 +47,7 @@
         #p2-home { background: rgba(244, 67, 54, 0.2); border: 2px solid var(--p2-color); }
 
         .pawn { 
-            width: 22px; height: 22px; border-radius: 50%; 
+            width: 22px; height: 22px; border-radius: 50%; box-sizing: border-box;
             border: 2px solid #000; z-index: 20; 
             transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             box-shadow: 0 4px 8px rgba(0,0,0,0.5);
@@ -74,22 +72,24 @@
             100% { transform: scale(1) translateY(0); }
         }
 
+        #dice-row { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 10px auto 0; }
+        #dice-label { font-weight: bold; color: gold; }
         #dice-container {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            position: relative;
             width: 70px; height: 70px; background: #fff; border-radius: 15px;
             display: flex; align-items: center; justify-content: center;
             font-size: 2.5em; font-weight: bold; color: #333;
             box-shadow: 0 5px 15px rgba(0,0,0,0.4); z-index: 40;
             cursor: pointer; transition: transform 0.2s;
         }
-        #dice-container:active { transform: translate(-50%, -50%) scale(0.9); }
+        #dice-container:active { transform: scale(0.9); }
         #dice-container.disabled { opacity: 0.6; cursor: not-allowed; }
 
         .rolling { animation: diceRoll 0.1s infinite; }
         @keyframes diceRoll {
-            0% { transform: translate(-50%, -50%) rotate(0deg) scale(1.1) translate(2px, -2px); }
-            50% { transform: translate(-50%, -50%) rotate(5deg) scale(1) translate(-2px, 2px); }
-            100% { transform: translate(-50%, -50%) rotate(-5deg) scale(1.1) translate(0, 0); }
+            0% { transform: rotate(0deg) scale(1.1) translate(2px, -2px); }
+            50% { transform: rotate(5deg) scale(1) translate(-2px, 2px); }
+            100% { transform: rotate(-5deg) scale(1.1) translate(0, 0); }
         }
 
         .shake { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both; }
@@ -114,10 +114,11 @@
             <strong>Objective:</strong> Get all 4 pawns HOME.<br><br>
             <strong>Rules:</strong>
             <ul>
-                <li>Click the center dice to roll (1-6).</li>
+                <li>Tap the dice under the board to roll (1-6).</li>
                 <li>Roll a 1 or 2 to enter the board from START.</li>
                 <li>Landing on an opponent sends them back to START!</li>
                 <li>Home Stretch is safe zone.</li>
+                <li>You need the exact roll (or less) to reach HOME.</li>
             </ul>
         </div>
     </div>
@@ -149,9 +150,7 @@
         </div>
 
         <div id="game-container">
-            <div id="board-wrapper">
-                <div id="dice-container" onclick="handleRoll()">?</div>
-                
+            <div id="board-fit"><div id="board-wrapper">
                 <!-- Zones -->
                 <div id="p1-start" class="base-zone"></div>
                 <div id="p1-home" class="base-zone"></div>
@@ -159,10 +158,14 @@
                 <div id="p2-home" class="base-zone"></div>
 
                 <div id="squares"></div>
+            </div></div>
+            <div id="dice-row">
+                <span id="dice-label">Tap to roll</span>
+                <div id="dice-container" onclick="handleRoll()">?</div>
             </div>
         </div>
 
-        <p id="game-info" style="min-height: 1.5em; font-weight: bold; color: gold; margin-top: 10px;">Push the center button to roll!</p>
+        <p id="game-info" style="min-height: 1.5em; font-weight: bold; color: gold; margin-top: 10px;">Tap the dice to roll!</p>
         <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="resetGame()">Reset</button>
     </div>
 
@@ -187,6 +190,10 @@
         const p2Enter = 28, p2HomeStretch = 26; 
 
         let isMoving = false;
+        let isRolling = false;     // die animation running: ignore extra taps
+        let skipPending = false;   // a "no moves, turn skipped" timer is already running
+        let pendingState = null;   // online state that arrived mid-animation
+        const P1_HOME = 106, P2_HOME = 206;
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -204,7 +211,17 @@
             return { p1, p2 };
         }
 
+        function fitBoard() {
+            const fit = document.getElementById('board-fit');
+            const wrapper = document.getElementById('board-wrapper');
+            const scale = Math.min(1, fit.clientWidth / 516);
+            wrapper.style.transform = `scale(${scale})`;
+            fit.style.height = (516 * scale) + 'px';
+        }
+        window.addEventListener('resize', fitBoard);
+
         window.onload = () => {
+            fitBoard();
             createBoard();
             if (gameType === 'online') setupMultiplayer();
             updateStatus();
@@ -241,21 +258,8 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
-                    p1Pawns = state.p1Pawns; p2Pawns = state.p2Pawns;
-                    currentPlayer = state.currentPlayer;
-                    player2ID = state.player2ID;
-                    active = state.active;
-                    if (player2ID === playerID) {
-                        isSpectator = false;
-                        myRole = 'player2';
-                        document.getElementById('multiplayer-controls').style.display = 'none';
-                    }
-                    if (!active) {
-                        const winner = state.winner || (currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1");
-                        showGameOver(winner);
-                    }
-                    render();
-                    updateStatus();
+                    if (isMoving) { pendingState = state; return; }
+                    applyState(state);
                 };
                 NetworkManager.onAnimationTrigger = (data) => {
                     if (data.type === 'ROLL') {
@@ -275,6 +279,30 @@
             }
         }
 
+        function applyState(state) {
+            p1Pawns = state.p1Pawns; p2Pawns = state.p2Pawns;
+            if (state.currentPlayer !== currentPlayer || !state.active) {
+                currentRoll = null;
+                const dice = document.getElementById('dice-container');
+                if (dice) dice.innerText = "?";
+        }
+            currentPlayer = state.currentPlayer;
+            player2ID = state.player2ID;
+            active = state.active;
+            if (player2ID === playerID) {
+                isSpectator = false;
+                myRole = 'player2';
+                document.getElementById('multiplayer-controls').style.display = 'none';
+        }
+            if (!active) {
+                const winner = state.winner || (currentPlayer === "X" ? "PLAYER 2" : "PLAYER 1");
+                showGameOver(winner);
+        }
+            if (active) document.getElementById('game-over-modal').style.display = 'none';
+            render();
+            updateStatus();
+        }
+
         function broadcast(extra = {}) { 
             if (myRole === 'host') {
                 const p1Win = p1Pawns.every(p => p === 106);
@@ -288,73 +316,59 @@
         function createBoard() {
             const container = document.getElementById('squares');
             container.innerHTML = '';
-            
+
             const centerX = 250, centerY = 250;
-            const radius = 115;
+            const radius = 200;               // 52 squares of 22px fit around this ring without overlapping
+            const angleOf = i => (i / 52) * 2 * Math.PI - Math.PI / 2;
+            const at = (angle, dist) => ({ x: centerX + dist * Math.cos(angle), y: centerY + dist * Math.sin(angle) });
 
             // Perimeter Path (52 squares)
-            for(let i=0; i<52; i++) {
-                const angle = (i / 52) * 2 * Math.PI - Math.PI / 2;
-                const x = centerX + radius * Math.cos(angle) - 15;
-                const y = centerY + radius * Math.sin(angle) - 15;
-                
+            for (let i = 0; i < 52; i++) {
+                const { x, y } = at(angleOf(i), radius);
                 let cls = '';
                 if (i === p1Enter) cls = 'p1-path';
                 if (i === p2Enter) cls = 'p2-path';
                 addSquare(x, y, i, cls);
             }
 
-            // P1 Home Stretch (index 0, top)
-            const p1Angle = (p1HomeStretch / 52) * 2 * Math.PI - Math.PI / 2;
-            for(let i=1; i<=5; i++) {
-                const dist = radius + (i * 28);
-                const x = centerX + dist * Math.cos(p1Angle) - 15;
-                const y = centerY + dist * Math.sin(p1Angle) - 15;
-                addSquare(x, y, 101+i-1, 'p1-path safe');
-            }
-            // Position Zones
-            const p1Home = document.getElementById('p1-home');
-            p1Home.style.left = (centerX + (radius + 185) * Math.cos(p1Angle) - 35) + 'px';
-            p1Home.style.top = (centerY + (radius + 185) * Math.sin(p1Angle) - 35) + 'px';
-            
-            const p1StartAngle = (p1Enter / 52) * 2 * Math.PI - Math.PI / 2;
-            const p1Start = document.getElementById('p1-start');
-            p1Start.style.left = (centerX + (radius + 60) * Math.cos(p1StartAngle + 0.3) - 35) + 'px';
-            p1Start.style.top = (centerY + (radius + 60) * Math.sin(p1StartAngle + 0.3) - 35) + 'px';
-
-            // P2 Home Stretch (index 26, bottom)
-            const p2Angle = (p2HomeStretch / 52) * 2 * Math.PI - Math.PI / 2;
-            for(let i=1; i<=5; i++) {
-                const dist = radius + (i * 28);
-                const x = centerX + dist * Math.cos(p2Angle) - 15;
-                const y = centerY + dist * Math.sin(p2Angle) - 15;
-                addSquare(x, y, 201+i-1, 'p2-path safe');
-            }
-            const p2Home = document.getElementById('p2-home');
-            p2Home.style.left = (centerX + (radius + 185) * Math.cos(p2Angle) - 35) + 'px';
-            p2Home.style.top = (centerY + (radius + 185) * Math.sin(p2Angle) - 35) + 'px';
-
-            const p2StartAngle = (p2Enter / 52) * 2 * Math.PI - Math.PI / 2;
-            const p2Start = document.getElementById('p2-start');
-            p2Start.style.left = (centerX + (radius + 60) * Math.cos(p2StartAngle + 0.3) - 35) + 'px';
-            p2Start.style.top = (centerY + (radius + 60) * Math.sin(p2StartAngle + 0.3) - 35) + 'px';
+            // Home stretches run from each turn-in square toward the middle, HOME sits at the end
+            const stretches = [
+                { player: 'p1', turnIn: p1HomeStretch, enter: p1Enter, base: 100 },
+                { player: 'p2', turnIn: p2HomeStretch, enter: p2Enter, base: 200 },
+            ];
+            stretches.forEach(({ player, turnIn, enter, base }) => {
+                const a = angleOf(turnIn);
+                for (let i = 1; i <= 5; i++) {
+                    const { x, y } = at(a, radius - i * 24);
+                    addSquare(x, y, base + i, `${player}-path safe`);
+                }
+                placeZone(`${player}-home`, at(a, 40));
+                placeZone(`${player}-start`, at(angleOf(enter) + 0.35, 140));
+            });
 
             // Visual markers for turn-ins
             document.getElementById('sq-' + p1HomeStretch).style.border = '2px solid var(--p1-color)';
             document.getElementById('sq-' + p2HomeStretch).style.border = '2px solid var(--p2-color)';
 
             // Pawns
-            for(let i=0; i<4; i++) {
+            document.querySelectorAll('.pawn').forEach(p => p.remove());
+            for (let i = 0; i < 4; i++) {
                 createPawn('p1', i, 'var(--p1-color)');
                 createPawn('p2', i, 'var(--p2-color)');
             }
+        }
+
+        function placeZone(id, { x, y }) {
+            const zone = document.getElementById(id);
+            zone.style.left = (x - 30) + 'px';
+            zone.style.top = (y - 30) + 'px';
         }
 
         function addSquare(x, y, id, cls = '') {
             const sq = document.createElement('div');
             sq.className = 'square ' + cls;
             sq.id = 'sq-' + id;
-            sq.style.left = x + 'px'; sq.style.top = y + 'px';
+            sq.style.left = (x - 11) + 'px'; sq.style.top = (y - 11) + 'px';
             document.getElementById('squares').appendChild(sq);
         }
 
@@ -375,7 +389,10 @@
                 const selectable = getSelectablePawns();
                 if (selectable.length === 0) {
                     document.getElementById('game-info').innerText = "No moves possible! Turn skipped.";
-                    setTimeout(skipTurn, 1500);
+                    if (!skipPending && (myRole === 'local' || myRole === 'host')) {
+                        skipPending = true;
+                        setTimeout(skipTurn, 1500);
+                    }
                 }
             }
         }
@@ -384,19 +401,15 @@
             const p = document.getElementById(`pawn-${player}-${idx}`);
             let targetX, targetY;
 
-            if (pos === -1) {
-                const zone = document.getElementById(`${player}-start`);
-                targetX = zone.offsetLeft + (idx % 2) * 22 + 9;
-                targetY = zone.offsetTop + Math.floor(idx / 2) * 22 + 9;
-            } else if (pos === 106 || pos === 206) {
-                const zone = document.getElementById(`${player}-home`);
-                targetX = zone.offsetLeft + (idx % 2) * 22 + 9;
-                targetY = zone.offsetTop + Math.floor(idx / 2) * 22 + 9;
+            if (pos === -1 || pos === P1_HOME || pos === P2_HOME) {
+                const zone = document.getElementById(`${player}-${pos === -1 ? 'start' : 'home'}`);
+                targetX = zone.offsetLeft + (idx % 2) * 24 + 6;
+                targetY = zone.offsetTop + Math.floor(idx / 2) * 24 + 6;
             } else {
                 const sq = document.getElementById('sq-' + pos);
                 if (!sq) return;
-                targetX = sq.offsetLeft + 2;
-                targetY = sq.offsetTop + 2;
+                targetX = sq.offsetLeft;
+                targetY = sq.offsetTop;
             }
             
             // Apply hop animation if it's a new position
@@ -416,8 +429,9 @@
 
         const sleep = ms => new Promise(res => setTimeout(res, ms));
 
-        function handleRoll() {
-            if (!active || currentRoll || isSpectator || isMoving) return;
+        function handleRoll(fromCpu = false) {
+            if (!active || currentRoll || isRolling || isSpectator || isMoving) return;
+            if (gameType === 'cpu' && (currentPlayer === 'O') !== fromCpu) return;
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local');
             if (!isMyTurn) return;
 
@@ -430,8 +444,8 @@
 
         async function executeRoll(roll, isLocal) {
             const dice = document.getElementById('dice-container');
-            if (!dice) return;
-            
+            if (!dice || isRolling) return;
+            isRolling = true;
             dice.classList.add('rolling');
             if (window.AudioManager) AudioManager.play('roll');
             for(let i=0; i<12; i++) {
@@ -440,7 +454,7 @@
             }
             dice.classList.remove('rolling');
             dice.innerText = roll;
-            
+            isRolling = false;
             currentRoll = roll;
             document.getElementById('game-info').innerText = `Rolled a ${roll}! Select a pawn to move.`;
             render();
@@ -456,6 +470,7 @@
             if (!isMyTurn) return;
             if (player === 'p1' && currentPlayer !== 'X') return;
             if (player === 'p2' && currentPlayer !== 'O') return;
+            if (gameType === 'cpu' && currentPlayer === 'O') return; // the computer moves its own pawns
 
             if (getSelectablePawns().includes(idx)) {
                 if (myRole === 'player2') NetworkManager.sendMove({ type: 'MOVE', pawnIdx: idx });
@@ -464,36 +479,38 @@
             }
         }
 
+        // Where a pawn ends up with the current roll, or null if that move is not allowed
+        function targetFor(pos, player) {
+            const home = player === 'X' ? P1_HOME : P2_HOME;
+            if (pos === -1) {
+                return (currentRoll === 1 || currentRoll === 2) ? (player === 'X' ? p1Enter : p2Enter) : null;
+            }
+            if (pos === home) return null;
+            let finalPos = pos;
+            for (let r = 0; r < currentRoll; r++) {
+                if (finalPos === home) return null; // would overshoot HOME
+                finalPos = getNextPos(finalPos, player);
+            }
+            return finalPos;
+        }
+
         function getSelectablePawns() {
             if (!currentRoll) return [];
             const pawns = currentPlayer === 'X' ? p1Pawns : p2Pawns;
+            const home = currentPlayer === 'X' ? P1_HOME : P2_HOME;
             const selectable = [];
-            
             pawns.forEach((pos, i) => {
-                let finalPos = pos;
-                if (pos === -1) {
-                    if (currentRoll === 1 || currentRoll === 2) {
-                        finalPos = currentPlayer === 'X' ? p1Enter : p2Enter;
-                    } else return;
-                } else if (pos < 100) {
-                    for (let r = 0; r < currentRoll; r++) {
-                        finalPos = getNextPos(finalPos, currentPlayer);
-                    }
-                } else if (pos >= 100 && pos < 106) {
-                    if (pos + currentRoll <= (currentPlayer === 'X' ? 106 : 206)) {
-                        finalPos = pos + currentRoll;
-                    } else return;
-                } else return;
-
-                // Rule: Cannot land on your own piece
-                if (pawns.includes(finalPos) && finalPos !== 106 && finalPos !== 206) return;
-                
+                const finalPos = targetFor(pos, currentPlayer);
+                if (finalPos === null) return;
+                // Rule: Cannot land on your own piece (except HOME)
+                if (finalPos !== home && pawns.includes(finalPos)) return;
                 selectable.push(i);
             });
             return selectable;
         }
 
         async function executeMove(idx, isLocal) {
+            if (isMoving || !currentRoll) return;
             isMoving = true;
             let pawns = currentPlayer === 'X' ? p1Pawns : p2Pawns;
             let pos = pawns[idx];
@@ -524,15 +541,21 @@
                 dice.innerText = "?";
             }
 
-            if (checkWin()) return;
+            if (checkWin()) { if (myRole === 'host') broadcast(); return; }
+
+            if (pendingState) {
+                const state = pendingState; pendingState = null;
+                applyState(state);
+                return;
+            }
 
             currentPlayer = (currentPlayer === 'X') ? 'O' : 'X';
-            if (isLocal) broadcast();
+            if (myRole === 'host') broadcast();
             updateStatus();
             render();
             
             if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) {
-                setTimeout(handleRoll, 1000);
+                setTimeout(() => handleRoll(true), 1000);
             }
         }
 
@@ -564,7 +587,8 @@
         }
 
         function skipTurn() {
-            if (isMoving) return;
+            skipPending = false;
+            if (isMoving || !active || !currentRoll) return;
             currentRoll = null;
             const dice = document.getElementById('dice-container');
             if (dice) {
@@ -575,46 +599,33 @@
             if (myRole === 'host') broadcast();
             updateStatus();
             render();
-            if (gameType === 'cpu' && currentPlayer === 'O') setTimeout(handleRoll, 1000);
+            if (gameType === 'cpu' && currentPlayer === 'O') setTimeout(() => handleRoll(true), 1000);
         }
 
         function cpuLogic() {
+            if (!active || currentPlayer !== 'O' || isMoving) return;
             const selectable = getSelectablePawns();
-            if (selectable.length > 0) {
-                let bestIdx = -1;
-                let bumpIdx = -1;
-                let maxProgress = -1;
+            if (selectable.length === 0) return; // render() already scheduled the skip
+            const opponents = p1Pawns;
+            let best = selectable[0], bestScore = -Infinity;
+            selectable.forEach(idx => {
+                const from = p2Pawns[idx];
+                const to = targetFor(from, 'O');
+                let score = progressOf(to, 'O') - progressOf(from, 'O');
+                if (to === P2_HOME) score += 100;                       // finishing a pawn
+                if (to >= 0 && to < 100 && opponents.includes(to)) score += 80; // SORRY! bump
+                if (from === -1) score += 30;                           // get pawns out
+                if (score > bestScore) { bestScore = score; best = idx; }
+            });
+            executeMove(best, true);
+        }
 
-                selectable.forEach(idx => {
-                    let pos = currentPlayer === 'X' ? p1Pawns[idx] : p2Pawns[idx];
-                    let simulatedPos = pos;
-                    if (simulatedPos === -1) {
-                        simulatedPos = currentPlayer === 'X' ? p1Enter : p2Enter;
-                    } else {
-                        for (let r = 0; r < currentRoll; r++) {
-                            simulatedPos = getNextPos(simulatedPos, currentPlayer);
-                        }
-                    }
-                    
-                    const opponentPawns = currentPlayer === 'X' ? p2Pawns : p1Pawns;
-                    if (simulatedPos >= 0 && simulatedPos < 100 && opponentPawns.includes(simulatedPos)) {
-                        bumpIdx = idx;
-                    }
-
-                    // Progress metric: higher is better
-                    let progress = simulatedPos;
-                    if (simulatedPos >= 100) progress += 100;
-                    if (simulatedPos === 106 || simulatedPos === 206) progress += 500;
-
-                    if (progress > maxProgress) {
-                        maxProgress = progress;
-                        bestIdx = idx;
-                    }
-                });
-
-                const finalIdx = bumpIdx !== -1 ? bumpIdx : (bestIdx !== -1 ? bestIdx : selectable[0]);
-                executeMove(finalIdx, true);
-            }
+        // How far along its own route a pawn is (0 = just entered, 56 = HOME)
+        function progressOf(pos, player) {
+            if (pos === -1) return -1;
+            if (pos >= 100) return 50 + (pos % 100);
+            const enter = player === 'X' ? p1Enter : p2Enter;
+            return (pos - enter + boardSize) % boardSize;
         }
 
         function checkWin() {
@@ -650,12 +661,17 @@
             } else {
                 resetBtn.disabled = !active;
             }
-            if (!active) return;
+            if (!active) { document.getElementById('dice-label').innerText = ''; return; }
             
             const names = getNames();
-            let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
+            const name = currentPlayer === "X" ? names.p1 : names.p2;
+            let text = `${name}'s Turn`;
+            info.style.color = currentPlayer === "X" ? 'var(--p1-color)' : 'var(--p2-color)';
+            const label = document.getElementById('dice-label');
+            label.innerText = `${name}: tap to roll`;
+            label.style.color = info.style.color;
             
-            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
+            const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
             if (isMyTurn) text = "YOUR TURN";
             else if (gameType === 'online') text = `WAITING FOR ${currentPlayer === 'X' ? names.p1.toUpperCase() : names.p2.toUpperCase()}...`;
             
@@ -664,6 +680,8 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            if (isMoving) return;
+            skipPending = false; pendingState = null;
             document.getElementById('game-over-modal').style.display = 'none';
             p1Pawns = [-1, -1, -1, -1]; p2Pawns = [-1, -1, -1, -1];
             currentRoll = null; active = true;
@@ -677,7 +695,7 @@
             if (myRole === 'host') broadcast();
             updateStatus();
             render();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(handleRoll, 1000);
+            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(() => handleRoll(true), 1000);
         }
     </script>
 </body>
