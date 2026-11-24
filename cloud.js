@@ -45,16 +45,22 @@ const WebbsCloud = (() => {
         return { uid: user.uid, id, name: p.name || id, approved: p.approved === true, admin };
     }
 
-    let approvalRef = null;
+    let approvalRef = null, adminRef = null;
     async function refreshMe() {
         try { me = await loadMe(auth.currentUser); } catch (e) { console.warn('WebbsCloud profile', e); me = null; }
-        // When Tim approves (or pauses) this player, the menu updates right away
+        // When Tim approves (or pauses) this player, or makes them admin, the menu updates right away
         if (approvalRef) { approvalRef.off(); approvalRef = null; }
+        if (adminRef) { adminRef.off(); adminRef = null; }
         if (me) {
             approvalRef = db.ref(`players/${me.id}/approved`);
             approvalRef.on('value', snap => {
                 const approved = snap.val() === true;
                 if (me && approved !== me.approved) { me.approved = approved; emit(); }
+            }, () => {});
+            adminRef = db.ref(`admins/${me.uid}`);
+            adminRef.on('value', snap => {
+                const admin = snap.val() === true;
+                if (me && admin !== me.admin) { me.admin = admin; emit(); }
             }, () => {});
         }
         emit();

@@ -38,13 +38,19 @@ const FamilyUI = (() => {
         const me = window.WebbsCloud && WebbsCloud.me;
         const signedInHere = me && me.id === (typeof activePlayer !== 'undefined' ? activePlayer : null);
         $('family-features').style.display = signedInHere ? 'block' : 'none';
-        $('pending-note').style.display = signedInHere && !me.approved ? 'block' : 'none';
+        $('pending-note').style.display = signedInHere && !me.approved && !me.admin ? 'block' : 'none';
         $('messages-btn').style.display = signedInHere && me.approved ? 'inline-block' : 'none';
         document.body.classList.toggle('cloud-chat', !!(signedInHere && me.approved));
         if (signedInHere && $('active-player-name')) $('active-player-name').innerText = `Welcome, ${me.name.toUpperCase()}!`;
-        if (!signedInHere || !me.approved) { renderTables([]); renderInvites([]); return; }
+        if (!signedInHere || !me.approved) {
+            renderInvites([]);
+            $('open-tables').style.display = 'none';
+            $('admin-approvals').style.display = 'none';
+            return;
+        }
 
         offs.push(WebbsCloud.watchPlayers(players => {
+            if (me.admin) renderApprovals(players.filter(p => !p.approved));
             const others = players.filter(p => p.approved && p.id !== me.id);
             const changed = others.map(p => p.id).join() !== family.map(p => p.id).join();
             family = others;
@@ -91,9 +97,12 @@ const FamilyUI = (() => {
         const box = $('open-tables');
         if (!box) return;
         box.innerHTML = '';
-        if (!list.length) { box.style.display = 'none'; return; }
         box.style.display = 'block';
-        box.appendChild(el('h3', 'section-title', 'Waiting for a player'));
+        box.appendChild(el('h3', 'section-title', '🎲 Game Lobby'));
+        if (!list.length) {
+            box.appendChild(el('p', 'lobby-empty', 'No one is waiting for a game right now. Tap "Host Online Table" and your family will see it here.'));
+            return;
+        }
         list.forEach(t => {
             const row = el('div', 'table-row');
             const info = el('div', 'table-info');
@@ -104,6 +113,32 @@ const FamilyUI = (() => {
             row.append(info, join);
             box.appendChild(row);
         });
+    }
+
+    // ---------- Tim only: new players waiting for approval, right on the main menu ----------
+
+    function renderApprovals(pending) {
+        const box = $('admin-approvals');
+        box.innerHTML = '';
+        if (!pending.length) { box.style.display = 'none'; return; }
+        box.style.display = 'block';
+        box.appendChild(el('h3', 'section-title', `👋 ${pending.length === 1 ? '1 person wants' : pending.length + ' people want'} to join the family`));
+        pending.forEach(p => {
+            const row = el('div', 'approval-row');
+            const info = el('div', 'approval-info');
+            info.appendChild(el('strong', '', p.name || p.id));
+            const extra = [p.animal && `🐾 ${p.animal}`, p.favGame && `🎲 ${p.favGame}`, p.createdAt && `asked ${timeLabel(p.createdAt)}`].filter(Boolean).join(' · ');
+            if (extra) info.appendChild(el('div', 'approval-extra', extra));
+            const yes = el('button', 'modal-btn approval-yes', 'Approve');
+            yes.onclick = async () => {
+                yes.disabled = true; yes.textContent = '...';
+                try { await WebbsCloud.adminApprove(p.id, true); }
+                catch (e) { yes.disabled = false; yes.textContent = 'Try again'; }
+            };
+            row.append(info, yes);
+            box.appendChild(row);
+        });
+        box.appendChild(el('div', 'approval-note', 'Approved people can message family, see the lobby and get invites. Deny or pause anyone from the ⚙️ gear.'));
     }
 
     // ---------- Family chat (shared board) ----------
@@ -168,7 +203,7 @@ const FamilyUI = (() => {
                         <button id="dm-send" class="dm-send" aria-label="Send">➤</button>
                     </div>
                 </div>
-                <div class="dm-safety">🔒 Only approved family can message here. Tim can see messages to keep everyone safe.</div>
+                <div class="dm-safety">🔒 Only approved family can message here. Tim and Cassie can see messages to keep everyone safe.</div>
             </div>`;
         document.body.appendChild(modal);
         $('dm-close').onclick = closeMessages;

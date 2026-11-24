@@ -76,6 +76,7 @@ try {
   step(`lobby shows "Zzt One · Sorry" (table ${pin}) on B`, true);
   await a.waitFor(`!!document.getElementById('invite-family')`, 10000, 'invite chips');
   await a.eval(`[...document.querySelectorAll('.invite-chip')].find(e => e.textContent === 'Zzt Two').click(); true`);
+  await sleep(2500);
   await b.waitFor(`document.getElementById('invite-inbox').textContent.includes('invited you to Sorry')`, 10000, 'invite card');
   step('B gets "Zzt One invited you to Sorry"', true);
   await b.shot(`${S}/invite.png`);
@@ -92,3 +93,32 @@ try {
   const c = await openPage(C, `${SITE}/index.html`);
   await c.waitFor(`window.WebbsCloud && WebbsCloud.available`, 15000);
   await c.eval(`initLogin('guest'); true`);
+  await sleep(2500);
+  step('guest sees no messages, lobby or invites', await c.eval(`document.getElementById('family-features').style.display === 'none' && document.getElementById('messages-btn').style.display === 'none'`));
+  const errs = [a, b, c].flatMap(p => p.logs.filter(l => /EXCEPTION/.test(l)));
+  step('no page errors' + (errs.length ? ': ' + errs.join(' | ') : ''), errs.length === 0);
+} catch (e) {
+  step('crashed: ' + e.message, false);
+} finally {
+  A.close(); B.close(); C.close();
+  // Clean up every trace of the test players
+  const players = (await admin('GET', 'players')) || {};
+  const uids = ['zztone', 'zzttwo'].map(id => players[id]?.uid).filter(Boolean);
+  const upd = {};
+  for (const id of ['zztone', 'zzttwo']) for (const root of ['logins', 'players', 'reads', 'history', 'invites']) upd[`${root}/${id}`] = null;
+  uids.forEach(u => { upd[`uids/${u}`] = null; });
+  upd['dms/zztone__zzttwo'] = null;
+  const board = (await admin('GET', 'board')) || {};
+  Object.entries(board).forEach(([k, v]) => { if (String(v.from).startsWith('zzt')) upd[`board/${k}`] = null; });
+  const tables = (await admin('GET', 'tables')) || {};
+  Object.entries(tables).forEach(([k, v]) => { if (String(v.host).startsWith('zzt')) upd[`tables/${k}`] = null; });
+  await admin('PATCH', '', upd);
+  if (uids.length) {
+    const r = await fetch('https://identitytoolkit.googleapis.com/v1/projects/x300-506418/accounts:batchDelete', {
+      method: 'POST', headers: { Authorization: `Bearer ${token()}`, 'x-goog-user-project': 'x300-506418', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ localIds: uids, force: true }) });
+    console.log('deleted test accounts:', r.status);
+  }
+  console.log(`${results.filter(Boolean).length}/${results.length} steps passed`);
+  process.exit(results.every(Boolean) ? 0 : 1);
+}
