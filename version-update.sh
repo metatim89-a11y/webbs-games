@@ -17,6 +17,6 @@ find . -name "*.html" -exec sed -i "s|<div id=\"version-tag\">v[0-9.]*</div>|<di
 find . -name "*.html" -exec sed -i "s|href=\"\([^\"]*\)style.css[^\"]*\"|href=\"\1style.css?v=$NEW_VER\"|g" {} +
 
 # 3. Update JS imports with cache busting (Strictly target src, avoid unpkg)
-find . -name "*.html" -exec sed -i "/unpkg.com/! s|src=\"\([^\"]*\)\.js[^\"]*\"|src=\"\1.js?v=$NEW_VER\"|g" {} +
+find . -name "*.html" -exec sed -i "/unpkg.com\|gstatic.com/! s|src=\"\([^\"]*\)\.js[^\"]*\"|src=\"\1.js?v=$NEW_VER\"|g" {} +
 
 echo "Done! All files updated to v$NEW_VER."
