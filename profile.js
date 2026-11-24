@@ -1,11 +1,19 @@
 /**
  * ProfileManager handles player statistics, game history, and personal preferences.
  */
+// Show typed text as text, never as HTML/script
+function escapeHTML(str) {
+    return String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
 const ProfileManager = {
     // Save a game result
     recordResult(gameName, playerID, opponentID, result) {
         // result: 'win', 'loss', or 'draw'
         const history = JSON.parse(localStorage.getItem(`history_${playerID}`)) || [];
+        // Online games can report the same finish twice (own move + host update): count it once
+        const last = history[history.length - 1];
+        if (last && last.game === gameName && new Date().getTime() - last.rawTime < 10000) return;
         const entry = {
             game: gameName,
             opponent: opponentID,
@@ -53,7 +61,7 @@ const ProfileManager = {
         if (id === 'cpu') return "Computer";
         if (id === 'guest') return "Guest";
         
-        const defaults = { tim: 'Tim', arieal: 'Arieal', az: 'AZ', cassie: 'Cassie' };
+        const defaults = { tim: 'Tim', ariel: 'Ariel', az: 'AZ', cassie: 'Cassie' };
         if (defaults[id]) return defaults[id];
         
         const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];

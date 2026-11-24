@@ -10,8 +10,8 @@
 
 /* --- Player Theme Overrides --- */
 
-/* Arieal: Teal & Black (Ducks) */
-body.theme-arieal {
+/* Ariel: Teal & Black (Ducks) */
+body.theme-ariel, body.theme-arieal {
     --primary-color: #008080;
     --secondary-color: #000000;
     --accent-color: #40e0d0;

@@ -229,6 +229,11 @@ const NetworkManager = {
                 }
                 if (data.seq) this.lastStateSeq = data.seq;
                 if (this.onStateUpdate) this.onStateUpdate(data.payload);
+                // Host pressed Play Again: close the winner screen on this side too
+                if (data.payload && data.payload.active === true) {
+                    const modal = document.getElementById('game-over-modal');
+                    if (modal) modal.style.display = 'none';
+                }
                 break;
             case 'ANIMATION':
                 if (this.onAnimationTrigger) this.onAnimationTrigger(data.payload);
@@ -305,7 +310,11 @@ const NetworkManager = {
         
         const msg = document.createElement('div');
         msg.style.marginBottom = '4px';
-        msg.innerHTML = `<strong style="color: gold;">${data.sender.toUpperCase()}:</strong> ${data.text}`;
+        const who = document.createElement('strong');
+        who.style.color = 'gold';
+        who.textContent = String(data.sender || 'guest').toUpperCase() + ': ';
+        msg.appendChild(who);
+        msg.appendChild(document.createTextNode(String(data.text || '').slice(0, 300)));
         container.appendChild(msg);
         container.scrollTop = container.scrollHeight;
     }

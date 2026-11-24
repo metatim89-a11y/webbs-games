@@ -4,7 +4,7 @@ let pinVisible = false;
 
 const DEFAULT_PIN_CONFIG = {
     tim: { name: "Tim", theme: "theme-tim" },
-    arieal: { name: "Arieal", theme: "theme-arieal" },
+    ariel: { name: "Ariel", theme: "theme-ariel" },
     az: { name: "AZ", theme: "theme-az" },
     cassie: { name: "Cassie", theme: "theme-cassie" },
     guest: { name: "Guest", theme: "theme-guest" }

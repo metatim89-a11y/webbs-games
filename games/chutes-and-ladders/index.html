@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chutes & Ladders | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.6">
+    <link rel="stylesheet" href="../../style.css?v=1.4.7">
     <style>
         #board-wrapper { 
-            position: relative; width: 400px; height: 400px; max-width: 95vw; aspect-ratio: 1/1; margin: 20px auto; 
+            position: relative; box-sizing: border-box; margin: 20px auto;
+            width: min(400px, calc(100vw - 30px)); height: min(400px, calc(100vw - 30px)); 
             background: #222; border: 8px solid #333; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             overflow: visible;
         }
         @media (max-width: 500px) {
-            #board-wrapper { height: auto; }
             h1 { font-size: 1.5em; margin: 10px 0; }
             #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
             .sq { font-size: 6px; }
@@ -87,7 +87,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.6</div>
+    <div id="version-tag">v1.4.7</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -157,17 +157,20 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.4.6"></script>
-    <script src="../../profile.js?v=1.4.6"></script>
-    <script src="../../audio.js?v=1.4.6"></script>
+    <script src="../../network.js?v=1.4.7"></script>
+    <script src="../../profile.js?v=1.4.7"></script>
+    <script src="../../audio.js?v=1.4.7"></script>
     <script>
-        let p1Pos = 1, p2Pos = 1;
+        // 0 = waiting just off the board, so the ladder on square 1 can be landed on
+        let p1Pos = 0, p2Pos = 0;
         let currentPlayer = "X"; 
         let active = true;
         let myRole = 'local';
         let isSpectator = false;
         let player2ID = null;
         let startingPlayer = "X";
+        let rollingNow = false;    // a roll is animating: extra taps and online updates wait
+        let pendingState = null;
 
         const specials = {
             1: 38, 4: 14, 9: 31, 21: 42, 28: 84, 36: 44, 51: 67, 71: 91, 80: 100, // Ladders
@@ -247,6 +250,7 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
+                    if (rollingNow) { pendingState = state; return; }
                     p1Pos = state.p1Pos; p2Pos = state.p2Pos;
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
@@ -257,7 +261,7 @@
                         myRole = 'player2';
                         document.getElementById('multiplayer-controls').style.display = 'none';
                     }
-                    if (!active) showGameOver(currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
+                    if (!active) { const n = getNames(); showGameOver(p1Pos === 100 ? n.p1 : n.p2); }
                     movePawn('p1', p1Pos);
                     movePawn('p2', p2Pos);
                     updateStatus();
@@ -296,8 +300,8 @@
             createPawn('p2', '#ff5555');
             setTimeout(() => {
                 drawTrajectories();
-                movePawn('p1', 1);
-                movePawn('p2', 1);
+                movePawn('p1', p1Pos);
+                movePawn('p2', p2Pos);
             }, 500);
         }
 
@@ -343,7 +347,7 @@
         }
 
         function movePawn(id, pos, animate = false) {
-            const sq = document.getElementById('sq-' + pos);
+            const sq = document.getElementById('sq-' + Math.max(1, pos));
             const pawn = document.getElementById('pawn-' + id);
             if (!sq || !pawn) return;
             const boardRect = document.getElementById('board-wrapper').getBoundingClientRect();
@@ -383,7 +387,7 @@
         }
 
         async function handleRoll(isProgrammatic = false) {
-            if (!canMove() && !isProgrammatic) return;
+            if ((!canMove() && !isProgrammatic) || rollingNow || !active) return;
             const roll = Math.floor(Math.random() * 6) + 1;
             if (myRole === 'player2') {
                 NetworkManager.sendMove(roll);
@@ -403,6 +407,19 @@
         }
 
         async function executeRoll(roll, isLocal = true) {
+            rollingNow = true;
+            try {
+                await playRoll(roll, isLocal);
+            } finally {
+                rollingNow = false;
+                if (pendingState) {
+                    const state = pendingState; pendingState = null;
+                    NetworkManager.onStateUpdate(state);
+                }
+            }
+        }
+
+        async function playRoll(roll, isLocal) {
             try {
                 const dice = document.getElementById('dice-container');
                 const rollBtn = document.getElementById('roll-btn');
@@ -549,7 +566,7 @@
             if (!active) { if (rollBtn) rollBtn.disabled = true; return; }
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
-            if (isMyTurn) text = "YOUR TURN";
+            if (isMyTurn && myRole !== 'local') text = "YOUR TURN"; // local play shows names, like Tic-Tac-Toe
             info.innerText = text;
             if (rollBtn) rollBtn.disabled = !isMyTurn || isSpectator;
         }
@@ -558,10 +575,11 @@
             if (gameType === 'online' && myRole !== 'host') return;
             document.getElementById('game-over-modal').style.display = 'none';
             initHiddenSpecials();
-            p1Pos = 1; p2Pos = 1; active = true;
+            if (rollingNow) return;
+            p1Pos = 0; p2Pos = 0; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
-            movePawn('p1', 1); movePawn('p2', 1);
+            movePawn('p1', 0); movePawn('p2', 0);
             if (myRole === 'host') broadcast();
             updateStatus();
             if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);

@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>357 | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.6">
+    <link rel="stylesheet" href="../../style.css?v=1.4.7">
 </head>
 <body>
-    <div id="version-tag">v1.4.6</div>
+    <div id="version-tag">v1.4.7</div>
     
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -65,9 +65,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.4.6"></script>
-    <script src="../../profile.js?v=1.4.6"></script>
-    <script src="../../audio.js?v=1.4.6"></script>
+    <script src="../../network.js?v=1.4.7"></script>
+    <script src="../../profile.js?v=1.4.7"></script>
+    <script src="../../audio.js?v=1.4.7"></script>
     <script>
         let piles = [3, 5, 7];
         let selectedRow = null, selectedCount = 0;
@@ -198,7 +198,7 @@
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
-            if (isMyTurn) text = "YOUR TURN";
+            if (isMyTurn && myRole !== 'local') text = "YOUR TURN"; // local play shows names, like Tic-Tac-Toe
             else if (gameType === 'online') text = `WAITING FOR ${currentPlayer === 'X' ? names.p1.toUpperCase() : names.p2.toUpperCase()}...`;
             
             info.innerText = text;
@@ -263,6 +263,15 @@
             if (!active) return;
             let rowsWithItems = piles.map((p, i) => p > 0 ? i : -1).filter(i => i !== -1);
             if (rowsWithItems.length === 0) return;
+            // Classic Nim strategy: leave the piles with a "nim-sum" (XOR) of 0.
+            // Used about half the time so the computer is good but beatable.
+            const nimSum = piles.reduce((a, b) => a ^ b, 0);
+            if (nimSum !== 0 && Math.random() < 0.5) {
+                for (let i = 0; i < piles.length; i++) {
+                    const target = piles[i] ^ nimSum;
+                    if (target < piles[i]) { executeMove(i, piles[i] - target, true); return; }
+                }
+            }
             let row = rowsWithItems[Math.floor(Math.random() * rowsWithItems.length)];
             let count = Math.floor(Math.random() * piles[row]) + 1;
             executeMove(row, count, true);

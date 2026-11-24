@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Black Hole | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.6">
+    <link rel="stylesheet" href="../../style.css?v=1.4.7">
     <style>
         #pyramid { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0; }
         .row { display: flex; gap: 10px; }
@@ -20,7 +20,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.6</div>
+    <div id="version-tag">v1.4.7</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -73,9 +73,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.4.6"></script>
-    <script src="../../profile.js?v=1.4.6"></script>
-    <script src="../../audio.js?v=1.4.6"></script>
+    <script src="../../network.js?v=1.4.7"></script>
+    <script src="../../profile.js?v=1.4.7"></script>
+    <script src="../../audio.js?v=1.4.7"></script>
     <script>
         let board = Array(21).fill(null);
         let p1Nums = [1,2,3,4,5,6,7,8,9,10];
@@ -248,7 +248,7 @@
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
-            if (isMyTurn) text = "YOUR TURN";
+            if (isMyTurn && myRole !== 'local') text = "YOUR TURN"; // local play shows names, like Tic-Tac-Toe
             else if (gameType === 'online') text = `WAITING FOR ${currentPlayer === 'X' ? names.p1.toUpperCase() : names.p2.toUpperCase()}...`;
             
             info.innerText = text;
@@ -297,8 +297,14 @@
             if (!active) return;
             let availableNodes = board.map((v, i) => v === null ? i : -1).filter(i => i !== -1);
             if (availableNodes.length > 1 && p2Nums.length > 0) { // Keep one for black hole
-                let idx = availableNodes[Math.floor(Math.random() * availableNodes.length)];
-                let num = p2Nums[Math.floor(Math.random() * p2Nums.length)];
+                // A spot whose neighbours are all filled can never touch the black hole: safest place.
+                const emptyAround = i => getNeighbors(i).filter(n => board[n] === null).length;
+                const fewest = Math.min(...availableNodes.map(emptyAround));
+                const choices = availableNodes.filter(i => emptyAround(i) === fewest);
+                const idx = choices[Math.floor(Math.random() * choices.length)];
+                const sorted = [...p2Nums].sort((a, b) => a - b);
+                // Safe spot: play the biggest number. Risky spot: play the smallest.
+                const num = fewest === 0 ? sorted[sorted.length - 1] : sorted[0];
                 executeMove(idx, num, true);
             }
         }
@@ -335,7 +341,8 @@
 
         function showGameOver(winner, p1, p2) {
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
-            document.getElementById('score-summary').innerText = `P1: ${p1} | P2: ${p2}`;
+            const names = getNames();
+            document.getElementById('score-summary').innerText = `${names.p1}: ${p1} | ${names.p2}: ${p2}`;
             document.getElementById('game-over-modal').style.display = 'flex';
             updateStatus();
         }

@@ -167,7 +167,7 @@ function renderUserList() {
 
     container.innerHTML = all.map(p => `
         <div style="display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); padding:10px; border-radius:8px;">
-            <span><strong>${p.name}</strong> (${p.id})</span>
+            <span><strong>${escapeHTML(p.name)}</strong> (${escapeHTML(p.id)})</span>
             <div style="display:flex; gap:5px;">
                 <button onclick="impersonateUser('${p.id}')" style="background:#444; color:white; border:none; padding:5px 10px; border-radius:4px; font-size:0.8em;">Impersonate</button>
                 <button onclick="resetAccount('${p.id}')" style="background:orange; color:black; border:none; padding:5px 10px; border-radius:4px; font-size:0.8em;">Reset</button>
@@ -260,10 +260,10 @@ function renderApprovalQueue() {
         item.innerHTML = `
             <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom: 10px;">
                 <div>
-                    <div style="font-size: 1.1em; font-weight: bold; color: gold;">${req.name}</div>
+                    <div style="font-size: 1.1em; font-weight: bold; color: gold;">${escapeHTML(req.name)}</div>
                     <div style="font-size: 0.85em; opacity: 0.8; margin-top: 5px;">
-                        🐾 Animal: <strong>${req.animal || 'None'}</strong><br>
-                        🎲 Game: <strong>${req.game || 'None'}</strong>
+                        🐾 Animal: <strong>${escapeHTML(req.animal || 'None')}</strong><br>
+                        🎲 Game: <strong>${escapeHTML(req.game || 'None')}</strong>
                     </div>
                 </div>
                 <div style="text-align: right;">

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mancala | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.6">
+    <link rel="stylesheet" href="../../style.css?v=1.4.7">
     <style>
         #mancala-board {
             display: flex; align-items: center; justify-content: center;
@@ -35,7 +35,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.6</div>
+    <div id="version-tag">v1.4.7</div>
 
     <div class="rules-block" id="rules-block">
         <div class="rules-toggle" onclick="toggleRules()">
@@ -107,9 +107,9 @@
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
-    <script src="../../network.js?v=1.4.6"></script>
-    <script src="../../profile.js?v=1.4.6"></script>
-    <script src="../../audio.js?v=1.4.6"></script>
+    <script src="../../network.js?v=1.4.7"></script>
+    <script src="../../profile.js?v=1.4.7"></script>
+    <script src="../../audio.js?v=1.4.7"></script>
     <script>
         let board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
         let currentPlayer = 0; 
@@ -119,6 +119,8 @@
         let player2ID = null;
         let startingPlayer = 0;
         let isSowing = false;
+        let sowingNow = 0;         // stones are being dropped (any player): hold online updates
+        let pendingState = null;
 
         const urlParams = new URLSearchParams(window.location.search);
         const playerID = urlParams.get('player') || 'guest';
@@ -170,6 +172,7 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
+                    if (sowingNow > 0) { pendingState = state; return; }
                     board = state.board;
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
@@ -271,6 +274,15 @@
         }
 
         async function sow(pit, isLocal = true) {
+            sowingNow++;
+            try { await sowStones(pit, isLocal); } finally { sowingNow--; }
+            if (sowingNow === 0 && pendingState) {
+                const state = pendingState; pendingState = null;
+                NetworkManager.onStateUpdate(state);
+            }
+        }
+
+        async function sowStones(pit, isLocal) {
             let stones = board[pit];
             board[pit] = 0;
             render();
@@ -333,10 +345,18 @@
 
         async function cpuMove() {
             if (!active) return;
-            let validPits = [7, 8, 9, 10, 11, 12].filter(p => board[p] > 0);
-            if (validPits.length > 0) {
-                await sow(validPits[Math.floor(Math.random() * validPits.length)]);
-            }
+            const validPits = [7, 8, 9, 10, 11, 12].filter(p => board[p] > 0);
+            if (validPits.length === 0) return;
+            // Where the last stone lands (skipping the other player's store)
+            const landsOn = p => { let c = p, s = board[p]; while (s > 0) { c = (c + 1) % 14; if (c !== 6) s--; } return c; };
+            // 1) last stone in own store = extra turn, 2) a capture, 3) otherwise random
+            const extraTurn = validPits.filter(p => landsOn(p) === 13);
+            const captures = validPits.filter(p => {
+                const c = landsOn(p);
+                return c >= 7 && c <= 12 && c !== p && board[c] === 0 && board[12 - c] > 0 && board[p] < 13;
+            });
+            const pickFrom = extraTurn.length ? extraTurn : (captures.length && Math.random() < 0.8 ? captures : validPits);
+            await sow(pickFrom[Math.floor(Math.random() * pickFrom.length)]);
         }
 
         function checkEnd() {

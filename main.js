@@ -36,8 +36,8 @@ function renderPlayerSelect() {
     const allPlayers = [...defaults, ...approved, { id: 'guest', name: 'Guest' }];
 
     grid.innerHTML = allPlayers.map(p => `
-        <div class="player-card" onclick="initLogin('${p.id}')">
-            <h3>${p.name}</h3>
+        <div class="player-card" onclick="initLogin('${escapeHTML(p.id)}')">
+            <h3>${escapeHTML(p.name)}</h3>
         </div>
     `).join('');
 }
@@ -70,7 +70,7 @@ function showMainMenu() {
     if (logoutBtn) logoutBtn.style.display = 'block';
 
     if (welcomeName) {
-        welcomeName.innerText = `Welcome, ${activePlayer.toUpperCase()}!`;
+        welcomeName.innerText = `Welcome, ${ProfileManager.resolveName(activePlayer).toUpperCase()}!`;
     }
     
     checkAdminNotifications();
@@ -231,7 +231,7 @@ function renderMessages() {
     if (!container) return;
     container.innerHTML = messages.map(m => `
         <div style="margin-bottom: 8px; font-size: 0.9em;">
-            <strong style="color: gold;">${m.sender.toUpperCase()}:</strong> ${m.body}
+            <strong style="color: gold;">${escapeHTML(String(m.sender).toUpperCase())}:</strong> ${escapeHTML(m.body)}
         </div>
     `).join('');
     container.scrollTop = container.scrollHeight;
