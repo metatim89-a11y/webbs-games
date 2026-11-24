@@ -11,6 +11,8 @@ window.onload = () => {
         history.replaceState(null, '', window.location.pathname);
     }
     showJoinBanner();
+    const msgInput = document.getElementById('msg-input');
+    if (msgInput) msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') postMessage(); });
 
     // Check if we have a persisted session
     const persistedPlayer = sessionStorage.getItem('webbs_active_player');
@@ -23,6 +25,15 @@ window.onload = () => {
     renderMessages();
     checkAdminNotifications();
 };
+
+/* --- Family account changes --- */
+if (window.WebbsCloud) {
+    WebbsCloud.onChange(me => {
+        // A family account that isn't the player on screen must not stay signed in
+        if (me && activePlayer && me.id !== activePlayer) { WebbsCloud.signOut(); return; }
+        checkAdminNotifications();
+    });
+}
 
 /* --- Player Selection Rendering --- */
 function renderPlayerSelect() {
@@ -37,11 +48,13 @@ function renderPlayerSelect() {
         { id: 'tim', name: 'Tim' }
     ];
 
-    // Approved dynamic players
+    // Approved family (synced from the cloud) + accounts made on this phone
     const approved = JSON.parse(localStorage.getItem('webbs_approved_players')) || [];
-    
+    const mine = JSON.parse(localStorage.getItem('webbs_my_accounts')) || [];
+    const extra = [...approved, ...mine].filter((p, i, all) => !defaults.some(d => d.id === p.id) && all.findIndex(q => q.id === p.id) === i);
+
     // Combine and add Guest last
-    const allPlayers = [...defaults, ...approved, { id: 'guest', name: 'Guest' }];
+    const allPlayers = [...defaults, ...extra, { id: 'guest', name: 'Guest' }];
 
     grid.innerHTML = allPlayers.map(p => `
         <div class="player-card" onclick="initLogin('${escapeHTML(p.id)}')">
@@ -54,16 +67,12 @@ function renderPlayerSelect() {
 function checkAdminNotifications() {
     const gear = document.getElementById('admin-gear');
     if (!gear) return;
-    
-    const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
-    if (activePlayer === 'tim' && pending.length > 0) {
-        gear.classList.add('admin-only'); // Show gear
-        // Could add a red dot here if we want
-    } else if (activePlayer === 'tim') {
-        gear.classList.add('admin-only');
-    } else {
-        gear.classList.remove('admin-only');
-    }
+    // Only Tim sees the settings gear (signed in with his PIN on this tab)
+    const cloudAdmin = !!(window.WebbsCloud && WebbsCloud.me && WebbsCloud.me.admin);
+    const isTim = activePlayer === 'tim' && sessionStorage.getItem('webbs_active_player') === 'tim';
+    document.body.classList.toggle('cloud-admin', cloudAdmin);
+    gear.classList.add('admin-only');
+    gear.style.display = (cloudAdmin || isTim) ? 'block' : 'none';
 }
 
 /* --- UI Transition --- */
@@ -84,6 +93,7 @@ function showMainMenu() {
     checkAdminNotifications();
     renderMessages();
     runPendingJoin();
+    if (window.FamilyUI) FamilyUI.refresh();
 }
 
 /* --- Invite links --- */
@@ -147,8 +157,26 @@ function refreshProfileView() {
     
     document.getElementById('stat-wins').innerText = stats.wins;
     document.getElementById('stat-losses').innerText = stats.losses;
+    showCloudStats();
     document.getElementById('view-animal').innerText = prefs.favoriteAnimal || "None";
     document.getElementById('view-game').innerText = prefs.favoriteGame || "None";
+}
+
+// Family accounts: wins and losses from every phone (older results from this phone are copied up once)
+async function showCloudStats() {
+    const me = window.WebbsCloud && WebbsCloud.me;
+    if (!me || !me.approved || me.id !== activePlayer) return;
+    try {
+        const syncedKey = `webbs_history_synced_${me.id}`;
+        if (!localStorage.getItem(syncedKey)) {
+            const local = JSON.parse(localStorage.getItem(`history_${me.id}`)) || [];
+            local.forEach(h => WebbsCloud.recordResult(h.game, h.opponent ? ProfileManager.resolveName(h.opponent) : '', h.result));
+            localStorage.setItem(syncedKey, '1');
+        }
+        const all = await WebbsCloud.getHistory(me.id);
+        document.getElementById('stat-wins').innerText = all.filter(h => h.result === 'win').length;
+        document.getElementById('stat-losses').innerText = all.filter(h => h.result === 'loss').length;
+    } catch (e) { console.warn('cloud stats', e); }
 }
 
 /* --- Sign Up Logic --- */
@@ -160,8 +188,11 @@ function closeSignup() {
     document.getElementById('signup-modal').style.display = 'none';
 }
 
-function submitSignup() {
+async function submitSignup() {
     const name = document.getElementById('signup-name').value.trim();
+    const pin = document.getElementById('signup-pin').value.trim();
+    const pin2 = document.getElementById('signup-pin2').value.trim();
+    const status = document.getElementById('signup-status');
     const animal = document.getElementById('signup-animal').value.trim();
     const game = document.getElementById('signup-game').value.trim();
     const color1 = document.getElementById('signup-color-1').value;
@@ -171,6 +202,26 @@ function submitSignup() {
     if (!name || !animal || !game) {
         alert("Please fill out all fields!");
         return;
+    }
+
+    // Family account: the request reaches Tim on his own phone
+    if (window.WebbsCloud && WebbsCloud.available) {
+        const id = name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+        if (!id) { status.innerText = "Use letters or numbers in your name."; return; }
+        if (!/^\d{4}$/.test(pin)) { status.innerText = "Pick a 4-digit PIN (numbers only)."; return; }
+        if (pin !== pin2) { status.innerText = "The two PINs don't match."; return; }
+        if (DEFAULT_PIN_CONFIG[id] || await WebbsCloud.hasAccount(id)) { status.innerText = "That name is taken. Try adding a letter or number."; return; }
+        status.innerText = "Sending...";
+        const r = await WebbsCloud.createAccount(id, pin, { name, animal, favGame: game, colors: [color1, color2, color3] });
+        if (r.ok) {
+            localStorage.setItem(`pin_${id}`, pin);
+            status.innerText = "";
+            closeSignup();
+            renderPlayerSelect();
+            loginSuccess(id);
+            return;
+        }
+        if (!r.offline) { status.innerText = r.error || "Something went wrong."; return; }
     }
 
     const pending = JSON.parse(localStorage.getItem('webbs_pending')) || [];
@@ -240,8 +291,9 @@ function performAutoJoin() {
     }
 }
 
-function logout() {
+async function logout() {
     sessionStorage.removeItem('webbs_active_player');
+    if (window.WebbsCloud) await WebbsCloud.signOut();
     location.reload();
 }
 
@@ -250,6 +302,13 @@ function postMessage() {
     const input = document.getElementById('msg-input');
     const text = input.value.trim();
     if (!text) return;
+
+    // Approved family: the chat is shared by every phone
+    if (document.body.classList.contains('cloud-chat')) {
+        input.value = "";
+        FamilyUI.postBoard(text).catch(() => { input.value = text; });
+        return;
+    }
 
     messages.push({ sender: activePlayer, body: text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
     if (messages.length > 20) messages.shift();
@@ -261,6 +320,7 @@ function postMessage() {
 function renderMessages() {
     const container = document.getElementById('messages');
     if (!container) return;
+    if (document.body.classList.contains('cloud-chat')) return; // FamilyUI shows the shared chat
     container.innerHTML = messages.map(m => `
         <div style="margin-bottom: 8px; font-size: 0.9em;">
             <strong style="color: gold;">${escapeHTML(String(m.sender).toUpperCase())}:</strong> ${escapeHTML(m.body)}

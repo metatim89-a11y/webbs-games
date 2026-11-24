@@ -51,7 +51,11 @@ const NetworkManager = {
                 this.connectToHost(this.roomID);
             }
             if (this.currentGame) this.setupChatUI();
-            if (role === 'host') this.addInviteButton();
+            if (role === 'host') {
+                this.addInviteButton();
+                // Show this table in the family lobby until someone joins
+                if (window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle());
+            }
         });
 
         this.peer.on('connection', (conn) => {
@@ -94,7 +98,7 @@ const NetworkManager = {
         btn.innerText = '📨 Send invite link';
         btn.onclick = () => this.shareInvite(btn);
         box.appendChild(btn);
-        if (window.WebbsCloud) WebbsCloud.addInvitePicker && WebbsCloud.addInvitePicker(box, this.roomID, this.currentGame);
+        if (window.WebbsCloud) WebbsCloud.addInvitePicker && WebbsCloud.addInvitePicker(box, this.roomID, this.gameTitle());
     },
 
     async shareInvite(btn) {
@@ -291,6 +295,7 @@ const NetworkManager = {
                 break;
             case 'REQUEST_JOIN':
                 if (this.onPlayerJoined) this.onPlayerJoined(data.playerID, senderConn);
+                if (window.WebbsCloud) WebbsCloud.closeTable(this.roomID); // table is full now
                 break;
             case 'JOIN_ACCEPTED':
                 const pos = data.assignedPosition || '2';

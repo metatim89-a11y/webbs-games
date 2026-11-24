@@ -23,6 +23,10 @@ const ProfileManager = {
         };
         history.push(entry);
         localStorage.setItem(`history_${playerID}`, JSON.stringify(history));
+        // Family accounts: the result also follows the player to any phone
+        if (window.WebbsCloud && WebbsCloud.me && WebbsCloud.me.id === playerID) {
+            WebbsCloud.recordResult(gameName, opponentID ? this.resolveName(opponentID) : '', result);
+        }
         console.log(`Recorded ${result} for ${playerID} in ${gameName}`);
     },
 

@@ -4,7 +4,8 @@ let pendingApprovals = JSON.parse(localStorage.getItem('webbs_pending')) || [];
 /* --- Toggle Admin Panel --- */
 function toggleAdminSettings() {
     const sessionUser = sessionStorage.getItem('webbs_active_player');
-    if (activePlayer !== 'tim' || sessionUser !== 'tim') {
+    const cloudAdmin = window.WebbsCloud && WebbsCloud.me && WebbsCloud.me.admin;
+    if (!cloudAdmin && (activePlayer !== 'tim' || sessionUser !== 'tim')) {
         console.error("Access Denied: Admin privileges required.");
         return;
     }
@@ -42,6 +43,7 @@ function toggleAdminSettings() {
             <button onclick="clearGlobalChat()" style="background:#800; color:white; border:none; padding:10px; border-radius:5px;">Clear Global Chat Feed</button>
         </div>
         <hr>
+        <div id="cloud-admin"></div>
         <div id="user-management">
             <h3>User Management (Dev Mode)</h3>
             <div id="user-list-admin" style="display:grid; gap:10px;">
@@ -102,6 +104,7 @@ function toggleAdminSettings() {
 
     renderUserList();
     renderApprovalQueue();
+    renderCloudAdmin();
 }
 
 /* --- Audio Settings Logic --- */
@@ -328,4 +331,102 @@ function denyGuest(index) {
     
     if (typeof checkAdminNotifications === "function") checkAdminNotifications();
     renderApprovalQueue();
+}
+
+
+/* --- Family accounts (cloud): approvals, PIN resets, message safety view --- */
+let cloudAdminOff = null;
+
+function renderCloudAdmin() {
+    const box = document.getElementById('cloud-admin');
+    if (!box) return;
+    const me = window.WebbsCloud && WebbsCloud.me;
+    if (!me || !me.admin) {
+        box.innerHTML = window.WebbsCloud && WebbsCloud.available
+            ? "<p style='opacity:0.6'>Sign in as Tim with your PIN to manage family accounts.</p><hr>"
+            : "";
+        return;
+    }
+    box.innerHTML = `
+        <h3>Family Accounts</h3>
+        <div id="cloud-pending"></div>
+        <div id="cloud-family" class="admin-family"></div>
+        <button class="modal-btn" style="width:100%; margin-top:10px;" onclick="openMessageSafetyView()">🔒 Read family messages</button>
+        <div id="cloud-convs"></div>
+        <hr>`;
+    if (cloudAdminOff) cloudAdminOff();
+    cloudAdminOff = WebbsCloud.watchPlayers(players => {
+        if (!document.getElementById('cloud-pending')) { cloudAdminOff(); cloudAdminOff = null; return; }
+        const pending = players.filter(p => !p.approved);
+        const approved = players.filter(p => p.approved);
+        const pend = document.getElementById('cloud-pending');
+        pend.innerHTML = pending.length ? '<h4 style="color:gold">Waiting for your OK</h4>' : "<p style='opacity:0.6'>No one is waiting for approval.</p>";
+        pending.forEach(p => pend.appendChild(adminPlayerRow(p, [
+            ['Approve', '#2e7d32', () => WebbsCloud.adminApprove(p.id, true)],
+            ['Deny', '#800', () => confirm(`Remove ${p.name}'s request?`) && WebbsCloud.adminRemove(p.id)],
+        ])));
+        const fam = document.getElementById('cloud-family');
+        fam.innerHTML = '<h4>Approved</h4>';
+        approved.forEach(p => fam.appendChild(adminPlayerRow(p, p.id === me.id ? [] : [
+            ['Reset PIN', 'orange', () => confirm(`Reset ${p.name}'s PIN? They make a new one next time. Messages stay.`) && WebbsCloud.adminResetPin(p.id)],
+            ['Pause', '#555', () => confirm(`Pause ${p.name}? They can still play but can't message until you approve again.`) && WebbsCloud.adminApprove(p.id, false)],
+        ])));
+    });
+}
+
+function adminPlayerRow(p, actions) {
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex; justify-content:space-between; align-items:center; gap:8px; background:rgba(255,255,255,0.06); padding:10px; border-radius:8px; margin:6px 0;';
+    const info = document.createElement('div');
+    info.style.textAlign = 'left';
+    const name = document.createElement('strong');
+    name.textContent = p.name;
+    info.appendChild(name);
+    const extra = [p.id, p.animal && `🐾 ${p.animal}`, p.favGame && `🎲 ${p.favGame}`, p.createdAt && new Date(p.createdAt).toLocaleDateString()].filter(Boolean).join(' · ');
+    const small = document.createElement('div');
+    small.style.cssText = 'font-size:0.75em; opacity:0.7;';
+    small.textContent = extra;
+    info.appendChild(small);
+    const btns = document.createElement('div');
+    btns.style.cssText = 'display:flex; gap:6px; flex-shrink:0;';
+    actions.forEach(([label, color, fn]) => {
+        const b = document.createElement('button');
+        b.textContent = label;
+        b.style.cssText = `background:${color}; color:white; border:none; padding:6px 10px; border-radius:6px; font-size:0.8em;`;
+        b.onclick = async () => { b.disabled = true; try { await fn(); } catch (e) { alert('Did not work: ' + e.message); } b.disabled = false; };
+        btns.appendChild(b);
+    });
+    row.append(info, btns);
+    return row;
+}
+
+// Tim can read every private conversation and delete anything unkind
+async function openMessageSafetyView() {
+    const box = document.getElementById('cloud-convs');
+    box.textContent = 'Loading...';
+    const convs = await WebbsCloud.adminConversations();
+    box.innerHTML = '';
+    if (!convs.length) { box.textContent = 'No private messages yet.'; return; }
+    const name = id => ProfileManager.resolveName(id);
+    convs.forEach(c => {
+        const details = document.createElement('details');
+        details.style.cssText = 'background:rgba(255,255,255,0.05); border-radius:8px; margin:6px 0; padding:8px; text-align:left;';
+        const sum = document.createElement('summary');
+        sum.textContent = `${c.people.map(name).join(' ↔ ')} (${c.msgs.length})`;
+        details.appendChild(sum);
+        c.msgs.slice(-100).forEach(m => {
+            const line = document.createElement('div');
+            line.style.cssText = 'font-size:0.85em; margin:4px 0; display:flex; justify-content:space-between; gap:8px;';
+            const t = document.createElement('span');
+            t.textContent = `${name(m.from)}: ${m.text}`;
+            const del = document.createElement('button');
+            del.textContent = '🗑';
+            del.title = 'Delete this message';
+            del.style.cssText = 'background:none; border:none; cursor:pointer;';
+            del.onclick = async () => { if (confirm('Delete this message for everyone?')) { await WebbsCloud.adminDeleteMessage(c.conv, m.key); line.remove(); } };
+            line.append(t, del);
+            details.appendChild(line);
+        });
+        box.appendChild(details);
+    });
 }

@@ -1,0 +1,122 @@
+{
+  "//": "Source for the Realtime Database rules. firebase/build-rules.py expands the ALL-CAPS words and writes database.rules.json.",
+  "//ME": "the player id (like 'ariel') of whoever is signed in",
+  "//APPROVED": "signed in AND Tim has approved this player",
+  "//OWNS": "signed in as the account that owns player $id",
+  "rules": {
+    "admins": {
+      "$uid": { ".read": "auth != null && auth.uid === $uid" }
+    },
+
+    "logins": {
+      ".read": true,
+      "$id": {
+        ".write": "ADMIN || (auth != null && !data.exists() && newData.child('email').val() === auth.token.email)",
+        ".validate": "newData.hasChildren(['email']) && $id.matches(/^[a-z0-9]{1,20}$/)",
+        "email": { ".validate": "newData.isString() && newData.val().beginsWith($id + '.')" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "uids": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || ADMIN)",
+        ".write": "ADMIN || (auth != null && auth.uid === $uid && newData.isString() && root.child('logins/' + newData.val() + '/email').val() === auth.token.email)"
+      }
+    },
+
+    "players": {
+      ".read": "APPROVED || ADMIN",
+      "$id": {
+        ".read": "OWNS",
+        ".write": "ADMIN || (OWNS && newData.exists() && ((!data.exists() && newData.child('approved').val() === false) || (data.exists() && newData.child('approved').val() === data.child('approved').val())))",
+        ".validate": "newData.hasChildren(['name', 'approved', 'uid'])",
+        "name": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 20" },
+        "approved": { ".validate": "newData.isBoolean()" },
+        "uid": { ".validate": "newData.isString() && (ADMIN || newData.val() === auth.uid)" },
+        "animal": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "favGame": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "colors": { "$c": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9a-fA-F]{6}$/)" } },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "dms": {
+      ".read": "ADMIN",
+      "$conv": {
+        ".read": "ADMIN || (APPROVED && ($conv.beginsWith(ME + '__') || $conv.endsWith('__' + ME)))",
+        "$msg": {
+          ".write": "(ADMIN && !newData.exists()) || (!data.exists() && APPROVED && ($conv.beginsWith(ME + '__') || $conv.endsWith('__' + ME)) && root.child('players/' + $conv.replace(ME + '__', '').replace('__' + ME, '') + '/approved').val() === true)",
+          ".validate": "newData.hasChildren(['from', 'text', 'ts'])",
+          "from": { ".validate": "newData.val() === ME" },
+          "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 500" },
+          "ts": { ".validate": "newData.val() === now" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+
+    "reads": {
+      "$id": {
+        ".read": "OWNS",
+        ".write": "OWNS",
+        "$conv": { ".validate": "newData.isNumber()" }
+      }
+    },
+
+    "board": {
+      ".read": "APPROVED || ADMIN",
+      "$msg": {
+        ".write": "(ADMIN && !newData.exists()) || (!data.exists() && APPROVED)",
+        ".validate": "newData.hasChildren(['from', 'text', 'ts'])",
+        "from": { ".validate": "newData.val() === ME" },
+        "text": { ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 300" },
+        "ts": { ".validate": "newData.val() === now" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "tables": {
+      ".read": "APPROVED || ADMIN",
+      "$pin": {
+        ".write": "ADMIN || (APPROVED && ((!data.exists() && newData.child('host').val() === ME) || (data.exists() && data.child('host').val() === ME)))",
+        ".validate": "$pin.matches(/^[0-9]{4}$/) && newData.hasChildren(['game', 'host', 'ts'])",
+        "game": { ".validate": "newData.isString() && newData.val().length <= 30" },
+        "host": { ".validate": "newData.val() === ME || ADMIN" },
+        "ts": { ".validate": "newData.isNumber()" },
+        "$other": { ".validate": false }
+      }
+    },
+
+    "invites": {
+      "$to": {
+        ".read": "OWNS_TO",
+        "$inv": {
+          ".write": "(OWNS_TO && !newData.exists()) || (!data.exists() && APPROVED && root.child('players/' + $to + '/approved').val() === true)",
+          ".validate": "newData.hasChildren(['from', 'game', 'pin', 'ts'])",
+          "from": { ".validate": "newData.val() === ME" },
+          "game": { ".validate": "newData.isString() && newData.val().length <= 30" },
+          "pin": { ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4}$/)" },
+          "ts": { ".validate": "newData.val() === now" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+
+    "history": {
+      "$id": {
+        ".read": "APPROVED || OWNS",
+        "$entry": {
+          ".write": "OWNS && !data.exists()",
+          ".validate": "newData.hasChildren(['game', 'result', 'ts'])",
+          "game": { ".validate": "newData.isString() && newData.val().length <= 30" },
+          "opponent": { ".validate": "newData.isString() && newData.val().length <= 30" },
+          "result": { ".validate": "newData.val() === 'win' || newData.val() === 'loss' || newData.val() === 'draw'" },
+          "ts": { ".validate": "newData.val() === now" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
+  }
+}
