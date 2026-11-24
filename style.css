@@ -350,3 +350,10 @@ body {
 .admin-only { display: none !important; }
 body.theme-tim .admin-only { display: block !important; }
 
+
+/* Invite link banner */
+.join-banner {
+    background: rgba(255, 215, 0, 0.15); border: 2px solid gold; color: gold; font-weight: bold;
+    padding: 12px; border-radius: 12px; margin-bottom: 15px; animation: bannerPulse 2s ease-in-out infinite;
+}
+@keyframes bannerPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,215,0,0.4); } 50% { box-shadow: 0 0 0 8px rgba(255,215,0,0); } }

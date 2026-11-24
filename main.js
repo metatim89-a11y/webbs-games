@@ -4,6 +4,14 @@ let messages = JSON.parse(localStorage.getItem('webbs_messages')) || [];
 
 /* --- Initialization --- */
 window.onload = () => {
+    // Invite link (?join=PIN): remember it, then tidy the address bar
+    const joinPin = new URLSearchParams(window.location.search).get('join');
+    if (joinPin && /^\d{4}$/.test(joinPin)) {
+        sessionStorage.setItem('webbs_pending_join', joinPin);
+        history.replaceState(null, '', window.location.pathname);
+    }
+    showJoinBanner();
+
     // Check if we have a persisted session
     const persistedPlayer = sessionStorage.getItem('webbs_active_player');
     if (persistedPlayer) {
@@ -75,6 +83,30 @@ function showMainMenu() {
     
     checkAdminNotifications();
     renderMessages();
+    runPendingJoin();
+}
+
+/* --- Invite links --- */
+function showJoinBanner() {
+    const pin = sessionStorage.getItem('webbs_pending_join');
+    const container = document.getElementById('player-select-container');
+    if (!pin || !container || document.getElementById('join-banner')) return;
+    const banner = document.createElement('div');
+    banner.id = 'join-banner';
+    banner.className = 'join-banner';
+    banner.innerText = "🎲 You're invited to a game! Tap your name to join.";
+    container.prepend(banner);
+}
+
+function runPendingJoin() {
+    const pin = sessionStorage.getItem('webbs_pending_join');
+    if (!pin || !activePlayer) return;
+    sessionStorage.removeItem('webbs_pending_join');
+    const banner = document.getElementById('join-banner');
+    if (banner) banner.remove();
+    joinTablePrompt();
+    document.getElementById('join-table-pin').value = pin;
+    performAutoJoin();
 }
 
 /* --- Profile Logic --- */

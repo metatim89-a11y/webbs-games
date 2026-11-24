@@ -207,7 +207,8 @@
         }
 
         function getNames() {
-            const p1 = ProfileManager.resolveName(playerID);
+            // On the joining phone, player 1 is the host
+            const p1 = ProfileManager.resolveName((gameType === 'online' && networkRole !== 'host' && NetworkManager.hostPlayerID) || playerID);
             let p2 = "Player 2";
             if (gameType === 'cpu') p2 = "Computer";
             else if (gameType === 'online') p2 = ProfileManager.resolveName(player2ID || 'guest');
@@ -243,9 +244,9 @@
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
-                    document.getElementById('network-status').innerText = `PIN: ${id}`;
+                    document.getElementById('network-status').innerText = `PIN: ${NetworkManager.roomID}`;
                     document.getElementById('host-pin-display').style.display = 'block';
-                    document.getElementById('table-pin-value').innerText = id;
+                    document.getElementById('table-pin-value').innerText = NetworkManager.roomID;
                 });
             } else {
                 isSpectator = true;

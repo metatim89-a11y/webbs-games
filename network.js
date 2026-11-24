@@ -18,6 +18,7 @@ const NetworkManager = {
     onAnimationTrigger: null,
     
     lastStateSeq: 0,
+    hostPlayerID: null,
     prefix: "webbs-", // Isolate our games from other PeerJS users
 
     init(role, roomID = null) {
@@ -50,6 +51,7 @@ const NetworkManager = {
                 this.connectToHost(this.roomID);
             }
             if (this.currentGame) this.setupChatUI();
+            if (role === 'host') this.addInviteButton();
         });
 
         this.peer.on('connection', (conn) => {
@@ -68,6 +70,44 @@ const NetworkManager = {
                 console.warn("Signaling server connection lost.");
             }
         });
+    },
+
+    // Link that drops the other person straight into this table: .../index.html?join=PIN
+    inviteLink() {
+        const base = window.location.href.split('/games/')[0];
+        return `${base}/index.html?join=${this.roomID}`;
+    },
+
+    gameTitle() {
+        const names = { 'tic-tac-toe': 'Tic-Tac-Toe', '357': '357', 'mancala': 'Mancala', 'black-hole': 'Black Hole',
+            'chutes-and-ladders': 'Chutes & Ladders', 'sorry': 'Sorry', 'uno-no-mercy': 'Uno No Mercy' };
+        return names[this.currentGame] || 'a game';
+    },
+
+    addInviteButton() {
+        const box = document.getElementById('host-pin-display');
+        if (!box || document.getElementById('invite-share-btn')) return;
+        const btn = document.createElement('button');
+        btn.id = 'invite-share-btn';
+        btn.className = 'modal-btn';
+        btn.style.cssText = 'margin-top: 10px; background: gold; color: black; font-weight: bold;';
+        btn.innerText = '📨 Send invite link';
+        btn.onclick = () => this.shareInvite(btn);
+        box.appendChild(btn);
+        if (window.WebbsCloud) WebbsCloud.addInvitePicker && WebbsCloud.addInvitePicker(box, this.roomID, this.currentGame);
+    },
+
+    async shareInvite(btn) {
+        const url = this.inviteLink();
+        const text = `Come play ${this.gameTitle()} with me on Webbs Games!`;
+        try {
+            if (navigator.share) { await navigator.share({ title: 'Webbs Games', text, url }); return; }
+            await navigator.clipboard.writeText(`${text} ${url}`);
+            btn.innerText = '✅ Link copied, paste it in a message';
+        } catch (e) {
+            if (e && e.name === 'AbortError') return; // closed the share menu
+            prompt('Copy this link:', url);
+        }
     },
 
     generateShortID() {
@@ -92,7 +132,8 @@ const NetworkManager = {
     broadcastState(state) {
         if (this.role !== 'host') return;
         this.lastStateSeq++;
-        const msg = { type: 'STATE_UPDATE', payload: state, seq: this.lastStateSeq };
+        const hostPlayer = new URLSearchParams(window.location.search).get('player') || 'guest';
+        const msg = { type: 'STATE_UPDATE', payload: state, seq: this.lastStateSeq, hostPlayer };
         this.connections.forEach(conn => {
             if (conn.open) conn.send(msg);
         });
@@ -228,6 +269,7 @@ const NetworkManager = {
                     return;
                 }
                 if (data.seq) this.lastStateSeq = data.seq;
+                if (data.hostPlayer) this.hostPlayerID = data.hostPlayer; // so the joiner sees the host's name
                 if (this.onStateUpdate) this.onStateUpdate(data.payload);
                 // Host pressed Play Again: close the winner screen on this side too
                 if (data.payload && data.payload.active === true) {
