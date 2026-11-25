@@ -24,3 +24,10 @@ Finish current work before starting these.
   would need new names, rules and art of their own first.
 - The free public PeerJS server and 4-digit table PINs are fine for family, not for
   lots of strangers.
+
+## Terms check (2026-11-25)
+- Google APIs Terms 4(b)(1) say developer keys "may not be embedded in open source projects".
+  The repo is public and the sign-in key is in cloud.js. Firebase's own docs say web keys are
+  not secret; ours is restricted to sign-in only and to this site. If that ever matters: make
+  the repo private (needs GitHub Pro for Pages) or move hosting to Firebase Hosting.
+- Firebase terms ask users to confirm use is "related to my trade, business, craft, or profession".

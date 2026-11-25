@@ -231,7 +231,7 @@ const FamilyUI = (() => {
         const body = $('dm-body');
         body.innerHTML = '';
         if (!family.length) {
-            body.appendChild(el('p', 'dm-empty', 'No one else is approved yet. Tim can approve family from the admin page.'));
+            body.appendChild(el('p', 'dm-empty', 'No one else is approved yet. Tim or Cassie can approve family.'));
             return;
         }
         const sorted = [...family].sort((a, b) => ((inbox[b.id]?.last?.ts) || 0) - ((inbox[a.id]?.last?.ts) || 0));
