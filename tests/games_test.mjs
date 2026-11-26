@@ -454,6 +454,16 @@ test('sorry vs computer', async () => {
   check(g.$('#dice-container').classList.contains('disabled'), 'Sorry: ...and the dice greys out until Play Again');
 });
 
+test('sorry roll with no move', async () => {
+  const g = await openGame('sorry', 'type=cpu');
+  g.run('Math.random = () => 0.7;'); // every roll is a 5
+  g.click('#dice-container');
+  await until(() => g.get('currentRoll') === 5);
+  check(g.text('#game-info') === 'You rolled a 5. It takes a 1 or 2 to leave Start.' && g.text('#dice-label') === 'Turn passes…', 'Sorry: a roll with no move says who rolled and why (it said "Tap a glowing pawn" with nothing to tap)', `${g.text('#game-info')} / ${g.text('#dice-label')}`);
+  await until(() => g.get('currentPlayer') === 'X' && g.text('#game-info').startsWith('Computer'), 3000);
+  check(g.text('#game-info') === 'Computer rolled a 5. It takes a 1 or 2 to leave Start.', "Sorry: ...and the computer's turn says the same, so you know whose turn was passed", g.text('#game-info'));
+});
+
 test('sorry online', async () => {
   const host = await openGame('sorry', 'type=online&role=host', 'tim');
   await until(() => host.get('NetworkManager.roomID') && host.get('NetworkManager.peer'));
