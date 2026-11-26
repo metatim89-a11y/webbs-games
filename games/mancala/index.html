@@ -169,7 +169,7 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
-                        updateStatus();
+                        render();
                     }
                 };
                 NetworkManager.onMoveReceived = (pit) => receiveMove(pit);
@@ -229,7 +229,7 @@
                     
                     // Visual feedback for disabled pits
                     const isMyPit = (currentPlayer === 0 && i >= 0 && i <= 5) || (currentPlayer === 1 && i >= 7 && i <= 12);
-                    const isMyTurn = (myRole === 'host' && currentPlayer === 0) || (myRole === 'player2' && currentPlayer === 1) || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 0));
+                    const isMyTurn = (myRole === 'host' && player2ID && currentPlayer === 0) || (myRole === 'player2' && currentPlayer === 1) || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 0));
                     
                     el.classList.toggle('disabled', !active || !isMyPit || !isMyTurn || board[i] === 0 || sowingNow > 0);
                 }

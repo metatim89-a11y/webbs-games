@@ -6,10 +6,16 @@
     <title>Black Hole | Webbs Games</title>
     <link rel="stylesheet" href="../../style.css?v=1.4.11">
     <style>
-        #pyramid { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 20px 0; }
-        .row { display: flex; gap: 10px; }
-        .node { width: 45px; height: 45px; border-radius: 50%; border: 2px solid var(--primary-color); background: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        #pyramid { --node: min(45px, 11vw); --gap: min(10px, 2vw); display: flex; flex-direction: column; align-items: center; gap: var(--gap); margin: 16px 0; }
+        .row { display: flex; gap: var(--gap); }
+        .node { box-sizing: border-box; width: var(--node); height: var(--node); border-radius: 50%; border: 2px solid var(--primary-color); background: rgba(255,255,255,0.05); display: flex; justify-content: center; align-items: center; font-weight: bold; cursor: pointer; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         .node.filled { background: var(--primary-color); color: var(--secondary-color); cursor: default; }
+        /* Each player's numbers have their own colour, so you can tell whose is whose at a glance */
+        .node.filled.mine-x, .dot-x { background: var(--accent-color); color: #111; }
+        .node.filled.mine-o, .dot-o { background: #ff5555; color: #fff; }
+        #bh-legend { display: flex; justify-content: center; gap: 16px; font-size: 0.85em; margin: 4px 0; flex-wrap: wrap; }
+        .dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: middle; margin-right: 5px; }
+        #bh-hint { font-size: 0.9em; opacity: 0.85; min-height: 1.3em; margin: 0 0 6px; }
         .node.eliminated { opacity: 0.1; transform: scale(0.7); filter: grayscale(1); border-style: dashed; }
         .node.black-hole { background: #000; border: 3px solid #f0f; box-shadow: 0 0 20px #f0f; animation: pulseBH 1s infinite alternate; }
         @keyframes pulseBH { from { transform: scale(1); box-shadow: 0 0 10px #f0f; } to { transform: scale(1.1); box-shadow: 0 0 30px #f0f; } }
@@ -32,9 +38,10 @@
             <strong>Objective:</strong> Highest total score wins.<br><br>
             <strong>Rules:</strong>
             <ul>
-                <li>Pick a number (1-10) and place it on a spot.</li>
-                <li>The last empty spot is the "Black Hole".</li>
-                <li>Score = sum of your pieces remaining on the board.</li>
+                <li>Tap one of your numbers (1-10), then tap an empty circle to place it.</li>
+                <li>Each number can be used once. Take turns until every number is placed.</li>
+                <li>The last empty circle becomes the Black Hole. Numbers touching it get sucked in.</li>
+                <li>Score = sum of your numbers left on the board.</li>
             </ul>
         </div>
     </div>
@@ -43,7 +50,7 @@
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
             <div id="score-summary" style="margin-bottom: 20px; opacity: 0.8;"></div>
-            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" id="play-again-btn" onclick="resetGame()">Play Again</button>
             <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
         </div>
     </div>
@@ -66,7 +73,9 @@
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
         </div>
 
+        <div id="bh-legend"><span><i class="dot dot-x"></i><span id="legend-p1"></span></span><span><i class="dot dot-o"></i><span id="legend-p2"></span></span></div>
         <div id="number-selector"></div>
+        <p id="bh-hint"></p>
         <div id="pyramid"></div>
         
         <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px;" onclick="resetGame()">Reset</button>
@@ -128,9 +137,14 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
+                        buildBoard(); // turns the host's number buttons on
                     }
                 };
-                NetworkManager.onMoveReceived = (move) => { if (currentPlayer === "O") executeMove(move.idx, move.num); };
+                NetworkManager.onMoveReceived = (move) => {
+                    // Only a real move: Player 2's turn, an empty circle and a number they still have
+                    const ok = move && board[move.idx] === null && p2Nums.includes(move.num);
+                    if (active && currentPlayer === "O" && ok) executeMove(move.idx, move.num);
+                };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${NetworkManager.roomID}`;
@@ -177,7 +191,7 @@
                     node.className = 'node';
                     if (idx === blackHoleIdx) node.classList.add('black-hole');
                     else if (board[idx]) {
-                        node.classList.add('filled');
+                        node.classList.add('filled', board[idx].owner === 'X' ? 'mine-x' : 'mine-o');
                         if (board[idx].eliminated) node.classList.add('eliminated');
                     }
 
@@ -233,7 +247,7 @@
                 btn.className = 'num-btn' + (currentNum === n ? ' active' : '');
                 btn.innerText = n;
                 btn.disabled = !canControl;
-                btn.onclick = () => { currentNum = n; renderSelector(); };
+                btn.onclick = () => { currentNum = n; renderSelector(); updateStatus(); };
                 sel.appendChild(btn);
             });
         }
@@ -242,16 +256,21 @@
             const info = document.getElementById('turn-info');
             const resetBtn = document.getElementById('reset-btn');
 
-            if (gameType === 'online') {
-                resetBtn.disabled = (myRole !== 'host');
-                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
-            } else {
-                resetBtn.disabled = !active;
-            }
-
-            if (!active) return;
+            // Only the host can start a new online game; the other phone says so instead of doing nothing
+            const hostOnly = gameType === 'online' && myRole !== 'host';
+            GameKit.setControl(resetBtn, !hostOnly, 'Host can restart');
+            GameKit.setControl(document.getElementById('play-again-btn'), !hostOnly, 'Waiting for host…');
 
             const names = getNames();
+            document.getElementById('legend-p1').innerText = names.p1;
+            document.getElementById('legend-p2').innerText = names.p2;
+            const hint = document.getElementById('bh-hint');
+            hint.innerText = !active ? '' : !canMove() ? '' : currentNum ? `Now tap an empty circle for your ${currentNum}` : 'Tap a number, then an empty circle';
+
+            info.classList.toggle('game-done', !active);
+            if (!active) { info.innerText = resultText; return; }
+            if (myRole === 'host' && !player2ID) { info.innerText = "Waiting for someone to join…"; return; }
+
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
@@ -262,7 +281,14 @@
         }
 
         function handleNodeClick(idx) {
-            if (!canMove() || board[idx] || !currentNum) return;
+            if (!canMove() || board[idx]) return;
+            if (!currentNum) {
+                // Tapped a circle before picking a number: show where to look instead of doing nothing
+                const sel = document.getElementById('number-selector');
+                sel.classList.remove('shake-x'); void sel.offsetWidth; sel.classList.add('shake-x');
+                document.getElementById('bh-hint').innerText = 'Pick a number first';
+                return;
+            }
 
             if (myRole === 'player2') NetworkManager.sendMove({ idx, num: currentNum });
             else executeMove(idx, currentNum, true);
@@ -273,7 +299,7 @@
             
             // Validate turn roles
             if (gameType === 'cpu' && currentPlayer === "O") return false;
-            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'host' && (!player2ID || currentPlayer !== "X")) return false;
             if (myRole === 'player2' && currentPlayer !== "O") return false;
 
             return true;
@@ -286,7 +312,7 @@
             if (currentPlayer === 'X') {
                 p1Nums = p1Nums.filter(n => n !== num);
                 currentPlayer = 'O';
-                if (gameType === 'cpu' && active && isLocal) setTimeout(cpuMove, 1000);
+                if (gameType === 'cpu' && active && isLocal) GameKit.later(cpuMove, 1000);
             } else {
                 p2Nums = p2Nums.filter(n => n !== num);
                 currentPlayer = 'X';
@@ -301,7 +327,7 @@
         }
 
         function cpuMove() {
-            if (!active) return;
+            if (!active || gameType !== 'cpu' || currentPlayer !== "O") return; // only on the computer's own turn
             let availableNodes = board.map((v, i) => v === null ? i : -1).filter(i => i !== -1);
             if (availableNodes.length > 1 && p2Nums.length > 0) { // Keep one for black hole
                 // A spot whose neighbours are all filled can never touch the black hole: safest place.
@@ -346,9 +372,11 @@
             }
         }
 
+        let resultText = '';
         function showGameOver(winner, p1, p2) {
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
             const names = getNames();
+            resultText = (winner === "DRAW" ? "It's a draw" : winner + " wins") + `, ${p1} to ${p2}`;
             document.getElementById('score-summary').innerText = `${names.p1}: ${p1} | ${names.p2}: ${p2}`;
             document.getElementById('game-over-modal').style.display = 'flex';
             updateStatus();
@@ -356,6 +384,7 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            GameKit.cancelAll(); // the last game's computer move never lands on the new board
 
             document.getElementById('game-over-modal').style.display = 'none';
             board = Array(21).fill(null);
@@ -365,7 +394,7 @@
             currentPlayer = startingPlayer;
             if (myRole === 'host') broadcast();
             buildBoard();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
+            if (gameType === 'cpu' && currentPlayer === "O") GameKit.later(cpuMove, 1000);
         }
     </script>
 </body>

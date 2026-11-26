@@ -296,6 +296,68 @@ test('mancala online', async () => {
 });
 
 // =====================================================================
+// Black Hole
+// =====================================================================
+const pieceCount = (g, who) => g.get(`board.filter(b => b && b.owner === '${who}').length`);
+test('black hole vs computer', async () => {
+  const g = await openGame('black-hole', 'type=cpu');
+  check(g.$$('.node').length === 21 && g.$$('.num-btn').length === 10, 'Black Hole: 21 circles and your numbers 1 to 10');
+  check(g.text('#bh-hint') === 'Tap a number, then an empty circle', 'Black Hole: a hint says what to do first', g.text('#bh-hint'));
+  g.click(g.$$('.node')[0]);
+  check(g.get('board[0]') === null && g.text('#bh-hint') === 'Pick a number first', 'Black Hole: tapping a circle before a number says "Pick a number first" instead of nothing', g.text('#bh-hint'));
+  g.click(g.$$('.num-btn')[9]);
+  check(g.text('#bh-hint') === 'Now tap an empty circle for your 10', 'Black Hole: after picking, the hint says where to put it', g.text('#bh-hint'));
+  g.click(g.$$('.node')[0]);
+  check(g.get('board[0].num') === 10 && g.$$('.node')[0].classList.contains('mine-x'), 'Black Hole: your number goes in the circle, in your colour');
+  await until(() => pieceCount(g, 'O') === 1);
+  check(pieceCount(g, 'O') === 1 && g.$$('.node.mine-o').length === 1, "Black Hole: the computer places one number, in its own colour");
+
+  // Reset while the computer is thinking: only the new game's moves happen
+  g.click(g.$$('.num-btn')[0]);
+  g.click(g.$$('.node')[g.get('board.findIndex(b => b === null)')]);
+  g.click('#reset-btn');
+  await tick(80);
+  check(pieceCount(g, 'X') === 0 && pieceCount(g, 'O') === 1 && g.get('currentPlayer') === 'X',
+    'Black Hole: after Reset the old computer move never lands; the computer starts the new game with one move', `X ${pieceCount(g, 'X')}, O ${pieceCount(g, 'O')}`);
+
+  // Play the whole game
+  for (let i = 0; i < 40 && g.get('active'); i++) {
+    await until(() => !g.get('active') || g.get('currentPlayer') === 'X');
+    if (!g.get('active')) break;
+    g.click(g.$$('.num-btn')[0]);
+    g.click(g.$$('.node')[g.get('board.findIndex(b => b === null)')]);
+    await tick(5);
+  }
+  check(g.modalOpen() && g.$$('.node.black-hole').length === 1, 'Black Hole: after all 20 numbers the last circle becomes the Black Hole');
+  check(/ wins, \d+ to \d+$|^It's a draw, /.test(g.text('#turn-info')), 'Black Hole: the turn line shows the result and score', g.text('#turn-info'));
+
+  // Scoring: numbers touching the Black Hole don't count
+  g.run(`board = Array(21).fill(null).map((b, i) => i === 0 ? null : { num: (i % 10) + 1, owner: i % 2 ? 'X' : 'O' });
+         p1Nums = []; p2Nums = []; active = false; calculateWinner();`);
+  const expect = { X: 0, O: 0 };
+  for (let i = 3; i < 21; i++) expect[i % 2 ? 'X' : 'O'] += (i % 10) + 1; // circles 1 and 2 touch circle 0
+  check(g.text('#score-summary') === `Guest: ${expect.X} | Computer: ${expect.O}`, 'Black Hole: the two circles touching the Black Hole are left out of the score', g.text('#score-summary'));
+});
+
+test('black hole online', async () => {
+  const { host, guest } = await onlineTable('black-hole');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  check(guest.text('#reset-btn') === 'Host can restart', "Black Hole online: the joiner's Reset says only the host can restart");
+  const play = async (p, numIdx, node) => {
+    await until(() => p.get('canMove()'));
+    p.click(p.$$('.num-btn')[numIdx]);
+    p.click(p.$$('.node')[node]);
+  };
+  await play(host, 4, 0);
+  await until(() => guest.get('board[0]') && guest.get('currentPlayer') === 'O');
+  await play(guest, 6, 1);
+  await until(() => host.get('board[1]') && guest.get('board[1]'));
+  check(host.get('board[1].num') === 7 && host.get('board[1].owner') === 'O' && guest.get('board[0].num') === 5,
+    'Black Hole online: each move shows on both phones with the right owner');
+  check(host.get('p2Nums.includes(7)') === false && guest.get('p2Nums.includes(7)') === false, 'Black Hole online: a used number is gone from both phones');
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
