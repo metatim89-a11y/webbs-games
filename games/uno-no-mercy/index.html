@@ -55,7 +55,7 @@
         }
         .color-picker-title { grid-column: 1 / -1; color: gold; font-weight: bold; text-align: center; max-width: 170px; }
         #color-cancel { grid-column: 1 / -1; margin: 4px 0 0; background: rgba(255,255,255,0.1); }
-        .color-opt { width: 64px; height: 64px; border-radius: 10px; cursor: pointer; border: 2px solid #fff; }
+        .color-opt { width: 64px; height: 64px; border-radius: 10px; cursor: pointer; border: 2px solid #fff; padding: 0; margin: 0; }
         .color-red { background: #ff5555; }
         .color-blue { background: #5555ff; }
         .color-green { background: #55aa55; }
@@ -72,10 +72,10 @@
     <div id="color-picker-modal" class="color-picker">
         <div class="color-picker-box">
             <div class="color-picker-title" id="color-picker-title">Pick a color</div>
-            <div class="color-opt color-red" onclick="selectWildColor('red')"></div>
-            <div class="color-opt color-blue" onclick="selectWildColor('blue')"></div>
-            <div class="color-opt color-green" onclick="selectWildColor('green')"></div>
-            <div class="color-opt color-yellow" onclick="selectWildColor('yellow')"></div>
+            <button class="color-opt color-red" aria-label="Red" title="Red" onclick="selectWildColor('red')"></button>
+            <button class="color-opt color-blue" aria-label="Blue" title="Blue" onclick="selectWildColor('blue')"></button>
+            <button class="color-opt color-green" aria-label="Green" title="Green" onclick="selectWildColor('green')"></button>
+            <button class="color-opt color-yellow" aria-label="Yellow" title="Yellow" onclick="selectWildColor('yellow')"></button>
             <button class="modal-btn" id="color-cancel" onclick="cancelWildColor()">Cancel</button>
         </div>
     </div>
