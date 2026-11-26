@@ -113,3 +113,19 @@ document.addEventListener('click', (e) => {
         AudioEngine.playClick();
     }
 });
+
+// Named sounds the board games ask for (Chutes & Ladders and Sorry call AudioManager.play('roll') and so on).
+// Set on window on purpose: the games check `window.AudioManager`, and a plain `const` is not on window.
+window.AudioManager = {
+    play(name) {
+        const tones = (list, gap) => list.forEach((f, i) => setTimeout(() => AudioEngine.playTone(f, 'triangle', 0.12, 0.08), i * gap));
+        switch (name) {
+            case 'roll':  tones([520, 620, 560], 70); break;          // dice rattle
+            case 'move':  AudioEngine.playTone(480, 'triangle', 0.07, 0.07); break; // one step
+            case 'climb': tones([400, 500, 600, 750], 80); break;      // ladder: going up
+            case 'slide': tones([700, 560, 440, 330], 80); break;      // chute: going down
+            case 'win':   AudioEngine.playWin(); break;
+            default:      AudioEngine.playClick();
+        }
+    }
+};
