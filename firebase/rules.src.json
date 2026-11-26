@@ -78,7 +78,8 @@
     },
 
     "tables": {
-      ".read": "APPROVED || ADMIN",
+      "//": "Anyone who opens the site sees open tables (Tim's call, Nov 26). Only approved family can list one.",
+      ".read": true,
       "$pin": {
         ".write": "ADMIN || (APPROVED && ((!data.exists() && newData.child('host').val() === ME) || (data.exists() && data.child('host').val() === ME)))",
         ".validate": "$pin.matches(/^[0-9]{4}$/) && newData.hasChildren(['game', 'host', 'ts'])",

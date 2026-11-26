@@ -136,9 +136,7 @@ function runPendingJoin() {
     sessionStorage.removeItem('webbs_pending_join');
     const banner = document.getElementById('join-banner');
     if (banner) banner.remove();
-    joinTablePrompt();
-    document.getElementById('join-table-pin').value = pin;
-    performAutoJoin();
+    joinTablePrompt({ pin });
 }
 
 /* --- Profile Logic --- */
@@ -272,10 +270,24 @@ function showGameSelection(mode) {
     goTo(`games.html?player=${activePlayer}&mode=${mode}`);
 }
 
-function joinTablePrompt() {
+// The join box. Opened from 🔑 Join with PIN it waits for a PIN. Opened with a table
+// (tapped in the Game Lobby, an invite, or an invite link) it says whose table it is and joins straight away.
+// table: { pin, host (a name), game (a title) }, every part but the PIN optional
+function joinTablePrompt(table) {
+    const title = document.getElementById('join-title');
+    const hint = document.getElementById('join-hint');
+    if (title) title.textContent = table ? (table.host ? `Joining ${table.host}'s table` : 'Joining the table') : '🔑 Join a table';
+    if (hint) hint.textContent = table ? [table.game, `PIN ${table.pin}`].filter(Boolean).join(' · ') : "Type the 4-digit PIN from the host's screen.";
+    joinAttempt++; // an earlier try that answers late can't take over this one
     document.getElementById('join-status').innerText = '';
-    document.getElementById('join-btn-final').disabled = false;
+    const btn = document.getElementById('join-btn-final');
+    btn.disabled = false;
+    btn.textContent = 'Join';
     document.getElementById('join-game-modal').style.display = 'flex';
+    if (table) {
+        document.getElementById('join-table-pin').value = table.pin;
+        performAutoJoin();
+    }
 }
 
 // The PIN box takes digits only, 4 at most (a number box showed arrows and let any length through)
@@ -285,9 +297,11 @@ function cleanPinInput(input) {
 }
 
 function closeJoinModal() {
+    joinAttempt++; // Cancel means cancel: a table found a moment later doesn't open
     document.getElementById('join-game-modal').style.display = 'none';
 }
 
+let joinAttempt = 0;
 function performAutoJoin() {
     const pin = document.getElementById('join-table-pin').value.replace(/\D/g, '');
     const statusEl = document.getElementById('join-status');
@@ -296,35 +310,30 @@ function performAutoJoin() {
         statusEl.innerText = "Type the 4-digit PIN from the host's screen.";
         return;
     }
-    
-    statusEl.innerText = "Connecting to table...";
+    const attempt = ++joinAttempt;
+    let done = false;
+    const current = () => !done && attempt === joinAttempt;
+    const fail = text => {
+        if (!current()) return;
+        done = true;
+        statusEl.innerText = text;
+        joinBtn.disabled = false;
+        joinBtn.textContent = 'Try again';
+    };
+    statusEl.innerText = 'Finding the table…';
     joinBtn.disabled = true;
 
-    // Use PeerJS via NetworkManager to query the host
-    if (typeof NetworkManager !== 'undefined') {
-        NetworkManager.queryGame(pin, (game) => {
-            if (game) {
-                statusEl.innerText = "Table Found! Redirecting...";
-                setTimeout(() => {
-                    goTo(`games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`);
-                }, 1000);
-            } else {
-                statusEl.innerText = "Error: Game not found on this table.";
-                joinBtn.disabled = false;
-            }
-        });
-
-        // Set a failure timeout
-        setTimeout(() => {
-            if (statusEl.innerText === "Connecting to table...") {
-                statusEl.innerText = "Failed to connect. Is the PIN correct?";
-                joinBtn.disabled = false;
-            }
-        }, 6000);
-    } else {
-        statusEl.innerText = "Couldn't reach the game network. Refresh the page and try again.";
-        joinBtn.disabled = false;
-    }
+    // Ask the host's phone which game it is playing, then open that game at the table
+    if (typeof NetworkManager === 'undefined') return fail("Couldn't reach the game network. Refresh the page and try again.");
+    NetworkManager.queryGame(pin, game => {
+        if (!current()) return;
+        if (!game) return fail(`No table is open with PIN ${pin} right now. Check the PIN, or the host may have left.`);
+        done = true;
+        statusEl.innerText = 'Found it! Opening the game…';
+        setTimeout(() => goTo(`games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`), 600);
+    });
+    // No answer at all (no signal, or the game network is down): say so instead of waiting forever
+    setTimeout(() => fail("Couldn't reach the game network. Check your signal and try again."), 10000);
 }
 
 async function logout() {

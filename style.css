@@ -395,19 +395,24 @@ body.cloud-admin .admin-only { display: block !important; }
     padding: 12px; border-radius: 12px; margin: -15px 0 20px; font-size: 0.9em;
 }
 
+/* An invite: the same row as an open table, in gold, with Join and Not now */
 .invite-card {
-    background: linear-gradient(135deg, rgba(255,215,0,0.18), rgba(255,215,0,0.05)); border: 2px solid gold;
-    border-radius: 16px; padding: 14px; margin-bottom: 12px; animation: slideDown 0.4s ease;
+    background: linear-gradient(135deg, rgba(255,215,0,0.16), rgba(255,215,0,0.04)); border: 1px solid rgba(255,215,0,0.6) !important;
+    border-radius: 12px; padding: 10px !important; margin-bottom: 8px; animation: slideDown 0.4s ease;
 }
-.invite-text { font-weight: bold; color: gold; margin-bottom: 10px; }
-.invite-actions { display: flex; gap: 10px; justify-content: center; }
-.invite-join { background: gold !important; color: #000 !important; font-weight: bold; }
-.invite-dismiss { background: rgba(255,255,255,0.1) !important; }
+.invite-card .table-game { color: var(--gold); }
+.invite-icon { font-size: 1.2em; width: 22px; text-align: center; flex: none; }
+.invite-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+.invite-join { background: var(--gold) !important; color: #000 !important; font-weight: bold; }
+.invite-dismiss { min-height: 36px; padding: 0 12px; font-size: 0.85em; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 
 .open-tables { margin: 0; }
 .section-title { margin: 0 0 8px; font-size: 1em; opacity: 0.85; }
 .table-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,0.08); animation: slideDown 0.3s ease; }
+button.table-row { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 10px; color: inherit; font: inherit; cursor: pointer; min-height: 56px; padding: 10px 6px; }
+button.table-row:hover, button.table-row:focus-visible { background: rgba(255,255,255,0.06); }
+button.table-row:active { background: rgba(255,215,0,0.12); }
 .table-info { display: flex; align-items: center; gap: 10px; text-align: left; min-width: 0; }
 .table-text { min-width: 0; }
 .table-game { font-weight: bold; }
@@ -523,15 +528,11 @@ body.table-chat-open { padding-bottom: 290px; } /* and room for the open panel *
 .dm-safety { font-size: 0.68em; opacity: 0.55; padding: 6px 12px 10px; }
 
 .lobby-empty { font-size: 0.9em; opacity: 0.75; margin: 4px 0 12px; line-height: 1.4; }
-.admin-approvals {
-    background: linear-gradient(135deg, rgba(46,204,113,0.18), rgba(46,204,113,0.05)); border: 2px solid #2ecc71;
-    border-radius: 16px; padding: 14px; margin-bottom: 12px; animation: slideDown 0.4s ease;
-}
-.approval-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 8px 4px; border-top: 1px solid rgba(255,255,255,0.08); animation: slideDown 0.3s ease; }
-.approval-info { text-align: left; }
-.approval-extra { font-size: 0.75em; opacity: 0.7; }
-.approval-yes { background: #2ecc71 !important; color: #000 !important; font-weight: bold; padding: 8px 16px !important; margin: 0 !important; }
-.approval-note { font-size: 0.7em; opacity: 0.55; margin-top: 8px; }
+.admin-approvals { border-color: rgba(46,204,113,0.6); background: linear-gradient(135deg, rgba(46,204,113,0.12), rgba(46,204,113,0.03)); animation: slideDown 0.4s ease; }
+.approval-info { text-align: left; min-width: 0; }
+.approval-extra { font-size: 0.8em; opacity: 0.7; }
+.approval-yes { background: #2ecc71 !important; color: #000 !important; font-weight: bold; }
+.approval-note { font-size: 0.8em; opacity: 0.65; margin: 10px 0 0; line-height: 1.4; }
 
 /* --- Online play notice: one plain sentence and a way back (network.js showNotice) --- */
 .net-notice {
@@ -580,7 +581,7 @@ button.kit-off:disabled {
     border: 1px solid var(--primary-color); border-radius: 12px;
 }
 .sound-btn, .help-btn, .bar-tools #admin-gear { width: 44px; padding: 0; font-size: 1.15em; }
-.bar-tools #admin-gear img { width: 24px; height: 24px; }
+.bar-tools #admin-gear span { line-height: 1; }
 .bar-btn:active, .back-btn:active, .sound-btn:active, .help-btn:active { transform: scale(0.95); }
 .bar-pin { font-size: 0.9em; font-weight: bold; color: var(--gold); white-space: nowrap; }
 .bar-pin:empty { display: none; }
@@ -659,7 +660,9 @@ button.kit-off:disabled {
 .chip-btn:active { transform: scale(0.95); }
 
 /* --- Lobby --- */
-.welcome-card { display: flex; align-items: center; gap: 12px; }
+.welcome-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.welcome-sub { margin: 2px 0 0; font-size: 0.9em; opacity: 0.7; }
+.welcome-card > .welcome-actions { flex: 1 1 100%; margin-top: 0; }
 .avatar {
     width: 48px; height: 48px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
     font-weight: bold; font-size: 1.3em; background: var(--primary-color); color: #fff; border: 2px solid var(--accent-color);
@@ -667,9 +670,8 @@ button.kit-off:disabled {
 .welcome-text { flex: 1; min-width: 0; }
 .welcome-text h2 { margin: 0; font-size: 1.2em; overflow-wrap: anywhere; }
 .welcome-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
-.welcome-actions .messages-btn { padding: 0 14px; font-size: 0.9em; }
+.welcome-actions .chip-btn { padding: 0 12px; font-size: 0.88em; }
 .pending-note { margin: 0 0 14px; }
-.game-lobby .invite-card { text-align: center; }
 .game-lobby .btn-row { margin-top: 4px; }
 .table-time { font-size: 0.75em; opacity: 0.6; }
 #messages {
@@ -808,3 +810,34 @@ button.player-card { font: inherit; color: inherit; width: 100%; box-sizing: bor
     .bar-btn, .back-btn { padding: 0 10px; }
     .app-title { font-size: 1.3em; }
 }
+
+/* --- Boxes that pop up over the lobby: join a table, type your PIN --- */
+.box-title { margin: 0 0 6px; font-size: 1.3em; color: var(--gold); line-height: 1.25; }
+.box-hint { margin: 0 0 16px; font-size: 0.9em; opacity: 0.8; line-height: 1.4; }
+.box-status { min-height: 1.3em; margin: 12px 0 4px; color: var(--gold); font-weight: bold; line-height: 1.35; }
+.box-actions { display: flex; gap: 10px; justify-content: center; margin-top: 10px; }
+.box-actions .modal-btn { margin: 0; flex: 1; max-width: 150px; }
+.modal-btn.btn-plain { background: transparent; border: 1px solid rgba(255,255,255,0.22); }
+.join-box { width: min(300px, 76vw); }
+.pin-field {
+    box-sizing: border-box; width: 100%; font: inherit; font-size: 2.2em; font-weight: bold; text-align: center;
+    letter-spacing: 12px; padding: 12px 0 12px 12px; border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.15); background: rgba(255,255,255,0.08); color: #fff;
+}
+.pin-field:focus { outline: none; border-color: var(--gold); }
+.pin-display { font-size: 2.6em; letter-spacing: 14px; padding-left: 14px; margin: 12px 0 10px; font-weight: bold; color: var(--gold); }
+.pin-show {
+    background: none; border: 1px solid var(--gold); color: var(--gold); border-radius: 999px;
+    padding: 6px 16px; font: inherit; font-size: 0.85em; cursor: pointer; margin-bottom: 18px;
+}
+.pin-show.on { background: var(--gold); color: #000; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; width: min(250px, 66vw); margin: 0 auto 6px; }
+.pin-pad button {
+    min-height: 56px; border-radius: 14px; border: none; background: rgba(255,255,255,0.12); color: #fff;
+    font: inherit; font-size: 1.4em; font-weight: bold; cursor: pointer;
+}
+.pin-pad button:active { transform: scale(0.94); background: rgba(255,255,255,0.22); }
+.pin-pad .pin-clear { background: rgba(255,255,255,0.05); }
+.pin-pad .pin-ok { background: var(--gold); color: #000; }
+#pin-overlay .btn-plain { margin-top: 14px; }
+.dm-bubble.mine .dm-time { color: #fff; opacity: 0.75; }

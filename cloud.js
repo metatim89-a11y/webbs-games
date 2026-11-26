@@ -3,7 +3,7 @@
  *
  * Uses Firebase (Google) so messages reach other phones. Who can see what is enforced by
  * the database rules in firebase/rules.src.json, not by this file:
- *   - only players Tim has approved can message, chat, see tables or send invites
+ *   - only players Tim has approved can message, chat, list tables or send invites (anyone can see open tables)
  *   - a private conversation can be read only by its two players (and Tim, the admin)
  *   - nobody can approve themselves, take someone's name, or send as someone else
  *
@@ -269,16 +269,19 @@ const WebbsCloud = (() => {
         db.ref('tables/' + pin).remove().catch(() => {});
     }
 
-    function watchTables(cb) {
-        if (!canUseFamilyFeatures()) return () => {};
+    // Open tables in the Game Lobby: anyone who opens the site can see them, guests too.
+    // Only approved family can list one (publishTable). If the family server says no, onError runs.
+    function watchTables(cb, onError) {
+        if (!available) { if (onError) onError(); return () => {}; }
         const ref = db.ref('tables');
         const h = snap => {
             const out = [];
             const cutoff = Date.now() - TABLE_MAX_AGE;
-            snap.forEach(c => { const t = c.val(); if (t.ts > cutoff && t.host !== me.id) out.push({ pin: c.key, ...t }); });
+            const mine = me && me.id;
+            snap.forEach(c => { const t = c.val(); if (t && t.ts > cutoff && t.host !== mine) out.push({ pin: c.key, ...t }); });
             cb(out);
         };
-        ref.on('value', h, err => console.warn('tables', err));
+        ref.on('value', h, err => { console.warn('tables', err); if (onError) onError(err); });
         return () => ref.off('value', h);
     }
 

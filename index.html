@@ -4,17 +4,17 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wubs Games | Lobby</title>
-    <link rel="stylesheet" href="style.css?v=1.4.15">
+    <link rel="stylesheet" href="style.css?v=1.4.16">
 </head>
 <body class="theme-guest">
-    <div id="version-tag">v1.4.15</div>
+    <div id="version-tag">v1.4.16</div>
     
     <div id="lobby-container">
         <header class="app-bar">
             <h1 class="app-title">Wubs Games</h1>
             <div class="bar-tools">
                 <button type="button" id="admin-gear" class="admin-only" onclick="toggleAdminSettings()" aria-label="Admin settings" title="Admin settings">
-                    <img src="assets/icons/settings.svg" width="24" height="24" alt="" style="filter: invert(1);">
+                    <span aria-hidden="true">⚙️</span>
                 </button>
             </div>
         </header>
@@ -36,21 +36,22 @@
                 <div class="avatar" id="welcome-avatar" aria-hidden="true">?</div>
                 <div class="welcome-text">
                     <h2 id="active-player-name">Welcome!</h2>
+                    <p class="welcome-sub">What are we playing?</p>
+                </div>
                     <div class="welcome-actions">
                         <button type="button" class="chip-btn" onclick="openProfile()">🏆 Profile</button>
                         <button type="button" id="messages-btn" class="chip-btn messages-btn" onclick="FamilyUI.openMessages()" style="display:none;">💬 Messages <span id="messages-badge" class="badge"></span></button>
                         <button type="button" id="logout-btn" class="chip-btn" onclick="logout()">↩ Switch player</button>
                     </div>
-                </div>
             </section>
 
             <div id="pending-note" class="pending-note" style="display:none;">
-                ⏳ Tim or Cassie needs to approve your profile before you can message the family or see who's waiting.
-                You can still play every game!
+                ⏳ Tim or Cassie needs to approve your profile before you can message the family or list a table.
+                You can still play every game and join open tables!
             </div>
 
             <div id="family-features" style="display:none;">
-                <div id="admin-approvals" class="admin-approvals" style="display:none;"></div>
+                <section id="admin-approvals" class="card admin-approvals" style="display:none;"></section>
             </div>
 
             <button type="button" id="play-btn" class="btn-big btn-primary" onclick="showGameSelection('local')">🎲 Play a game</button>
@@ -105,13 +106,15 @@
 
         <div id="join-game-modal" class="game-over-modal">
             <div class="modal-content">
-                <div id="join-step-1">
-                    <h3>Join with Table PIN</h3>
-                    <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 20px;">We'll find the game for you!</p>
-                    <input type="text" id="join-table-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000" oninput="cleanPinInput(this)" onkeydown="if (event.key === 'Enter') performAutoJoin()" style="font-size: 2.5em; width: 80%; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 15px; border: none; margin-bottom: 20px; background: #333; color: white;">
-                    <div id="join-status" style="margin-bottom: 20px; color: gold; font-weight: bold; min-height: 1.2em;"></div>
-                    <button id="join-btn-final" onclick="performAutoJoin()" class="modal-btn">Join Table</button>
-                    <button onclick="closeJoinModal()" class="modal-btn" style="background:none;">Cancel</button>
+                <div id="join-step-1" class="join-box">
+                    <h2 id="join-title" class="box-title">🔑 Join a table</h2>
+                    <p id="join-hint" class="box-hint">Type the 4-digit PIN from the host's screen.</p>
+                    <input type="text" id="join-table-pin" class="pin-field" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000" aria-label="Table PIN" oninput="cleanPinInput(this)" onkeydown="if (event.key === 'Enter') performAutoJoin()">
+                    <div id="join-status" class="box-status" role="status"></div>
+                    <div class="box-actions">
+                        <button type="button" id="join-btn-final" onclick="performAutoJoin()" class="modal-btn">Join</button>
+                        <button type="button" onclick="closeJoinModal()" class="modal-btn btn-plain">Cancel</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -145,26 +148,24 @@
 
         <div id="pin-overlay" class="game-over-modal">
             <div class="modal-content">
-                <h2 id="pin-msg">Enter PIN</h2>
-                <div id="pin-display" style="font-size: 3em; letter-spacing: 15px; margin: 20px 0; font-weight: bold; color: gold;">----</div>
-                <div style="margin-bottom: 20px;">
-                    <button class="modal-btn" style="background:none; border: 1px solid gold; color: gold; font-size: 0.8em; padding: 5px 15px;" onclick="togglePinVisibility()">Show PIN</button>
+                <h2 id="pin-msg" class="box-title">Enter PIN</h2>
+                <div id="pin-display" class="pin-display" aria-live="polite">----</div>
+                <button type="button" class="pin-show" onclick="togglePinVisibility()">Show PIN</button>
+                <div class="pin-pad">
+                    <button type="button" onclick="appendPin('1')">1</button>
+                    <button type="button" onclick="appendPin('2')">2</button>
+                    <button type="button" onclick="appendPin('3')">3</button>
+                    <button type="button" onclick="appendPin('4')">4</button>
+                    <button type="button" onclick="appendPin('5')">5</button>
+                    <button type="button" onclick="appendPin('6')">6</button>
+                    <button type="button" onclick="appendPin('7')">7</button>
+                    <button type="button" onclick="appendPin('8')">8</button>
+                    <button type="button" onclick="appendPin('9')">9</button>
+                    <button type="button" class="pin-clear" onclick="clearPin()" aria-label="Clear">C</button>
+                    <button type="button" onclick="appendPin('0')">0</button>
+                    <button type="button" class="pin-ok" onclick="submitPin()">OK</button>
                 </div>
-                <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; max-width: 250px; margin: 0 auto;">
-                    <button class="modal-btn" onclick="appendPin('1')">1</button>
-                    <button class="modal-btn" onclick="appendPin('2')">2</button>
-                    <button class="modal-btn" onclick="appendPin('3')">3</button>
-                    <button class="modal-btn" onclick="appendPin('4')">4</button>
-                    <button class="modal-btn" onclick="appendPin('5')">5</button>
-                    <button class="modal-btn" onclick="appendPin('6')">6</button>
-                    <button class="modal-btn" onclick="appendPin('7')">7</button>
-                    <button class="modal-btn" onclick="appendPin('8')">8</button>
-                    <button class="modal-btn" onclick="appendPin('9')">9</button>
-                    <button class="modal-btn" style="background: #444;" onclick="clearPin()">C</button>
-                    <button class="modal-btn" onclick="appendPin('0')">0</button>
-                    <button class="modal-btn" style="background: gold; color: black;" onclick="submitPin()">OK</button>
-                </div>
-                <button class="modal-btn" style="background:none; margin-top: 20px;" onclick="closePinOverlay()">Cancel</button>
+                <button type="button" class="modal-btn btn-plain" onclick="closePinOverlay()">Cancel</button>
             </div>
         </div>
     </div>
@@ -173,15 +174,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="chat.js?v=1.4.15"></script>
-    <script src="network.js?v=1.4.15"></script>
-    <script src="profile.js?v=1.4.15"></script>
-    <script src="audio.js?v=1.4.15"></script>
-    <script src="admin.js?v=1.4.15"></script>
-    <script src="auth.js?v=1.4.15"></script>
-    <script src="cloud.js?v=1.4.15"></script>
-    <script src="family.js?v=1.4.15"></script>
-    <script src="main.js?v=1.4.15"></script>
-    <script src="help.js?v=1.4.15"></script>
+    <script src="chat.js?v=1.4.16"></script>
+    <script src="network.js?v=1.4.16"></script>
+    <script src="profile.js?v=1.4.16"></script>
+    <script src="audio.js?v=1.4.16"></script>
+    <script src="admin.js?v=1.4.16"></script>
+    <script src="auth.js?v=1.4.16"></script>
+    <script src="cloud.js?v=1.4.16"></script>
+    <script src="family.js?v=1.4.16"></script>
+    <script src="main.js?v=1.4.16"></script>
+    <script src="help.js?v=1.4.16"></script>
 </body>
 </html>

@@ -109,7 +109,7 @@
       }
     },
     "tables": {
-      ".read": "(auth != null && root.child('players/' + root.child('uids/' + auth.uid).val() + '/approved').val() === true) || (auth != null && root.child('admins/' + auth.uid).val() === true)",
+      ".read": true,
       "$pin": {
         ".write": "(auth != null && root.child('admins/' + auth.uid).val() === true) || ((auth != null && root.child('players/' + root.child('uids/' + auth.uid).val() + '/approved').val() === true) && ((!data.exists() && newData.child('host').val() === root.child('uids/' + auth.uid).val()) || (data.exists() && data.child('host').val() === root.child('uids/' + auth.uid).val())))",
         ".validate": "$pin.matches(/^[0-9]{4}$/) && newData.hasChildren(['game', 'host', 'ts'])",
