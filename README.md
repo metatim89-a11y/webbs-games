@@ -43,6 +43,11 @@ Headless Chromium, real network, no extra packages. Serve the site first:
 - `node tests/chat_test.mjs`: game table chat with a host and two joiners on a pretend network
   (each message arrives once, greyed out with a reason until someone joins, 300-letter limit).
   Needs no browser or server.
+- `node tests/games_test.mjs`: every game against the computer, with someone here and online,
+  on pretend phones (needs `npm install --no-save jsdom` once; no browser or server)
+- `node tests/lobby_test.mjs`: "Who's playing?", the Game Lobby (listed and invite-only tables,
+  invites, join), the shared top bar and actions row on every game, chat quick messages,
+  help guides and the tour. Uses a pretend family server, so real accounts are never touched.
 - `tests/bot.js`, `unobot.js`, `anybot.js`: auto-play bots that play whole games (see the test commands in git history)
 
 Parked ideas: [LATER.md](LATER.md)

@@ -164,10 +164,11 @@ const SoundSwitch = {
         btn.className = 'sound-btn';
         btn.dataset.noSound = 'true';
         btn.onclick = () => this.set(!AudioEngine.enabled);
+        // Every screen's top bar has a tools corner: the switch goes first there (games: before 📖 Rules)
+        const tools = document.querySelector('.app-bar .bar-tools');
         const back = document.querySelector('.back-btn');
-        const gear = document.getElementById('admin-gear');
-        if (back) back.insertAdjacentElement('afterend', btn);       // game pages
-        else if (gear) gear.insertAdjacentElement('beforebegin', btn); // lobby header
+        if (tools) tools.prepend(btn);
+        else if (back) back.insertAdjacentElement('afterend', btn);
         else return;
         this.paint();
     }

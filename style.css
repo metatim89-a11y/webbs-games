@@ -88,17 +88,6 @@ body {
     text-align: center;
 }
 
-/* On phones and tablets the Rules button sits over the top of the page, so the page starts below it */
-@media (max-width: 1000px) {
-    .rules-block ~ #lobby-container { padding-top: 72px; }
-}
-
-/* The Back button on every game page */
-.back-btn {
-    background: rgba(255,255,255,0.1); color: var(--accent-color); border: 1px solid var(--primary-color);
-    border-radius: 10px; padding: 10px 16px; font-size: 1em; cursor: pointer;
-}
-.back-btn:active { transform: scale(0.96); }
 
 /* A button that can't be used right now: greyed out, and its label says why (GameKit.setControl) */
 button:disabled, .modal-btn:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -416,10 +405,13 @@ body.cloud-admin .admin-only { display: block !important; }
 .invite-dismiss { background: rgba(255,255,255,0.1) !important; }
 @keyframes slideDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 
-.open-tables { background: rgba(255,255,255,0.04); border-radius: 16px; padding: 12px; margin-top: 15px; }
+.open-tables { margin: 0; }
 .section-title { margin: 0 0 8px; font-size: 1em; opacity: 0.85; }
-.table-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 4px; border-top: 1px solid rgba(255,255,255,0.06); animation: slideDown 0.3s ease; }
-.table-info { display: flex; align-items: center; gap: 8px; text-align: left; }
+.table-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,0.08); animation: slideDown 0.3s ease; }
+.table-info { display: flex; align-items: center; gap: 10px; text-align: left; min-width: 0; }
+.table-text { min-width: 0; }
+.table-game { font-weight: bold; }
+.table-host { font-size: 0.85em; opacity: 0.75; }
 .table-join { padding: 8px 18px !important; margin: 0 !important; }
 .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 0 rgba(46,204,113,0.7); animation: livePulse 1.6s infinite; }
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); } 70% { box-shadow: 0 0 0 8px rgba(46,204,113,0); } 100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); } }
@@ -432,7 +424,7 @@ body.cloud-admin .admin-only { display: block !important; }
 .chat-who { color: gold; }
 .chat-time { font-size: 0.75em; opacity: 0.5; white-space: nowrap; }
 .chat-empty { opacity: 0.55; font-style: italic; font-size: 0.9em; }
-.chat-note { font-size: 0.8em; opacity: 0.7; margin: -8px 0 8px; }
+.chat-note { font-size: 0.8em; opacity: 0.7; margin: -4px 0 8px; }
 body.cloud-chat .chat-note { display: none; } /* the shared family chat needs no "this phone only" note */
 .chat-error { color: #ff8a80; font-size: 0.85em; margin-top: 6px; min-height: 1.1em; }
 #messages { overflow-x: hidden; }
@@ -530,7 +522,7 @@ body.table-chat-open { padding-bottom: 290px; } /* and room for the open panel *
 .dm-send:active { transform: scale(0.88) rotate(-10deg); }
 .dm-safety { font-size: 0.68em; opacity: 0.55; padding: 6px 12px 10px; }
 
-.lobby-empty { font-size: 0.85em; opacity: 0.6; margin: 4px 0 2px; }
+.lobby-empty { font-size: 0.9em; opacity: 0.75; margin: 4px 0 12px; line-height: 1.4; }
 .admin-approvals {
     background: linear-gradient(135deg, rgba(46,204,113,0.18), rgba(46,204,113,0.05)); border: 2px solid #2ecc71;
     border-radius: 16px; padding: 14px; margin-bottom: 12px; animation: slideDown 0.4s ease;
@@ -553,17 +545,265 @@ body.table-chat-open { padding-bottom: 290px; } /* and room for the open panel *
 .net-notice-text { margin: 0 0 16px; font-size: 1.05em; line-height: 1.4; }
 .net-notice-btn { margin: 0; width: 100%; }
 
-/* --- Sound on/off switch (audio.js SoundSwitch) --- */
-.sound-btn {
-    min-width: 44px; min-height: 44px; padding: 0 10px; font-size: 1.2em; line-height: 1; cursor: pointer;
-    background: rgba(255,255,255,0.1); color: var(--accent-color); border: 1px solid var(--primary-color); border-radius: 10px;
-}
-.back-btn + .sound-btn { margin: 0 auto 0 8px; } /* games: right beside ← Back, the PIN stays on the right */
-h1 + .sound-btn { margin: 0 10px 0 auto; }          /* lobby: top right, beside the admin gear */
+/* --- Sound on/off switch (audio.js SoundSwitch): sits in the top bar, styled with the bar buttons below --- */
 .sound-btn[aria-pressed="true"] { opacity: 0.85; }
 
 /* --- Greyed-out game buttons (GameKit.setControl): the reason on them stays easy to read --- */
 button.kit-off:disabled {
     opacity: 1; filter: none; color: rgba(255,255,255,0.78);
     background: rgba(255,255,255,0.08) !important; border: 1px dashed rgba(255,255,255,0.4);
+}
+
+
+/* =====================================================================
+   One look for every screen: the lobby, the games list, every game,
+   the chat, online play and help all use the parts below.
+   ===================================================================== */
+:root {
+    --card-bg: rgba(255,255,255,0.05);
+    --card-line: rgba(255,255,255,0.12);
+    --gold: #ffd700;
+}
+
+/* --- Top bar: the same height, buttons and order on every screen ---
+   Lobby:      Wubs Games ............ ❓ 🔊 ⚙️
+   Games list: ← Lobby ............... ❓ 🔊
+   A game:     ← Back   PIN 1234 ..... 🔊 📖 Rules */
+.app-bar { display: flex; align-items: center; gap: 8px; min-height: 48px; margin: 0 0 12px; }
+.app-title { margin: 0; font-size: 1.5em; line-height: 1.1; text-align: left; }
+.bar-tools { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.bar-btn, .back-btn, .sound-btn, .help-btn, .bar-tools #admin-gear {
+    box-sizing: border-box; min-width: 44px; min-height: 44px; padding: 0 12px; margin: 0;
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    font: inherit; font-size: 1em; line-height: 1; cursor: pointer; white-space: nowrap;
+    background: rgba(255,255,255,0.08); color: var(--accent-color);
+    border: 1px solid var(--primary-color); border-radius: 12px;
+}
+.sound-btn, .help-btn, .bar-tools #admin-gear { width: 44px; padding: 0; font-size: 1.15em; }
+.bar-tools #admin-gear img { width: 24px; height: 24px; }
+.bar-btn:active, .back-btn:active, .sound-btn:active, .help-btn:active { transform: scale(0.95); }
+.bar-pin { font-size: 0.9em; font-weight: bold; color: var(--gold); white-space: nowrap; }
+.bar-pin:empty { display: none; }
+
+/* Rules: a button in the top bar, the rules drop down under it */
+.bar-tools .rules-block {
+    position: relative; top: auto; right: auto; z-index: 4000; padding: 0; max-width: none;
+    background: none; border: none; box-shadow: none;
+}
+.bar-tools .rules-toggle { color: var(--gold); font-weight: bold; border-color: rgba(255,215,0,0.55); }
+.bar-tools .rules-block.expanded .rules-toggle { background: rgba(255,215,0,0.16); }
+.rules-icon { font-size: 1.05em; }
+.bar-tools .rules-content-mini {
+    position: absolute; right: 0; top: calc(100% + 8px); box-sizing: border-box;
+    width: min(320px, calc(100vw - 32px)); max-height: min(62vh, 440px); margin: 0; padding: 14px 16px;
+    background: rgba(10,10,10,0.96); border: 1px solid var(--primary-color); border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.6); font-size: 0.92em; line-height: 1.45; color: #eee;
+    animation: slideDown 0.2s ease;
+}
+.bar-tools .rules-content-mini ul { padding-left: 18px; margin: 6px 0 0; }
+.rules-guide-btn {
+    display: block; width: 100%; margin: 12px 0 0; min-height: 44px; border-radius: 12px; cursor: pointer;
+    background: var(--gold); color: #000; border: none; font: inherit; font-weight: bold;
+}
+
+/* --- A game screen: title, whose turn, the board, then the actions row --- */
+.app-bar ~ h1 { font-size: 1.5em; line-height: 1.2; margin: 2px 0 4px; }
+.turn-info { font-weight: bold; color: var(--accent-color); margin: 0 0 14px; min-height: 1.3em; }
+.game-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 18px 0 8px; }
+.game-actions .modal-btn { margin: 0; }
+.ghost-btn { background: rgba(255,255,255,0.1); color: var(--accent-color); border: 1px solid var(--primary-color); }
+.players-btn { min-width: 0; }
+
+/* The host's "Share this PIN" box, under the title while the table waits for someone */
+.host-box {
+    background: rgba(255,215,0,0.1); border: 2px solid var(--gold); border-radius: 18px;
+    padding: 14px 14px 12px; margin: 0 0 16px;
+}
+.host-box-label { font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; color: var(--gold); }
+.host-box-pin { font-size: 2.4em; font-weight: bold; letter-spacing: 6px; color: #fff; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
+.btn-gold { background: var(--gold) !important; color: #000 !important; font-weight: bold; }
+.host-box .modal-btn { margin: 4px 0; width: 100%; max-width: 320px; }
+.host-box .invite-family { margin-top: 10px; }
+.seat-table-status { font-size: 0.9em; opacity: 0.9; margin: 2px 0 10px; line-height: 1.35; }
+.seat-play-cpu { background: rgba(255,255,255,0.1) !important; font-size: 1em !important; }
+
+/* --- Cards: every section of the lobby --- */
+.card {
+    background: var(--card-bg); border: 1px solid var(--card-line); border-radius: 18px;
+    padding: 16px; margin: 0 0 14px; text-align: left;
+}
+.card-title { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: 1.1em; }
+.card-note { font-size: 0.9em; opacity: 0.8; margin: 0 0 12px; line-height: 1.4; }
+.card-note:empty { display: none; }
+
+/* Big buttons: one main action per screen, the rest softer */
+.btn-big, .btn-mid {
+    box-sizing: border-box; display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+    font: inherit; font-weight: bold; cursor: pointer; margin: 0; line-height: 1.2;
+}
+.btn-big { min-height: 60px; border-radius: 18px; font-size: 1.2em; margin-bottom: 14px; }
+.btn-mid { min-height: 48px; border-radius: 14px; font-size: 1em; padding: 0 12px; }
+.btn-primary { background: var(--primary-color); color: #fff; border: 2px solid var(--accent-color); box-shadow: 0 4px 14px rgba(0,0,0,0.35); }
+.btn-soft { background: rgba(255,255,255,0.08); color: var(--accent-color); border: 1px solid var(--primary-color); }
+.btn-gold-soft { background: rgba(255,215,0,0.14); color: var(--gold); border: 1px solid var(--gold); }
+.btn-big:active, .btn-mid:active { transform: scale(0.98); }
+.btn-row { display: flex; gap: 10px; }
+.btn-row > * { flex: 1; min-width: 0; }
+
+/* Small round buttons inside cards */
+.chip-btn {
+    min-height: 38px; padding: 0 14px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.9em;
+    display: inline-flex; align-items: center; gap: 4px;
+    background: rgba(255,255,255,0.08); color: var(--accent-color); border: 1px solid var(--primary-color);
+}
+.chip-btn:active { transform: scale(0.95); }
+
+/* --- Lobby --- */
+.welcome-card { display: flex; align-items: center; gap: 12px; }
+.avatar {
+    width: 48px; height: 48px; border-radius: 50%; flex: none; display: flex; align-items: center; justify-content: center;
+    font-weight: bold; font-size: 1.3em; background: var(--primary-color); color: #fff; border: 2px solid var(--accent-color);
+}
+.welcome-text { flex: 1; min-width: 0; }
+.welcome-text h2 { margin: 0; font-size: 1.2em; overflow-wrap: anywhere; }
+.welcome-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.welcome-actions .messages-btn { padding: 0 14px; font-size: 0.9em; }
+.pending-note { margin: 0 0 14px; }
+.game-lobby .invite-card { text-align: center; }
+.game-lobby .btn-row { margin-top: 4px; }
+.table-time { font-size: 0.75em; opacity: 0.6; }
+#messages {
+    height: 160px; overflow-y: auto; background: rgba(0,0,0,0.25); margin: 0 0 10px;
+    padding: 10px; border-radius: 12px; text-align: left; box-sizing: border-box;
+}
+.msg-row { display: flex; gap: 8px; }
+#msg-input {
+    flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.12);
+    background: rgba(255,255,255,0.08); color: #fff;
+}
+#msg-send { padding: 0 20px; border-radius: 12px; background: var(--primary-color); color: #fff; border: none; font: inherit; font-weight: bold; cursor: pointer; }
+#msg-send:disabled { opacity: 0.45; }
+
+/* Who's playing today? */
+.who-title { margin: 6px 0 4px; font-size: 1.25em; }
+.who-hint { margin: 0 0 4px; opacity: 0.75; font-size: 0.9em; }
+.player-grid { margin: 16px 0; gap: 12px; }
+button.player-card { font: inherit; color: inherit; width: 100%; box-sizing: border-box; }
+.player-card { flex-direction: column; gap: 6px; padding: 16px 10px; min-height: 92px; }
+.player-card .avatar { width: 40px; height: 40px; font-size: 1.1em; }
+.player-card h3 { overflow-wrap: anywhere; }
+.privacy-link { margin-top: 18px; font-size: 0.75em; opacity: 0.6; }
+.privacy-link a { color: inherit; }
+
+/* --- Games list --- */
+.page-title { margin: 6px 0 4px; font-size: 1.5em; }
+.page-hint { margin: 0 0 16px; opacity: 0.8; font-size: 0.95em; line-height: 1.4; }
+.game-grid { margin: 0 0 20px; gap: 10px; }
+.game-grid .game-card {
+    display: flex; align-items: center; gap: 14px; text-align: left; padding: 14px 16px; font-weight: normal;
+    border: 1px solid var(--primary-color); background: var(--card-bg); border-radius: 18px; min-height: 70px; font: inherit;
+}
+.game-card-icon { font-size: 1.8em; width: 40px; text-align: center; flex: none; }
+.game-card-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.game-card-name { font-weight: bold; font-size: 1.1em; }
+.game-card-goal { font-size: 0.85em; opacity: 0.75; }
+.game-card-go { margin-left: auto; opacity: 0.6; font-size: 1.3em; }
+
+/* --- Who's playing? (seat-picker.js) --- */
+.seat-panel { width: min(420px, 94vw); box-sizing: border-box; max-height: 92vh; overflow-y: auto; text-align: left; padding: 20px !important; }
+.seat-title { margin: 0 0 2px; text-align: center; color: var(--gold); }
+.seat-question { margin: 12px 0 8px; font-weight: bold; }
+.seat-row { display: flex; gap: 10px; align-items: flex-start; margin-bottom: 8px; }
+.seat-num {
+    flex: none; width: 28px; height: 28px; margin-top: 10px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: var(--primary-color); color: #fff; font-weight: bold; font-size: 0.9em;
+}
+.seat-fixed {
+    flex: 1; display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 12px; box-sizing: border-box;
+    border-radius: 14px; background: rgba(255,255,255,0.06); font-weight: bold;
+}
+.seat-options { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.seat-options-pair { flex-direction: row; }
+.seat-options-pair .seat-opt { flex: 1; }
+.seat-opt {
+    display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 8px 12px; box-sizing: border-box;
+    text-align: left; cursor: pointer; font: inherit; color: #fff; border-radius: 14px;
+    background: rgba(255,255,255,0.06); border: 2px solid rgba(255,255,255,0.15);
+}
+.seat-opt.picked { border-color: var(--gold); background: rgba(255,215,0,0.14); }
+.seat-opt:disabled { opacity: 0.55; cursor: not-allowed; }
+.seat-icon { font-size: 1.5em; flex: none; }
+.seat-text { display: flex; flex-direction: column; min-width: 0; }
+.seat-label { font-weight: bold; }
+.seat-desc { font-size: 0.8em; opacity: 0.75; }
+.seat-note { font-size: 0.85em; opacity: 0.85; margin: 8px 0 0; line-height: 1.35; }
+.seat-warn { color: #ffb4a8; opacity: 1; }
+.seat-start { display: block; width: 100%; margin: 16px 0 4px !important; background: var(--gold) !important; color: #000 !important; font-weight: bold; }
+.seat-cancel { display: block; width: 100%; margin: 4px 0 0 !important; background: none !important; }
+
+/* --- Help window, guides and the tour (help.js) --- */
+.help-box { width: min(440px, 94vw); box-sizing: border-box; max-height: 90vh; display: flex; flex-direction: column; padding: 0 !important; text-align: left; overflow: hidden; }
+.help-head { display: flex; align-items: center; gap: 8px; padding: 10px 10px 10px 8px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.help-title { flex: 1; margin: 0; font-size: 1.15em; color: var(--gold); text-align: center; }
+.help-back, .help-close { width: 44px; height: 44px; flex: none; background: none; border: none; color: #fff; font-size: 1.2em; cursor: pointer; }
+.help-body { flex: 1; overflow-y: auto; padding: 14px 18px; line-height: 1.45; }
+.help-goal { margin: 0 0 10px; font-size: 1.05em; }
+.help-steps { margin: 0 0 12px; padding-left: 22px; }
+.help-steps li { margin-bottom: 8px; }
+.help-tip { margin: 6px 0; font-size: 0.9em; opacity: 0.85; }
+.help-more { margin: 12px 0 0; font-size: 0.9em; }
+.help-link { background: none; border: none; padding: 0; color: var(--gold); text-decoration: underline; font: inherit; cursor: pointer; }
+.help-group { margin: 6px 0 8px; font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; }
+.help-topics { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.help-topic {
+    display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 12px; border-radius: 12px; cursor: pointer;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); color: #fff; font: inherit; text-align: left;
+}
+.help-topic-icon { font-size: 1.3em; width: 28px; text-align: center; }
+.help-foot { display: flex; gap: 8px; padding: 10px 14px 14px; border-top: 1px solid rgba(255,255,255,0.1); }
+.help-foot .modal-btn { flex: 1; margin: 0; padding: 12px; font-size: 1em; }
+.help-done { background: var(--gold) !important; color: #000 !important; font-weight: bold; }
+.help-tour-btn { background: rgba(255,255,255,0.1) !important; }
+
+.help-tour {
+    position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 5500; box-sizing: border-box;
+    width: min(380px, calc(100vw - 24px)); padding: 16px; border-radius: 18px; text-align: left;
+    background: rgba(10,10,10,0.96); border: 2px solid var(--gold); color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+    animation: slideUp 0.25s ease;
+}
+.help-tour-icon { font-size: 1.6em; }
+.help-tour-title { font-weight: bold; font-size: 1.1em; color: var(--gold); margin: 2px 0 4px; }
+.help-tour-text { margin: 0 0 12px; line-height: 1.4; }
+.help-tour-row { display: flex; align-items: center; gap: 10px; }
+.help-tour-skip { background: none; border: none; color: #fff; opacity: 0.75; font: inherit; min-height: 44px; padding: 0 6px; cursor: pointer; }
+.help-tour-count { flex: 1; text-align: center; font-size: 0.85em; opacity: 0.7; }
+.help-tour-next { margin: 0 !important; padding: 10px 22px !important; font-size: 1em !important; background: var(--gold) !important; color: #000 !important; font-weight: bold; }
+.help-spot { position: relative; z-index: 5400; outline: 3px solid var(--gold); outline-offset: 4px; border-radius: 14px; box-shadow: 0 0 0 9999px rgba(0,0,0,0.55); }
+
+/* --- Chat controls: quick messages and the pop-up of a new table message (chat.js) --- */
+.chat-quick { display: flex; gap: 6px; overflow-x: auto; padding: 2px 0 8px; scrollbar-width: none; }
+.chat-quick::-webkit-scrollbar { display: none; }
+.chat-quick-btn {
+    flex: none; min-height: 34px; padding: 0 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 0.85em;
+    background: rgba(255,255,255,0.08); color: #fff; border: 1px solid rgba(255,255,255,0.18); white-space: nowrap;
+}
+.chat-quick-btn:active { transform: scale(0.94); }
+.chat-quick-btn:disabled { opacity: 0.4; }
+.chat-panel .chat-quick { padding: 8px 10px 0; border-top: 1px solid rgba(255,255,255,0.1); }
+.chat-peek {
+    position: absolute; left: 0; bottom: calc(100% + 8px); box-sizing: border-box; max-width: min(280px, calc(100vw - 24px));
+    padding: 8px 12px; border-radius: 14px 14px 14px 4px; cursor: pointer; text-align: left;
+    background: rgba(10,10,10,0.95); border: 1px solid var(--gold); color: #fff; font: inherit; font-size: 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.6); animation: slideUp 0.2s ease; overflow-wrap: anywhere;
+}
+.chat-peek-who { color: var(--gold); font-weight: bold; }
+.chat-toggle { font-weight: bold; }
+
+/* Narrow phones: a little tighter so the top bar never wraps */
+@media (max-width: 370px) {
+    #lobby-container { padding: 16px 12px; }
+    .app-bar { gap: 6px; }
+    .bar-tools { gap: 6px; }
+    .bar-btn, .back-btn { padding: 0 10px; }
+    .app-title { font-size: 1.3em; }
 }

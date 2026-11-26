@@ -698,13 +698,13 @@ for (const [game, title] of Object.entries(TITLES)) {
   });
 }
 
-// Every game: one sound on/off switch beside ← Back, remembered on this phone
+// Every game: one sound on/off switch in the top bar, remembered on this phone
 for (const [game, title] of Object.entries(TITLES)) {
   test(`${game} sound switch`, async () => {
     const g = await openGame(game, 'type=cpu');
     const btn = g.$('#sound-btn');
-    check(btn && btn.previousElementSibling === g.$('.back-btn') && btn.textContent === '🔊',
-      `${title}: a sound switch sits beside ← Back (there was no way to turn sound off)`);
+    check(btn && btn.closest('.app-bar .bar-tools') && btn.textContent === '🔊',
+      `${title}: a sound switch sits in the top bar (there was no way to turn sound off)`);
     g.click('#sound-btn');
     check(g.get('AudioEngine.enabled') === false && g.w.localStorage.getItem('webbs_sound_off') === '1' && btn.textContent === '🔇' && btn.getAttribute('aria-label') === 'Sound off',
       `${title}: tapping it turns sound off and shows 🔇`);

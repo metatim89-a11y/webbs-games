@@ -77,8 +77,8 @@ try {
   await a.waitFor(`!!document.getElementById('invite-family')`, 10000, 'invite chips');
   await a.eval(`[...document.querySelectorAll('.invite-chip')].find(e => e.textContent === 'Zzt Two').click(); true`);
   await sleep(2500);
-  await b.waitFor(`document.getElementById('invite-inbox').textContent.includes('invited you to Sorry')`, 10000, 'invite card');
-  step('B gets "Zzt One invited you to Sorry"', true);
+  await b.waitFor(`document.getElementById('invite-inbox').textContent.includes('invited you to play Sorry')`, 10000, 'invite card');
+  step('B gets "Zzt One invited you to play Sorry!"', true);
   await b.shot(`${S}/invite.png`);
   await b.eval(`document.querySelector('.invite-join').click(); true`);
   await b.waitFor(`location.href.includes('role=client')`, 30000, 'B redirected into game');

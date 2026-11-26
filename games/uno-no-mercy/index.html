@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Uno No Mercy | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.13">
+    <link rel="stylesheet" href="../../style.css?v=1.4.14">
     <style>
         #game-area { display: flex; flex-direction: column; align-items: center; gap: 20px; margin-top: 20px; }
         #discard-pile { 
@@ -67,7 +67,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.13</div>
+    <div id="version-tag">v1.4.14</div>
 
     <div id="color-picker-modal" class="color-picker">
         <div class="color-picker-box">
@@ -80,26 +80,6 @@
         </div>
     </div>
 
-    <div class="rules-block" id="rules-block">
-        <div class="rules-toggle" onclick="toggleRules()">
-            <i class="info-icon">i</i>
-            <span>Rules</span>
-            <span class="rules-subtext">Need help?</span>
-        </div>
-        <div class="rules-content-mini" id="rules-content">
-            <strong>Objective:</strong> Be the first to empty your hand.<br><br>
-            <strong>Rules:</strong>
-            <ul>
-                <li>Match by color or number.</li>
-                <li>Stacking: Draw cards stack if yours is the same or bigger.</li>
-                <li>Mercy Rule: 25 cards = Elimination.</li>
-                <li>0's Pass & 7's Swap hands.</li>
-                <li>Skip and Reverse: you go again (there are only two of you).</li>
-                <li>Color Roulette: you pick a color, they draw until they get it.</li>
-            </ul>
-        </div>
-    </div>
-
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
@@ -109,18 +89,38 @@
     </div>
 
     <div id="lobby-container">
-        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
-            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button class="back-btn" onclick="location.href='../../index.html'">← Back</button>
-            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
-        </div>
+        <header class="app-bar">
+            <button class="back-btn bar-btn" onclick="location.href='../../index.html'" aria-label="Back to the lobby">← Back</button>
+            <div id="network-status" class="bar-pin"></div>
+            <div class="bar-tools">
+                <div class="rules-block" id="rules-block">
+                    <button type="button" class="rules-toggle bar-btn" onclick="toggleRules()" aria-controls="rules-content" aria-expanded="false">
+                        <span class="rules-icon" aria-hidden="true">📖</span>
+                        <span>Rules</span>
+                    </button>
+                    <div class="rules-content-mini" id="rules-content">
+                        <strong>Objective:</strong> Be the first to empty your hand.<br><br>
+                        <strong>Rules:</strong>
+                        <ul>
+                            <li>Match by color or number.</li>
+                            <li>Stacking: Draw cards stack if yours is the same or bigger.</li>
+                            <li>Mercy Rule: 25 cards = Elimination.</li>
+                            <li>0's Pass & 7's Swap hands.</li>
+                            <li>Skip and Reverse: you go again (there are only two of you).</li>
+                            <li>Color Roulette: you pick a color, they draw until they get it.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </header>
 
         <h1 id="status">Uno No Mercy</h1>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+        <p id="turn-info" class="turn-info">Your Turn</p>
+
+        <div id="host-pin-display" class="host-box" style="display: none;">
+            <div class="host-box-label">Share this PIN</div>
+            <div id="table-pin-value" class="host-box-pin">----</div>
+        </div>
         <p id="mercy-count" style="font-size: 0.9em; opacity: 0.8;">Cards: 0/25</p>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
@@ -133,19 +133,24 @@
             <div id="player-hand"></div>
         </div>
 
-        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px;" onclick="resetGame()">Reset</button>
+
+        <div class="game-actions" id="game-actions">
+            <button id="reset-btn" class="modal-btn ghost-btn" onclick="resetGame()">Reset</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="../../cloud.js?v=1.4.13"></script>
-    <script src="../../chat.js?v=1.4.13"></script>
-    <script src="../../network.js?v=1.4.13"></script>
-    <script src="../../profile.js?v=1.4.13"></script>
-    <script src="../../audio.js?v=1.4.13"></script>
-    <script src="../../game-kit.js?v=1.4.13"></script>
+    <script src="../../cloud.js?v=1.4.14"></script>
+    <script src="../../chat.js?v=1.4.14"></script>
+    <script src="../../network.js?v=1.4.14"></script>
+    <script src="../../profile.js?v=1.4.14"></script>
+    <script src="../../audio.js?v=1.4.14"></script>
+    <script src="../../game-kit.js?v=1.4.14"></script>
+    <script src="../../seat-picker.js?v=1.4.14"></script>
+    <script src="../../help.js?v=1.4.14"></script>
     <script>
         let myHand = [];
         let opponentHandCount = 7;

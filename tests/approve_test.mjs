@@ -33,7 +33,7 @@ try {
   await a.waitFor(`WebbsCloud.me && WebbsCloud.me.admin && document.getElementById('messages-btn').style.display !== 'none'`, 15000, 'admin live');
   step('made admin while signed in: no reload needed', true);
   step('"waiting for Tim" note is gone for the admin', await a.eval(`document.getElementById('pending-note').style.display === 'none'`));
-  await a.waitFor(`document.getElementById('open-tables').textContent.includes('Game Lobby')`, 10000, 'lobby');
+  await a.waitFor(`document.getElementById('game-lobby').textContent.includes('Game Lobby') && document.getElementById('open-tables').style.display === 'block'`, 10000, 'lobby');
   step('Game Lobby shows even when nobody is hosting', await a.eval(`document.getElementById('open-tables').textContent.includes('No one is waiting')`));
 
   await signup(b, 'Zzt Kid', '2580');

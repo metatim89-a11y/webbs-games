@@ -4,7 +4,8 @@
  *   - Invites: "Tim invited you to Sorry" cards with a Join button
  *   - Open tables: games family members are hosting right now
  *   - Family chat: the shared message board, now the same on every phone
- * Everything here needs an approved family account; guests and offline phones simply don't see it.
+ * The Game Lobby card always shows. When it can't list tables (guest, waiting for approval, no signal)
+ * it says why in one line, and Host a table and Join with PIN still work.
  */
 const FamilyUI = (() => {
     let offs = [];             // unsubscribe functions for live listeners
@@ -33,16 +34,18 @@ const FamilyUI = (() => {
         const signedInHere = me && me.id === (typeof activePlayer !== 'undefined' ? activePlayer : null);
         $('family-features').style.display = signedInHere ? 'block' : 'none';
         $('pending-note').style.display = signedInHere && !me.approved && !me.admin ? 'block' : 'none';
-        $('messages-btn').style.display = signedInHere && me.approved ? 'inline-block' : 'none';
+        $('messages-btn').style.display = signedInHere && me.approved ? 'inline-flex' : 'none';
         document.body.classList.toggle('cloud-chat', !!(signedInHere && me.approved));
         if (typeof renderMessages === 'function') renderMessages(); // Family Chat note: shared, or this phone only
-        if (signedInHere && $('active-player-name')) $('active-player-name').innerText = `Welcome, ${me.name.toUpperCase()}!`;
+        if (signedInHere && typeof setWelcome === 'function') setWelcome(me.name);
         if (!signedInHere || !me.approved) {
             renderInvites([]);
             $('open-tables').style.display = 'none';
             $('admin-approvals').style.display = 'none';
+            explainLobby(signedInHere);
             return;
         }
+        lobbyNote('');
 
         offs.push(WebbsCloud.watchPlayers(players => {
             if (me.admin) renderApprovals(players.filter(p => !p.approved));
@@ -64,6 +67,32 @@ const FamilyUI = (() => {
 
     // ---------- Invites + open tables ----------
 
+    const LOBBY = {
+        offline: "Can't reach the family server right now. You can still join with a PIN.",
+        checking: "Checking who's waiting…",
+        guest: "Pick your family profile to see who's waiting. Guests can join with a PIN or an invite link.",
+        pending: "You'll see who's waiting once Tim or Cassie approves your profile.",
+        cant: "Can't see who's waiting right now. You can still join with a PIN.",
+    };
+
+    function lobbyNote(text) {
+        const note = $('lobby-note');
+        if (note) note.textContent = text;
+    }
+
+    // Why the Game Lobby has no tables to show this player, in one line
+    function explainLobby(signedInHere) {
+        const player = typeof activePlayer !== 'undefined' ? activePlayer : null;
+        if (!window.WebbsCloud || !WebbsCloud.available) return lobbyNote(LOBBY.offline);
+        if (player === 'guest') return lobbyNote(LOBBY.guest);
+        if (signedInHere) return lobbyNote(LOBBY.pending);
+        lobbyNote(LOBBY.checking);
+        WebbsCloud.ready.then(() => {
+            const me = WebbsCloud.me;
+            if (!(me && me.id === player) && $('lobby-note').textContent === LOBBY.checking) lobbyNote(LOBBY.cant);
+        });
+    }
+
     function joinPin(pin) {
         if (typeof joinTablePrompt !== 'function') return;
         joinTablePrompt();
@@ -76,7 +105,7 @@ const FamilyUI = (() => {
         box.innerHTML = '';
         list.forEach(inv => {
             const card = el('div', 'invite-card');
-            card.appendChild(el('div', 'invite-text', `🎲 ${nameOf(inv.from)} invited you to ${inv.game}!`));
+            card.appendChild(el('div', 'invite-text', `🎲 ${nameOf(inv.from)} invited you to play ${inv.game}`));
             const row = el('div', 'invite-actions');
             const join = el('button', 'modal-btn invite-join', 'Join');
             join.onclick = () => { WebbsCloud.dismissInvite(inv.key); joinPin(inv.pin); };
@@ -93,17 +122,22 @@ const FamilyUI = (() => {
         if (!box) return;
         box.innerHTML = '';
         box.style.display = 'block';
-        box.appendChild(el('h3', 'section-title', '🎲 Game Lobby'));
         if (!list.length) {
-            box.appendChild(el('p', 'lobby-empty', 'No one is waiting for a game right now. Tap "Host Online Table" and your family will see it here.'));
+            box.appendChild(el('p', 'lobby-empty', 'No one is waiting right now. Tap Host a table and the family sees yours here.'));
             return;
         }
         list.forEach(t => {
             const row = el('div', 'table-row');
             const info = el('div', 'table-info');
             info.appendChild(el('span', 'live-dot'));
-            info.appendChild(el('span', '', `${nameOf(t.host)} · ${t.game}`));
+            const text = el('div', 'table-text');
+            text.appendChild(el('div', 'table-game', t.game));
+            const host = el('div', 'table-host', `${nameOf(t.host)} is waiting`);
+            if (t.ts) host.appendChild(el('span', 'table-time', ` · since ${timeLabel(t.ts)}`));
+            text.appendChild(host);
+            info.appendChild(text);
             const join = el('button', 'modal-btn table-join', 'Join');
+            join.setAttribute('aria-label', `Join ${nameOf(t.host)} at ${t.game}`);
             join.onclick = () => joinPin(t.pin);
             row.append(info, join);
             box.appendChild(row);
@@ -201,7 +235,7 @@ const FamilyUI = (() => {
         modal.addEventListener('click', e => { if (e.target === modal) closeMessages(); });
         ['👍', '😂', '❤️', '🎲', '🏆', '😮', '👋'].forEach(em => {
             const b = el('button', 'dm-emoji-btn', em);
-            b.onclick = () => send(em);
+            b.onclick = () => send(em, true);
             $('dm-emoji').appendChild(b);
         });
         $('dm-send').onclick = () => send($('dm-input').value);
@@ -274,12 +308,13 @@ const FamilyUI = (() => {
         setTimeout(() => $('dm-input').focus(), 50);
     }
 
-    async function send(text) {
+    // quick: an emoji tap, which leaves anything typed in the box where it is
+    async function send(text, quick = false) {
         if (!openThreadWith || !String(text).trim()) return;
         const input = $('dm-input');
-        input.value = '';
+        if (!quick) input.value = '';
         try { await WebbsCloud.sendMessage(openThreadWith, text); }
-        catch (e) { input.value = text; input.placeholder = 'Not sent, check your signal and try again'; }
+        catch (e) { if (!quick) input.value = text; input.placeholder = 'Not sent, check your signal and try again'; }
     }
 
     if (window.WebbsCloud) WebbsCloud.onChange(() => { if ($('family-features')) refresh(); });

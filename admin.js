@@ -125,7 +125,7 @@ function testAudio() {
     const duration = parseFloat(document.getElementById('audio-duration').value);
     const vol = parseFloat(document.getElementById('audio-vol').value);
     
-    if (window.AudioEngine) {
+    if (typeof AudioEngine !== 'undefined') { // audio.js declares it with const, so it is not on window
         if (target === 'click') {
             AudioEngine.playTone(freq, type, duration, vol);
         } else if (target === 'move') {

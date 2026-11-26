@@ -28,6 +28,8 @@ const NetworkManager = {
         this.role = role;
         this.roomID = roomID || this.generateShortID();
         this.lastStateSeq = 0;
+        // Host: show this table in the family Game Lobby, unless it was started as invite only (&list=0)
+        this.listed = new URLSearchParams(window.location.search).get('list') !== '0';
 
         // PeerJS comes from the internet. If it didn't load, say so (vs-computer games still work without it)
         if (typeof Peer === 'undefined') {
@@ -64,8 +66,8 @@ const NetworkManager = {
             if (this.currentGame) this.setupChatUI();
             if (role === 'host') {
                 this.addInviteButton();
-                // Show this table in the family lobby until someone joins
-                if (window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle());
+                // Show this table in the family lobby until someone joins (not an invite-only table)
+                if (this.listed && window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle());
             }
         });
 
@@ -126,7 +128,7 @@ const NetworkManager = {
         const before = this.leftName;
         this.leftName = typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(id) : id;
         if (!(this.onPlayerLeft && this.onPlayerLeft(id))) { this.leftName = before; return; } // a watcher left, not a player
-        if (window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle()); // seat is open again
+        if (this.listed && window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle()); // seat is open again
     },
 
     // Host's turn line while the second seat is empty
@@ -140,10 +142,10 @@ const NetworkManager = {
         return `${base}/index.html?join=${this.roomID}`;
     },
 
+    // The game's name from the one game list (seat-picker.js), so every screen says it the same way
     gameTitle() {
-        const names = { 'tic-tac-toe': 'Tic-Tac-Toe', '357': '357', 'mancala': 'Mancala', 'black-hole': 'Black Hole',
-            'chutes-and-ladders': 'Chutes & Ladders', 'sorry': 'Sorry', 'uno-no-mercy': 'Uno No Mercy' };
-        return names[this.currentGame] || 'a game';
+        if (window.SeatPicker && this.currentGame) return SeatPicker.title(this.currentGame);
+        return this.currentGame || 'a game';
     },
 
     addInviteButton() {
@@ -151,11 +153,12 @@ const NetworkManager = {
         if (!box || document.getElementById('invite-share-btn')) return;
         const btn = document.createElement('button');
         btn.id = 'invite-share-btn';
-        btn.className = 'modal-btn';
-        btn.style.cssText = 'margin-top: 10px; background: gold; color: black; font-weight: bold;';
+        btn.className = 'modal-btn btn-gold';
         btn.innerText = '📨 Send invite link';
         btn.onclick = () => this.shareInvite(btn);
         box.appendChild(btn);
+        // Who can join, and "Play the computer instead" while nobody has (seat-picker.js)
+        if (window.SeatPicker) SeatPicker.decorateHostBox(box);
         if (window.WebbsCloud) WebbsCloud.addInvitePicker && WebbsCloud.addInvitePicker(box, this.roomID, this.gameTitle());
     },
 
@@ -181,7 +184,7 @@ const NetworkManager = {
         console.log("New peer connecting:", conn.peer);
         this.connections.push(conn);
 
-        conn.on('open', () => this.updateChatState());
+        conn.on('open', () => { this.updateChatState(); this.refreshHostBox(); });
 
         conn.on('data', (data) => {
             this.handleMessage(data, conn);
@@ -191,8 +194,14 @@ const NetworkManager = {
             this.connections = this.connections.filter(c => c !== conn);
             console.log("Peer disconnected:", conn.peer);
             this.updateChatState();
+            this.refreshHostBox();
             this.playerLeft(conn);
         });
+    },
+
+    // Host: the PIN box shows while the table waits and hides once someone sits down
+    refreshHostBox() {
+        if (this.role === 'host' && window.SeatPicker) SeatPicker.refreshHost();
     },
 
     // Host: pass a message on to every joined phone, except the one it came from
@@ -401,6 +410,7 @@ const NetworkManager = {
                     <button type="button" id="chat-close" class="chat-close" aria-label="Hide chat">✕</button>
                 </div>
                 <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+                <div id="chat-quick-slot"></div>
                 <div class="chat-form">
                     <input type="text" id="chat-input" class="chat-input" autocomplete="off" aria-label="Chat message">
                     <button type="button" id="chat-send" class="chat-send">Send</button>
@@ -411,6 +421,9 @@ const NetworkManager = {
         document.body.classList.add('has-table-chat'); // room at the bottom so the button never hides a game button
 
         document.getElementById('chat-messages').appendChild(WebbsChat.empty('Messages here go to everyone at this table.'));
+        const quick = WebbsChat.quickRow(text => this.sendChatMessage(text));
+        quick.id = 'chat-quick';
+        document.getElementById('chat-quick-slot').replaceWith(quick);
         WebbsChat.bindInput(document.getElementById('chat-input'), document.getElementById('chat-send'), text => this.sendChatMessage(text));
         document.getElementById('chat-toggle').onclick = () => this.openChat(true);
         document.getElementById('chat-close').onclick = () => {
@@ -434,6 +447,8 @@ const NetworkManager = {
         document.body.classList.toggle('table-chat-open', open);
         try { sessionStorage.setItem('webbs_chat_open', open ? '1' : '0'); } catch (e) {}
         if (open) {
+            const peek = document.querySelector('#network-chat .chat-peek');
+            if (peek) peek.remove();
             this.setUnread(0);
             const box = document.getElementById('chat-messages');
             if (box) box.scrollTop = box.scrollHeight;
@@ -470,6 +485,9 @@ const NetworkManager = {
         while (box.children.length > 50) box.firstChild.remove(); // keep the box light in long games
         box.scrollTop = box.scrollHeight;
         const panel = document.getElementById('chat-panel');
-        if (!mine && panel && panel.hidden) this.setUnread((this.unread || 0) + 1);
+        if (!mine && panel && panel.hidden) {
+            this.setUnread((this.unread || 0) + 1);
+            WebbsChat.peek(document.getElementById('network-chat'), name, data.text, () => this.openChat(true));
+        }
     }
 };

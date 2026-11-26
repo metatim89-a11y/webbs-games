@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mancala | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.13">
+    <link rel="stylesheet" href="../../style.css?v=1.4.14">
     <style>
         /* Everything is sized from one pit size, so the whole board (both stores too) fits the phone's width */
         #mancala-board {
@@ -38,26 +38,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.13</div>
-
-    <div class="rules-block" id="rules-block">
-        <div class="rules-toggle" onclick="toggleRules()">
-            <i class="info-icon">i</i>
-            <span>Rules</span>
-            <span class="rules-subtext">Need help?</span>
-        </div>
-        <div class="rules-content-mini" id="rules-content">
-            <strong>Objective:</strong> Collect the most stones in your store.<br><br>
-            <strong>Rules:</strong>
-            <ul>
-                <li>Tap one of your pits to pick up its stones and drop one in each pit, going counter-clockwise.</li>
-                <li>You drop stones in your own store, but skip the other player's store.</li>
-                <li>If your last stone lands in your store, you get another turn.</li>
-                <li>If it lands in an empty pit on your side, you capture it and the stones in the pit opposite.</li>
-                <li>When one side runs out, each player keeps the stones left on their own side. Most stones wins.</li>
-            </ul>
-        </div>
-    </div>
+    <div id="version-tag">v1.4.14</div>
 
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
@@ -68,18 +49,37 @@
     </div>
 
     <div id="lobby-container">
-        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
-            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button class="back-btn" onclick="location.href='../../index.html'">← Back</button>
-            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
-        </div>
+        <header class="app-bar">
+            <button class="back-btn bar-btn" onclick="location.href='../../index.html'" aria-label="Back to the lobby">← Back</button>
+            <div id="network-status" class="bar-pin"></div>
+            <div class="bar-tools">
+                <div class="rules-block" id="rules-block">
+                    <button type="button" class="rules-toggle bar-btn" onclick="toggleRules()" aria-controls="rules-content" aria-expanded="false">
+                        <span class="rules-icon" aria-hidden="true">📖</span>
+                        <span>Rules</span>
+                    </button>
+                    <div class="rules-content-mini" id="rules-content">
+                        <strong>Objective:</strong> Collect the most stones in your store.<br><br>
+                        <strong>Rules:</strong>
+                        <ul>
+                            <li>Tap one of your pits to pick up its stones and drop one in each pit, going counter-clockwise.</li>
+                            <li>You drop stones in your own store, but skip the other player's store.</li>
+                            <li>If your last stone lands in your store, you get another turn.</li>
+                            <li>If it lands in an empty pit on your side, you capture it and the stones in the pit opposite.</li>
+                            <li>When one side runs out, each player keeps the stones left on their own side. Most stones wins.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </header>
 
         <h1 id="status">Mancala</h1>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+        <p id="turn-info" class="turn-info">Your Turn</p>
+
+        <div id="host-pin-display" class="host-box" style="display: none;">
+            <div class="host-box-label">Share this PIN</div>
+            <div id="table-pin-value" class="host-box-pin">----</div>
+        </div>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
@@ -110,19 +110,24 @@
         </div>
         <div class="side-label" id="label-bottom"></div>
 
-        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1);" onclick="resetGame()">Reset</button>
+
+        <div class="game-actions" id="game-actions">
+            <button id="reset-btn" class="modal-btn ghost-btn" onclick="resetGame()">Reset</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="../../cloud.js?v=1.4.13"></script>
-    <script src="../../chat.js?v=1.4.13"></script>
-    <script src="../../network.js?v=1.4.13"></script>
-    <script src="../../profile.js?v=1.4.13"></script>
-    <script src="../../audio.js?v=1.4.13"></script>
-    <script src="../../game-kit.js?v=1.4.13"></script>
+    <script src="../../cloud.js?v=1.4.14"></script>
+    <script src="../../chat.js?v=1.4.14"></script>
+    <script src="../../network.js?v=1.4.14"></script>
+    <script src="../../profile.js?v=1.4.14"></script>
+    <script src="../../audio.js?v=1.4.14"></script>
+    <script src="../../game-kit.js?v=1.4.14"></script>
+    <script src="../../seat-picker.js?v=1.4.14"></script>
+    <script src="../../help.js?v=1.4.14"></script>
     <script>
         let board = [4, 4, 4, 4, 4, 4, 0, 4, 4, 4, 4, 4, 4, 0];
         let currentPlayer = 0; 

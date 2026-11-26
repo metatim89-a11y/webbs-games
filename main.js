@@ -13,6 +13,13 @@ window.onload = () => {
     showJoinBanner();
     const msgInput = document.getElementById('msg-input');
     if (msgInput) WebbsChat.bindInput(msgInput, document.getElementById('msg-send'), sendFamilyChat);
+    // One-tap messages under Family Chat, the same set as in every game's table chat (chat.js)
+    const quickSlot = document.getElementById('msg-quick-slot');
+    if (quickSlot) {
+        const quick = WebbsChat.quickRow(text => sendFamilyChat(text));
+        quick.id = 'msg-quick';
+        quickSlot.replaceWith(quick);
+    }
 
     // Check if we have a persisted session
     const persistedPlayer = sessionStorage.getItem('webbs_active_player');
@@ -56,10 +63,12 @@ function renderPlayerSelect() {
     // Combine and add Guest last
     const allPlayers = [...defaults, ...extra, { id: 'guest', name: 'Guest' }];
 
+    // Real buttons, so a keyboard or screen reader can pick a player too
     grid.innerHTML = allPlayers.map(p => `
-        <div class="player-card" onclick="initLogin('${escapeHTML(p.id)}')">
+        <button type="button" class="player-card theme-${escapeHTML(p.id)}" onclick="initLogin('${escapeHTML(p.id)}')">
+            <span class="avatar" aria-hidden="true">${p.id === 'guest' ? '🙂' : escapeHTML(String(p.name).charAt(0).toUpperCase())}</span>
             <h3>${escapeHTML(p.name)}</h3>
-        </div>
+        </button>
     `).join('');
 }
 
@@ -84,16 +93,29 @@ function showMainMenu() {
     
     if (playerSelect) playerSelect.style.display = 'none';
     if (mainMenu) mainMenu.style.display = 'block';
-    if (logoutBtn) logoutBtn.style.display = 'block';
+    if (logoutBtn) logoutBtn.style.display = '';
 
-    if (welcomeName) {
-        welcomeName.innerText = `Welcome, ${ProfileManager.resolveName(activePlayer).toUpperCase()}!`;
-    }
+    if (welcomeName) setWelcome(ProfileManager.resolveName(activePlayer));
     
     checkAdminNotifications();
     renderMessages();
     runPendingJoin();
     if (window.FamilyUI) FamilyUI.refresh();
+    // First time on this phone: a short tour of the lobby (Skip any time, ❓ Help brings it back)
+    if (window.WubsHelp) setTimeout(() => WubsHelp.maybeTour(), 600);
+}
+
+// "Hi, Ariel!" with their first letter in a circle, the same on every visit
+function setWelcome(name) {
+    const h = document.getElementById('active-player-name');
+    const avatar = document.getElementById('welcome-avatar');
+    if (h) h.textContent = `Hi, ${name}!`;
+    if (avatar) avatar.textContent = activePlayer === 'guest' ? '🙂' : String(name || '?').charAt(0).toUpperCase();
+}
+
+// Every page change from the lobby goes through here (tests swap it to watch where a tap leads)
+function goTo(url) {
+    window.location.href = url;
 }
 
 /* --- Invite links --- */
@@ -247,7 +269,7 @@ async function submitSignup() {
 
 /* --- Navigation --- */
 function showGameSelection(mode) {
-    window.location.href = `games.html?player=${activePlayer}&mode=${mode}`;
+    goTo(`games.html?player=${activePlayer}&mode=${mode}`);
 }
 
 function joinTablePrompt() {
@@ -284,7 +306,7 @@ function performAutoJoin() {
             if (game) {
                 statusEl.innerText = "Table Found! Redirecting...";
                 setTimeout(() => {
-                    window.location.href = `games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`;
+                    goTo(`games/${game}/index.html?player=${activePlayer}&type=online&role=client&host=${pin}`);
                 }, 1000);
             } else {
                 statusEl.innerText = "Error: Game not found on this table.";

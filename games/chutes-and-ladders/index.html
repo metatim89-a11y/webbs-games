@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chutes & Ladders | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.13">
+    <link rel="stylesheet" href="../../style.css?v=1.4.14">
     <style>
         #board-wrapper { 
             position: relative; box-sizing: border-box; margin: 20px auto;
@@ -14,7 +14,6 @@
             overflow: visible;
         }
         @media (max-width: 500px) {
-            h1 { font-size: 1.5em; margin: 10px 0; }
             #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
             .sq { font-size: 7px; }
             .pawn { width: 18px; height: 18px; }
@@ -87,26 +86,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.13</div>
-
-    <div class="rules-block" id="rules-block">
-        <div class="rules-toggle" onclick="toggleRules()">
-            <i class="info-icon">i</i>
-            <span>Rules</span>
-            <span class="rules-subtext">Need help?</span>
-        </div>
-        <div class="rules-content-mini" id="rules-content">
-            <strong>Objective:</strong> Be the first to reach square 100.<br><br>
-            <strong>Rules:</strong>
-            <ul>
-                <li>Spin to move.</li>
-                <li>Ladders (Green) take you UP.</li>
-                <li>Chutes (Red) send you DOWN.</li>
-                <li>You need the exact number to land on 100.</li>
-                <li>Watch out for hidden squares: a swap, back 5, forward 5, or a shortcut to a ladder!</li>
-            </ul>
-        </div>
-    </div>
+    <div id="version-tag">v1.4.14</div>
 
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
@@ -117,19 +97,38 @@
     </div>
 
     <div id="lobby-container">
-        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
-            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button class="back-btn" onclick="location.href='../../index.html'">← Back</button>
-            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
-        </div>
+        <header class="app-bar">
+            <button class="back-btn bar-btn" onclick="location.href='../../index.html'" aria-label="Back to the lobby">← Back</button>
+            <div id="network-status" class="bar-pin"></div>
+            <div class="bar-tools">
+                <div class="rules-block" id="rules-block">
+                    <button type="button" class="rules-toggle bar-btn" onclick="toggleRules()" aria-controls="rules-content" aria-expanded="false">
+                        <span class="rules-icon" aria-hidden="true">📖</span>
+                        <span>Rules</span>
+                    </button>
+                    <div class="rules-content-mini" id="rules-content">
+                        <strong>Objective:</strong> Be the first to reach square 100.<br><br>
+                        <strong>Rules:</strong>
+                        <ul>
+                            <li>Spin to move.</li>
+                            <li>Ladders (Green) take you UP.</li>
+                            <li>Chutes (Red) send you DOWN.</li>
+                            <li>You need the exact number to land on 100.</li>
+                            <li>Watch out for hidden squares: a swap, back 5, forward 5, or a shortcut to a ladder!</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </header>
 
         <h1>Chutes & Ladders</h1>
         <p id="game-info" style="min-height: 1.2em; color: gold; font-weight: bold; margin-bottom: 5px;">Spin to start!</p>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color); margin-bottom: 10px;">Your Turn</p>
+        <p id="turn-info" class="turn-info">Your Turn</p>
+
+        <div id="host-pin-display" class="host-box" style="display: none;">
+            <div class="host-box-label">Share this PIN</div>
+            <div id="table-pin-value" class="host-box-pin">----</div>
+        </div>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
@@ -154,7 +153,10 @@
         <div id="controls" style="margin-top:20px;">
             <div id="dice-container">?</div>
             <button id="roll-btn" class="modal-btn" onclick="handleRoll()">SPIN</button>
-            <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 10px;" onclick="resetGame()">Reset</button>
+        </div>
+
+        <div class="game-actions" id="game-actions">
+            <button id="reset-btn" class="modal-btn ghost-btn" onclick="resetGame()">Reset</button>
         </div>
     </div>
 
@@ -162,12 +164,14 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="../../cloud.js?v=1.4.13"></script>
-    <script src="../../chat.js?v=1.4.13"></script>
-    <script src="../../network.js?v=1.4.13"></script>
-    <script src="../../profile.js?v=1.4.13"></script>
-    <script src="../../audio.js?v=1.4.13"></script>
-    <script src="../../game-kit.js?v=1.4.13"></script>
+    <script src="../../cloud.js?v=1.4.14"></script>
+    <script src="../../chat.js?v=1.4.14"></script>
+    <script src="../../network.js?v=1.4.14"></script>
+    <script src="../../profile.js?v=1.4.14"></script>
+    <script src="../../audio.js?v=1.4.14"></script>
+    <script src="../../game-kit.js?v=1.4.14"></script>
+    <script src="../../seat-picker.js?v=1.4.14"></script>
+    <script src="../../help.js?v=1.4.14"></script>
     <script>
         // 0 = waiting just off the board, so the ladder on square 1 can be landed on
         let p1Pos = 0, p2Pos = 0;

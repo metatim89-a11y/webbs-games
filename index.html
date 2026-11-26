@@ -4,69 +4,79 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wubs Games | Lobby</title>
-    <link rel="stylesheet" href="style.css?v=1.4.13">
+    <link rel="stylesheet" href="style.css?v=1.4.14">
 </head>
 <body class="theme-guest">
-    <div id="version-tag">v1.4.13</div>
+    <div id="version-tag">v1.4.14</div>
     
     <div id="lobby-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="margin: 0;">Wubs Games</h1>
-            <div id="admin-gear" class="admin-only" onclick="toggleAdminSettings()">
-                <img src="assets/icons/settings.svg" width="30" height="30" alt="Admin" style="filter: invert(1);">
+        <header class="app-bar">
+            <h1 class="app-title">Wubs Games</h1>
+            <div class="bar-tools">
+                <button type="button" id="admin-gear" class="admin-only" onclick="toggleAdminSettings()" aria-label="Admin settings" title="Admin settings">
+                    <img src="assets/icons/settings.svg" width="24" height="24" alt="" style="filter: invert(1);">
+                </button>
             </div>
-        </div>
+        </header>
 
-        <div id="logout-btn" style="display:none; cursor: pointer; color: #ff5555; margin-bottom: 20px; text-align: left;" onclick="logout()">Logout</div>
-
-        <!-- Initial View: Player Select -->
+        <!-- Who's playing today? -->
         <div id="player-select-container">
-            <p>Who is playing today?</p>
+            <h2 class="who-title">Who's playing today?</h2>
+            <p class="who-hint">Tap your name. Guest needs no PIN.</p>
             <div id="player-select" class="player-grid"></div>
-            <div id="guest-actions" style="margin-top: 20px;">
-                <button onclick="openSignup()" style="background: none; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 10px 20px; border-radius: 10px; width: 100%;">Request Profile</button>
+            <div id="guest-actions">
+                <button type="button" class="btn-mid btn-soft" onclick="openSignup()">✋ Request a profile</button>
             </div>
-            <p style="margin-top: 18px; font-size: 0.75em; opacity: 0.6;"><a href="privacy.html" style="color: inherit;">Privacy: what we keep and who can see it</a></p>
+            <p class="privacy-link"><a href="privacy.html">Privacy: what we keep and who can see it</a></p>
         </div>
 
-        <!-- Logged In View: Main Menu -->
+        <!-- Signed in: the lobby -->
         <div id="main-menu" style="display: none;">
-            <div id="welcome-banner" style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 20px; border: 2px solid var(--primary-color); margin-bottom: 30px;">
-                <h2 id="active-player-name" style="margin: 0; color: var(--accent-color);">Welcome!</h2>
-                <div style="display: flex; justify-content: center; gap: 10px; margin-top: 15px;">
-                    <button onclick="openProfile()" class="modal-btn" style="font-size: 0.9em; padding: 10px 20px;">Profile</button>
-                    <button onclick="showGameSelection('local')" class="modal-btn" style="font-size: 0.9em; padding: 10px 20px;">Play Games</button>
-                    <button id="messages-btn" onclick="FamilyUI.openMessages()" class="modal-btn messages-btn" style="display:none;">💬 Messages <span id="messages-badge" class="badge"></span></button>
+            <section id="welcome-banner" class="card welcome-card">
+                <div class="avatar" id="welcome-avatar" aria-hidden="true">?</div>
+                <div class="welcome-text">
+                    <h2 id="active-player-name">Welcome!</h2>
+                    <div class="welcome-actions">
+                        <button type="button" class="chip-btn" onclick="openProfile()">🏆 Profile</button>
+                        <button type="button" id="messages-btn" class="chip-btn messages-btn" onclick="FamilyUI.openMessages()" style="display:none;">💬 Messages <span id="messages-badge" class="badge"></span></button>
+                        <button type="button" id="logout-btn" class="chip-btn" onclick="logout()">↩ Switch player</button>
+                    </div>
                 </div>
-            </div>
+            </section>
 
             <div id="pending-note" class="pending-note" style="display:none;">
-                ⏳ Tim or Cassie needs to approve your account before you can message family.
+                ⏳ Tim or Cassie needs to approve your profile before you can message the family or see who's waiting.
                 You can still play every game!
             </div>
 
             <div id="family-features" style="display:none;">
                 <div id="admin-approvals" class="admin-approvals" style="display:none;"></div>
-                <div id="invite-inbox"></div>
-                <div id="open-tables" class="open-tables" style="display:none;"></div>
             </div>
 
-            <div id="online-actions" style="margin-top: 20px;">
-                <button onclick="showGameSelection('online')" class="modal-btn" style="width: 100%; margin: 5px 0;">Host Online Table</button>
-                <button onclick="joinTablePrompt()" class="modal-btn" style="width: 100%; margin: 5px 0; background: rgba(255,215,0,0.2); color: gold; border: 1px solid gold;">Join with PIN</button>
-            </div>
+            <button type="button" id="play-btn" class="btn-big btn-primary" onclick="showGameSelection('local')">🎲 Play a game</button>
 
-            <!-- Message Board -->
-            <div id="message-board-container" style="margin-top: 30px;">
-                <h3>Family Chat</h3>
+            <section id="game-lobby" class="card game-lobby" aria-labelledby="game-lobby-title">
+                <h2 class="card-title" id="game-lobby-title">🎮 Game Lobby</h2>
+                <div id="invite-inbox" aria-live="polite"></div>
+                <div id="open-tables" class="open-tables" style="display:none;" aria-live="polite"></div>
+                <p id="lobby-note" class="card-note"></p>
+                <div class="btn-row">
+                    <button type="button" id="host-btn" class="btn-mid btn-soft" onclick="showGameSelection('online')">🌐 Host a table</button>
+                    <button type="button" id="join-pin-btn" class="btn-mid btn-gold-soft" onclick="joinTablePrompt()">🔑 Join with PIN</button>
+                </div>
+            </section>
+
+            <section id="message-board-container" class="card chat-box" aria-labelledby="family-chat-title">
+                <h2 class="card-title" id="family-chat-title">💬 Family Chat</h2>
                 <div id="family-chat-note" class="chat-note"></div>
-                <div id="messages" aria-live="polite" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 10px; text-align: left;"></div>
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" id="msg-input" placeholder="Say hello..." aria-label="Family Chat message" autocomplete="off" style="flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: none; background: rgba(255,255,255,0.1); color: white;">
-                    <button type="button" id="msg-send" style="padding: 0 20px; border-radius: 12px; background: var(--primary-color); color: white; border: none;">Send</button>
+                <div id="messages" aria-live="polite"></div>
+                <div id="msg-quick-slot"></div>
+                <div class="msg-row">
+                    <input type="text" id="msg-input" placeholder="Say hello..." aria-label="Family Chat message" autocomplete="off">
+                    <button type="button" id="msg-send">Send</button>
                 </div>
                 <div id="family-chat-error" class="chat-error" role="status"></div>
-            </div>
+            </section>
         </div>
 
         <!-- Modals -->
@@ -163,14 +173,15 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="chat.js?v=1.4.13"></script>
-    <script src="network.js?v=1.4.13"></script>
-    <script src="profile.js?v=1.4.13"></script>
-    <script src="audio.js?v=1.4.13"></script>
-    <script src="admin.js?v=1.4.13"></script>
-    <script src="auth.js?v=1.4.13"></script>
-    <script src="cloud.js?v=1.4.13"></script>
-    <script src="family.js?v=1.4.13"></script>
-    <script src="main.js?v=1.4.13"></script>
+    <script src="chat.js?v=1.4.14"></script>
+    <script src="network.js?v=1.4.14"></script>
+    <script src="profile.js?v=1.4.14"></script>
+    <script src="audio.js?v=1.4.14"></script>
+    <script src="admin.js?v=1.4.14"></script>
+    <script src="auth.js?v=1.4.14"></script>
+    <script src="cloud.js?v=1.4.14"></script>
+    <script src="family.js?v=1.4.14"></script>
+    <script src="main.js?v=1.4.14"></script>
+    <script src="help.js?v=1.4.14"></script>
 </body>
 </html>

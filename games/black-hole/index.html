@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Black Hole | Webbs Games</title>
-    <link rel="stylesheet" href="../../style.css?v=1.4.13">
+    <link rel="stylesheet" href="../../style.css?v=1.4.14">
     <style>
         #pyramid { --node: min(45px, 11vw); --gap: min(10px, 2vw); display: flex; flex-direction: column; align-items: center; gap: var(--gap); margin: 16px 0; }
         .row { display: flex; gap: var(--gap); }
@@ -26,25 +26,7 @@
     </style>
 </head>
 <body>
-    <div id="version-tag">v1.4.13</div>
-
-    <div class="rules-block" id="rules-block">
-        <div class="rules-toggle" onclick="toggleRules()">
-            <i class="info-icon">i</i>
-            <span>Rules</span>
-            <span class="rules-subtext">Need help?</span>
-        </div>
-        <div class="rules-content-mini" id="rules-content">
-            <strong>Objective:</strong> Highest total score wins.<br><br>
-            <strong>Rules:</strong>
-            <ul>
-                <li>Tap one of your numbers (1-10), then tap an empty circle to place it.</li>
-                <li>Each number can be used once. Take turns until every number is placed.</li>
-                <li>The last empty circle becomes the Black Hole. Numbers touching it get sucked in.</li>
-                <li>Score = sum of your numbers left on the board.</li>
-            </ul>
-        </div>
-    </div>
+    <div id="version-tag">v1.4.14</div>
 
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
@@ -56,18 +38,36 @@
     </div>
 
     <div id="lobby-container">
-        <div id="host-pin-display" style="display: none; background: rgba(255, 215, 0, 0.2); border: 2px solid gold; padding: 15px; border-radius: 10px; margin-bottom: 20px;">
-            <div style="font-size: 0.8em; text-transform: uppercase; color: gold;">Share this PIN:</div>
-            <div id="table-pin-value" style="font-size: 2.5em; font-weight: bold; letter-spacing: 5px; color: white;">----</div>
-        </div>
-
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button class="back-btn" onclick="location.href='../../index.html'">← Back</button>
-            <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
-        </div>
+        <header class="app-bar">
+            <button class="back-btn bar-btn" onclick="location.href='../../index.html'" aria-label="Back to the lobby">← Back</button>
+            <div id="network-status" class="bar-pin"></div>
+            <div class="bar-tools">
+                <div class="rules-block" id="rules-block">
+                    <button type="button" class="rules-toggle bar-btn" onclick="toggleRules()" aria-controls="rules-content" aria-expanded="false">
+                        <span class="rules-icon" aria-hidden="true">📖</span>
+                        <span>Rules</span>
+                    </button>
+                    <div class="rules-content-mini" id="rules-content">
+                        <strong>Objective:</strong> Highest total score wins.<br><br>
+                        <strong>Rules:</strong>
+                        <ul>
+                            <li>Tap one of your numbers (1-10), then tap an empty circle to place it.</li>
+                            <li>Each number can be used once. Take turns until every number is placed.</li>
+                            <li>The last empty circle becomes the Black Hole. Numbers touching it get sucked in.</li>
+                            <li>Score = sum of your numbers left on the board.</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </header>
 
         <h1 id="status">Black Hole</h1>
-        <p id="turn-info" style="font-weight: bold; color: var(--accent-color);">Your Turn</p>
+        <p id="turn-info" class="turn-info">Your Turn</p>
+
+        <div id="host-pin-display" class="host-box" style="display: none;">
+            <div class="host-box-label">Share this PIN</div>
+            <div id="table-pin-value" class="host-box-pin">----</div>
+        </div>
 
         <div id="multiplayer-controls" style="margin-bottom: 20px; display: none;">
             <button id="btn-join-game" onclick="NetworkManager.requestJoin()">Join as Player 2</button>
@@ -78,19 +78,24 @@
         <p id="bh-hint"></p>
         <div id="pyramid"></div>
         
-        <button id="reset-btn" class="modal-btn" style="background: rgba(255,255,255,0.1); margin-top: 20px;" onclick="resetGame()">Reset</button>
+
+        <div class="game-actions" id="game-actions">
+            <button id="reset-btn" class="modal-btn ghost-btn" onclick="resetGame()">Reset</button>
+        </div>
     </div>
 
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="../../cloud.js?v=1.4.13"></script>
-    <script src="../../chat.js?v=1.4.13"></script>
-    <script src="../../network.js?v=1.4.13"></script>
-    <script src="../../profile.js?v=1.4.13"></script>
-    <script src="../../audio.js?v=1.4.13"></script>
-    <script src="../../game-kit.js?v=1.4.13"></script>
+    <script src="../../cloud.js?v=1.4.14"></script>
+    <script src="../../chat.js?v=1.4.14"></script>
+    <script src="../../network.js?v=1.4.14"></script>
+    <script src="../../profile.js?v=1.4.14"></script>
+    <script src="../../audio.js?v=1.4.14"></script>
+    <script src="../../game-kit.js?v=1.4.14"></script>
+    <script src="../../seat-picker.js?v=1.4.14"></script>
+    <script src="../../help.js?v=1.4.14"></script>
     <script>
         let board = Array(21).fill(null);
         let p1Nums = [1,2,3,4,5,6,7,8,9,10];

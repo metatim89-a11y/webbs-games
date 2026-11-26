@@ -4,57 +4,52 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Select Game | Wubs Games</title>
-    <link rel="stylesheet" href="style.css?v=1.4.13">
+    <link rel="stylesheet" href="style.css?v=1.4.14">
 </head>
 <body class="theme-guest">
-    <div id="version-tag">v1.4.13</div>
-    
+    <div id="version-tag">v1.4.14</div>
+
     <div id="lobby-container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button onclick="location.href='index.html'" style="background:none; border:none; color:gold; font-size: 1.2em; cursor: pointer;">← Lobby</button>
-            <h1 id="mode-title" style="margin: 0; font-size: 1.5em;">Pick a Game</h1>
-        </div>
+        <header class="app-bar">
+            <button class="back-btn bar-btn" onclick="location.href='index.html'" aria-label="Back to the lobby">← Lobby</button>
+            <div class="bar-tools"></div>
+        </header>
+        <h1 class="page-title">Pick a game</h1>
+        <p id="mode-hint" class="page-hint">Then choose who's playing: the computer, someone here, or someone online.</p>
 
-        <div class="game-grid" id="game-list">
-            <button onclick="selectGame('tic-tac-toe')">Tic-Tac-Toe</button>
-            <button onclick="selectGame('357')">357 (Nim)</button>
-            <button onclick="selectGame('mancala')">Mancala</button>
-            <button onclick="selectGame('black-hole')">Black Hole</button>
-            <button onclick="selectGame('chutes-and-ladders')">Chutes & Ladders</button>
-            <button onclick="selectGame('sorry')">Sorry!</button>
-            <button onclick="selectGame('uno-no-mercy')">Uno No Mercy</button>
-        </div>
-
-        <!-- Play Style Modal (Replacement for sub-mode) -->
-        <div id="sub-mode" class="game-over-modal">
-            <div class="modal-content">
-                <h3>Play Style</h3>
-                <button id="btn-cpu" class="modal-btn" style="width: 100%;">vs. Computer</button>
-                <button id="btn-local" class="modal-btn" style="width: 100%;">Local Multiplayer</button>
-                <button onclick="document.getElementById('sub-mode').style.display='none'" class="modal-btn" style="background:none; width: 100%;">Cancel</button>
-            </div>
-        </div>
+        <div class="game-grid" id="game-list"></div>
     </div>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+    <script src="cloud.js?v=1.4.14"></script>
+    <script src="profile.js?v=1.4.14"></script>
+    <script src="audio.js?v=1.4.14"></script>
+    <script src="seat-picker.js?v=1.4.14"></script>
+    <script src="help.js?v=1.4.14"></script>
     <script>
         const params = new URLSearchParams(window.location.search);
-        const player = params.get('player') || 'guest';
-        const mode = params.get('mode'); 
+        const player = params.get('player') || sessionStorage.getItem('webbs_active_player') || 'guest';
+        const mode = params.get('mode'); // 'online' from older "Host Online Table" links: start with Online player picked
         document.body.classList.add('theme-' + player);
 
-        function selectGame(game) {
-            if (mode === 'online') {
-                window.location.href = `games/${game}/index.html?player=${player}&type=online&role=host`;
-            } else {
-                document.getElementById('sub-mode').style.display = 'flex';
-                document.getElementById('btn-cpu').onclick = () => {
-                    window.location.href = `games/${game}/index.html?player=${player}&type=cpu`;
-                };
-                document.getElementById('btn-local').onclick = () => {
-                    window.location.href = `games/${game}/index.html?player=${player}&type=local`;
-                };
-            }
-        }
+        // One button per game, from the one game list every page shares (seat-picker.js)
+        const list = document.getElementById('game-list');
+        if (mode === 'online') document.getElementById('mode-hint').textContent = "Pick the game to host. Online player is picked for you, and you get a table PIN to share.";
+        SeatPicker.GAMES.forEach(g => {
+            const guide = (window.WubsHelp && WubsHelp.TOPICS[g.id]) || {};
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'game-card';
+            b.dataset.game = g.id;
+            b.innerHTML = '<span class="game-card-icon" aria-hidden="true"></span><span class="game-card-text"><span class="game-card-name"></span><span class="game-card-goal"></span></span><span class="game-card-go" aria-hidden="true">›</span>';
+            b.querySelector('.game-card-icon').textContent = guide.icon || '🎲';
+            b.querySelector('.game-card-name').textContent = g.title;
+            b.querySelector('.game-card-goal').textContent = guide.goal || '';
+            b.onclick = () => SeatPicker.open(g.id, { player, preset: mode === 'online' ? { seat2: 'online', listed: true } : undefined });
+            list.appendChild(b);
+        });
     </script>
 </body>
 </html>

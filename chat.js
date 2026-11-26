@@ -5,6 +5,7 @@
  *   - Time labels in private messages (family.js)
  * One place for these means every chat looks and behaves the same:
  * same message line, same time label, same 300-letter limit, same Enter-to-send,
+ * the same row of one-tap quick messages, the same pop-up for a new message,
  * and the same "greyed out with a reason" look when sending isn't possible yet.
  */
 const WebbsChat = {
@@ -65,7 +66,49 @@ const WebbsChat = {
         });
     },
 
-    // Grey the box out and say why, instead of letting a message vanish
+    // One-tap messages: the same set in Family Chat and every table chat
+    QUICK: ['👍', '😂', '🎉', '😮', '❤️', 'Good game!', 'Your turn!', 'Good luck!', 'One more?'],
+
+    // A row of quick-message buttons. onPick(text) sends it straight away.
+    quickRow(onPick, items = this.QUICK) {
+        const row = document.createElement('div');
+        row.className = 'chat-quick';
+        row.setAttribute('role', 'group');
+        row.setAttribute('aria-label', 'Quick messages');
+        items.forEach(text => {
+            const b = document.createElement('button');
+            b.type = 'button';
+            b.className = 'chat-quick-btn';
+            b.textContent = text;
+            b.onclick = () => onPick(text);
+            row.appendChild(b);
+        });
+        return row;
+    },
+
+    // A new message pops up beside a closed chat for a few seconds. Tap it to open the chat.
+    peek(anchor, name, text, onTap, ms = 4000) {
+        if (!anchor) return null;
+        let bubble = anchor.querySelector('.chat-peek');
+        if (!bubble) {
+            bubble = document.createElement('button');
+            bubble.type = 'button';
+            bubble.className = 'chat-peek';
+            anchor.appendChild(bubble);
+        }
+        bubble.textContent = '';
+        const who = document.createElement('span');
+        who.className = 'chat-peek-who';
+        who.textContent = String(name || 'Guest').slice(0, 30) + ': ';
+        bubble.append(who, document.createTextNode(String(text || '').slice(0, 80)));
+        bubble.onclick = () => { bubble.remove(); if (onTap) onTap(); };
+        clearTimeout(bubble._t);
+        bubble._t = setTimeout(() => bubble.remove(), ms);
+        return bubble;
+    },
+
+    // Grey the box out and say why, instead of letting a message vanish.
+    // The quick-message row beside it (if any) follows the box.
     setEnabled(input, button, enabled, reason, placeholder) {
         input.disabled = !enabled;
         input.placeholder = enabled ? placeholder : reason;
@@ -73,5 +116,7 @@ const WebbsChat = {
             button.disabled = !enabled;
             button.title = enabled ? '' : reason;
         }
+        const quick = input.closest && input.closest('.chat-panel, .chat-box');
+        if (quick) quick.querySelectorAll('.chat-quick-btn').forEach(b => { b.disabled = !enabled; b.title = enabled ? '' : reason; });
     }
 };

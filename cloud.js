@@ -325,7 +325,10 @@ const WebbsCloud = (() => {
             };
             wrap.appendChild(b);
         });
-        box.appendChild(wrap);
+        // Above "Play the computer instead" when that's in the box (seat-picker.js), else at the end
+        const cpu = document.getElementById('seat-play-cpu');
+        if (cpu && cpu.parentNode === box) box.insertBefore(wrap, cpu);
+        else box.appendChild(wrap);
     }
 
     // ---------- Game history (wins/losses follow you to any phone) ----------
