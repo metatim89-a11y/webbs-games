@@ -424,6 +424,8 @@ test('guests see open tables and tap one to join', async () => {
   await until(() => !gone.text('#join-status').includes('Finding'), 5000);
   check(gone.text('#join-status') === 'No table is open with PIN 9999 right now. Check the PIN, or the host may have left.' && gone.text('#join-btn-final') === 'Try again' && !gone.$('#join-btn-final').disabled,
     'A table whose host left: says so plainly, and Join becomes Try again', gone.text('#join-status'));
+  await tick(500);
+  check(!gone.$('#net-notice'), 'No stray pop-up later about some other PIN (the join box used to try a made-up table too)');
   write('tables/9999', null);
 
   // Waiting for approval: the tables show too

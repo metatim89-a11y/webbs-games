@@ -26,7 +26,8 @@ const NetworkManager = {
 
     init(role, roomID = null) {
         this.role = role;
-        this.roomID = roomID || this.generateShortID();
+        // Only a host makes up a PIN. A client without one (the lobby's join box) joins nothing by itself.
+        this.roomID = roomID || (role === 'host' ? this.generateShortID() : null);
         this.lastStateSeq = 0;
         // Host: show this table in the Game Lobby, unless it was started as invite only (&list=0)
         this.listed = new URLSearchParams(window.location.search).get('list') !== '0';
@@ -62,6 +63,8 @@ const NetworkManager = {
             console.log(`My peer ID is: ${id}`);
             if (role === 'client' && this.roomID) {
                 this.connectToHost(this.roomID);
+            } else if (role === 'client' && this.currentGame) {
+                this.showNotice("This link is missing the table PIN. Go back and join with the PIN from the host's screen.");
             }
             if (this.currentGame) this.setupChatUI();
             if (role === 'host') {
@@ -324,26 +327,22 @@ const NetworkManager = {
         const hostID = this.prefix + hostPIN;
         console.log("Querying host:", hostID);
         const conn = this.peer.connect(hostID);
-        
-        let found = false;
-        conn.on('open', () => {
-            conn.send({ type: 'QUERY_GAME' });
-        });
-        
-        conn.on('data', (data) => {
-            if (data.type === 'GAME_INFO') {
-                found = true;
-                callback(data.game);
-                conn.close();
-            }
-        });
 
-        setTimeout(() => { 
-            if (!found) {
-                callback(null);
-                if (conn.open) conn.close();
-            }
-        }, 8000); 
+        // Answer once: the game's name, or null when no table has this PIN
+        let answered = false;
+        const answer = game => {
+            if (answered) return;
+            answered = true;
+            callback(game);
+            if (conn.open) conn.close();
+        };
+        conn.on('open', () => conn.send({ type: 'QUERY_GAME' }));
+        conn.on('data', data => { if (data && data.type === 'GAME_INFO') answer(data.game); });
+        // The game network says right away when nobody has this PIN, so don't make them wait
+        this.peer.on('error', err => {
+            if (err && err.type === 'peer-unavailable' && (!err.message || err.message.includes(hostID))) answer(null);
+        });
+        setTimeout(() => answer(null), 8000);
     },
 
     // --- Message Handling ---
