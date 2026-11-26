@@ -485,6 +485,121 @@ test('sorry online', async () => {
 });
 
 // =====================================================================
+// Uno No Mercy
+// =====================================================================
+const C = (color, value) => ({ color, value });
+const setHand = (g, cards, more = '') => g.run(`myHand = ${JSON.stringify(cards)}; ${more} render();`);
+// Tap the card in this phone's hand with that value (and colour)
+function tapCard(g, value, color) {
+  const i = g.get(`myHand.findIndex(c => c.value === ${JSON.stringify(value)}${color ? ` && c.color === '${color}'` : ''})`);
+  g.click(g.$$('#player-hand .card')[i]);
+}
+const pickerOpen = g => g.$('#color-picker-modal').style.display === 'flex';
+test('uno vs computer', async () => {
+  const g = await openGame('uno-no-mercy', 'type=cpu');
+  setHand(g, [C('red', '5'), C('blue', '9'), C('wild', 'Wild'), C('wild', 'Wild Color Roulette'), C('green', '8')],
+    `discard = ${JSON.stringify(C('red', '3'))}; cpuHand = ${JSON.stringify([C('blue', '1'), C('blue', '2'), C('yellow', '4')])};`);
+  const cards = g.$$('#player-hand .card');
+  check(cards[0].classList.contains('big') && cards[3].classList.contains('small'), 'Uno: long card names like Wild Color Roulette get smaller text so they fit on the card');
+
+  // The colour picker
+  tapCard(g, 'Wild');
+  check(pickerOpen(g) && g.text('#color-picker-title') === 'Pick a color', 'Uno: tapping a wild card opens the colour picker');
+  tapCard(g, '5', 'red');
+  check(g.get('discard.value') === '3' && g.get('myHand.length') === 5, 'Uno: while the colour picker is open, another card can\'t be played (it could, and then the colour went on the wrong card)', `${g.get('discard.value')} / ${g.get('myHand.length')}`);
+  g.click('#color-cancel');
+  check(!pickerOpen(g) && g.get('myHand.length') === 5 && g.get('currentPlayer') === 'X', 'Uno: Cancel closes the colour picker and keeps the card in your hand');
+  tapCard(g, 'Wild');
+  g.click('.color-opt.color-blue');
+  check(g.get('discard.color') === 'blue' && g.get('discard.value') === 'Wild' && g.get("!myHand.some(c => c.value === 'Wild')"), 'Uno: picking a colour plays the wild card you tapped, in that colour');
+  check(g.$$('#player-hand .card').every(c => c.classList.contains('off')) && g.$('#deck').classList.contains('off'), "Uno: on the computer's turn your cards and the deck are faded (they looked playable)");
+  await until(() => g.get('currentPlayer') === 'X' && g.get('cpuHand.length') === 2, 3000);
+
+  // Color Roulette: one colour pick, then the computer draws until it gets that colour
+  tapCard(g, 'Wild Color Roulette');
+  check(g.text('#color-picker-title') === 'Pick a color: they draw until they get it', 'Uno: Color Roulette says what the colour is for');
+  g.click('.color-opt.color-green');
+  check(!pickerOpen(g) && g.get('rouletteTarget') === 'green' && g.get('discard.color') === 'green', 'Uno: Color Roulette asks for a colour once (it asked twice)', `${pickerOpen(g)} / ${g.get('rouletteTarget')}`);
+  await until(() => g.get('currentPlayer') === 'X' && !g.get('rouletteTarget'), 3000);
+  check(g.get('cpuHand[cpuHand.length - 1].color') === 'green', '...and the computer draws until it gets that colour');
+
+  // The deck shows how many cards a draw stack makes you take
+  g.run('drawStack = 4; render();');
+  check(g.text('#deck') === 'DRAW +4', 'Uno: the deck shows DRAW +4 when you have to take 4', g.text('#deck'));
+  g.run('drawStack = 0;');
+
+  // Playing your last card wins
+  setHand(g, [C('green', '5')], `discard = ${JSON.stringify(C('green', '3'))};`);
+  tapCard(g, '5');
+  await until(() => !g.get('active'));
+  check(g.modalOpen() && g.text('#turn-info') === 'Guest wins!', 'Uno: emptying your hand wins, and the turn line says so', g.text('#turn-info'));
+});
+
+test('uno pass the phone', async () => {
+  const g = await openGame('uno-no-mercy', 'type=local');
+  setHand(g, [C('red', 'Reverse'), C('red', '1')], `discard = ${JSON.stringify(C('red', '3'))};`);
+  tapCard(g, 'Reverse');
+  check(g.get('currentPlayer') === 'X' && !g.get('handHidden'), 'Uno (one phone): a Reverse lets you go again, same as a Skip (it passed the turn)');
+});
+
+test('uno online', async () => {
+  const host = await openGame('uno-no-mercy', 'type=online&role=host', 'tim');
+  await until(() => host.get('NetworkManager.roomID') && host.get('NetworkManager.peer'));
+  check(!host.get('canMove()') && host.$('#deck').classList.contains('off') && host.text('#turn-info') === 'Waiting for someone to join…', "Uno online: the host can't play before anyone joins", host.text('#turn-info'));
+  const guest = await openGame('uno-no-mercy', `type=online&role=client&host=${host.get('NetworkManager.roomID')}`, 'ariel');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  await tick(20);
+  check(guest.text('#reset-btn') === 'Host can restart', "Uno online: the joiner's Reset says only the host can restart (it did nothing before)", guest.text('#reset-btn'));
+
+  // Known cards on both phones
+  setHand(host, [C('red', '5'), C('blue', '1'), C('red', 'Draw 2'), C('yellow', '6')],
+    `currentPlayer = 'X'; discard = ${JSON.stringify(C('red', '3'))}; opponentHandCount = 2; broadcast();`);
+  setHand(guest, [C('blue', '9'), C('blue', '8')], `deck.push(${JSON.stringify(C('red', '4'))}, ${JSON.stringify(C('green', '2'))});`);
+  await tick(10);
+  tapCard(host, '5', 'red');
+  await until(() => guest.get('currentPlayer') === 'O' && guest.get('discard.value') === '5');
+  guest.click('#deck'); // draws green 2, then red 4 (which can be played)
+  await until(() => host.get('opponentHandCount') === 4, 1500);
+  check(guest.get('myHand.length') === 4, "Uno online: the cards Player 2 draws go into Player 2's hand (they went into the host's hand)", guest.get('myHand.length'));
+  check(host.get('myHand.length') === 3 && host.get('opponentHandCount') === 4, "Uno online: ...the host's hand stays the same, and the host keeps count of Player 2's cards", `${host.get('myHand.length')} / ${host.get('opponentHandCount')}`);
+  tapCard(guest, '4', 'red');
+  await until(() => host.get('discard.value') === '4' && host.get('currentPlayer') === 'X');
+  check(host.get('opponentHandCount') === 3, "Uno online: the host's count goes down when Player 2 plays", host.get('opponentHandCount'));
+
+  // A draw card: Player 2 takes the cards into their own hand
+  tapCard(host, 'Draw 2');
+  await until(() => guest.get('drawStack') === 2 && guest.get('currentPlayer') === 'O');
+  check(guest.text('#deck') === 'DRAW +2', 'Uno online: Player 2 sees DRAW +2', guest.text('#deck'));
+  guest.click('#deck');
+  await until(() => host.get('currentPlayer') === 'X' && host.get('drawStack') === 0);
+  check(guest.get('myHand.length') === 5 && host.get('myHand.length') === 2 && host.get('opponentHandCount') === 5, 'Uno online: a Draw 2 puts 2 cards in Player 2\'s hand, not the host\'s', `${guest.get('myHand.length')} / ${host.get('myHand.length')} / ${host.get('opponentHandCount')}`);
+
+  // Mercy rule for Player 2: 25 cards ends the game on both phones
+  setHand(guest, Array.from({ length: 23 }, () => C('blue', '9')));
+  host.run('opponentHandCount = 23;');
+  setHand(host, [C('red', 'Draw 2'), C('blue', '1')]);
+  tapCard(host, 'Draw 2');
+  await until(() => guest.get('drawStack') === 2 && guest.get('currentPlayer') === 'O');
+  guest.click('#deck');
+  await until(() => !host.get('active'), 1500);
+  check(!host.get('active') && host.text('#turn-info') === 'Tim wins! (Mercy rule)', "Uno online: when Player 2 reaches 25 cards the host's game ends too (it kept going)", host.text('#turn-info'));
+  check(guest.modalOpen() && !guest.get('active'), '...and Player 2 sees the game is over');
+
+  // Play Again deals Player 2 a new hand
+  host.run('resetGame()');
+  await until(() => guest.get('myHand.length') === 7, 1500);
+  check(guest.get('myHand.length') === 7 && !guest.modalOpen() && host.get('opponentHandCount') === 7, 'Uno online: Play Again deals Player 2 a fresh hand of 7 (they kept their old cards)', guest.get('myHand.length'));
+
+  // A 7 swaps hands, and the host's count follows
+  setHand(host, [C('red', '7'), C('blue', '1'), C('blue', '2')], `currentPlayer = 'X'; discard = ${JSON.stringify(C('red', '3'))}; opponentHandCount = 4; broadcast();`);
+  setHand(guest, [C('green', '1'), C('green', '2'), C('green', '3'), C('green', '4')]);
+  await tick(10);
+  tapCard(host, '7', 'red');
+  await until(() => host.get('myHand.length') === 4 && guest.get('myHand.length') === 2);
+  check(host.get('opponentHandCount') === 2, "Uno online: after a 7 swaps hands, the host's count of Player 2's cards is right (it kept the old number)", host.get('opponentHandCount'));
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);

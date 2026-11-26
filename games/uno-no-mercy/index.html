@@ -15,6 +15,8 @@
             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
             position: relative;
         }
+        /* Long names like "Wild Color Roulette" wrap inside the pile instead of spilling out */
+        #discard-pile.long { font-size: 1.05em; padding: 8px; box-sizing: border-box; text-align: center; overflow-wrap: anywhere; line-height: 1.15; }
         #player-hand { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; padding: 15px; }
         .card { 
             width: 65px; height: 95px; border-radius: 10px; display: flex; align-items: center; 
@@ -22,25 +24,38 @@
             border: 2px solid #fff; text-shadow: 1px 1px 2px #000;
             box-shadow: 0 4px 8px rgba(0,0,0,0.3);
             transition: transform 0.2s;
+            box-sizing: border-box; padding: 4px; text-align: center; line-height: 1.1;
+            font-size: 0.8em; overflow-wrap: anywhere;
         }
+        .card.big { font-size: 1.7em; }
+        /* Cards you can't play right now (or it isn't your turn) are faded */
+        .card.off { opacity: 0.45; cursor: default; }
         /* Hand cards show their colour, same as the discard pile */
         .card.red { background: #ff5555; }
         .card.blue { background: #5555ff; }
         .card.green { background: #55aa55; }
         .card.yellow { background: #ffaa00; }
         .card.wild { background: linear-gradient(135deg, #ff5555 0 25%, #5555ff 25% 50%, #55aa55 50% 75%, #ffaa00 75%); }
-        .card:hover { transform: translateY(-10px) scale(1.05); z-index: 10; }
+        .card.playable:hover { transform: translateY(-10px) scale(1.05); z-index: 10; }
         #deck { 
             width: 70px; height: 100px; background: #444; border: 3px dashed #888; 
             border-radius: 12px; cursor: pointer; display: flex; align-items: center; 
             justify-content: center; font-weight: bold; color: #aaa;
+            box-sizing: border-box; padding: 4px; text-align: center;
         }
+        #deck.off { opacity: 0.45; cursor: not-allowed; }
+        /* The colour picker covers the whole screen, so a stray tap can't play a different card underneath */
         .color-picker {
-            display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9); padding: 20px; border-radius: 20px; border: 3px solid gold;
-            grid-template-columns: 1fr 1fr; gap: 10px; z-index: 6000;
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+            align-items: center; justify-content: center; z-index: 6000;
         }
-        .color-opt { width: 60px; height: 60px; border-radius: 10px; cursor: pointer; border: 2px solid #fff; }
+        .color-picker-box {
+            background: rgba(0,0,0,0.9); padding: 20px; border-radius: 20px; border: 3px solid gold;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px; justify-items: center;
+        }
+        .color-picker-title { grid-column: 1 / -1; color: gold; font-weight: bold; text-align: center; max-width: 170px; }
+        #color-cancel { grid-column: 1 / -1; margin: 4px 0 0; background: rgba(255,255,255,0.1); }
+        .color-opt { width: 64px; height: 64px; border-radius: 10px; cursor: pointer; border: 2px solid #fff; }
         .color-red { background: #ff5555; }
         .color-blue { background: #5555ff; }
         .color-green { background: #55aa55; }
@@ -55,10 +70,14 @@
     <div id="version-tag">v1.4.11</div>
 
     <div id="color-picker-modal" class="color-picker">
-        <div class="color-opt color-red" onclick="selectWildColor('red')"></div>
-        <div class="color-opt color-blue" onclick="selectWildColor('blue')"></div>
-        <div class="color-opt color-green" onclick="selectWildColor('green')"></div>
-        <div class="color-opt color-yellow" onclick="selectWildColor('yellow')"></div>
+        <div class="color-picker-box">
+            <div class="color-picker-title" id="color-picker-title">Pick a color</div>
+            <div class="color-opt color-red" onclick="selectWildColor('red')"></div>
+            <div class="color-opt color-blue" onclick="selectWildColor('blue')"></div>
+            <div class="color-opt color-green" onclick="selectWildColor('green')"></div>
+            <div class="color-opt color-yellow" onclick="selectWildColor('yellow')"></div>
+            <button class="modal-btn" id="color-cancel" onclick="cancelWildColor()">Cancel</button>
+        </div>
     </div>
 
     <div class="rules-block" id="rules-block">
@@ -75,6 +94,8 @@
                 <li>Stacking: Draw cards stack if yours is the same or bigger.</li>
                 <li>Mercy Rule: 25 cards = Elimination.</li>
                 <li>0's Pass & 7's Swap hands.</li>
+                <li>Skip and Reverse: you go again (there are only two of you).</li>
+                <li>Color Roulette: you pick a color, they draw until they get it.</li>
             </ul>
         </div>
     </div>
@@ -82,7 +103,7 @@
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
-            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" id="play-again-btn" onclick="resetGame()">Play Again</button>
             <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
         </div>
     </div>
@@ -139,7 +160,11 @@
         let isSpectator = false;
         let player2ID = null;
         let startingPlayer = "X";
-        let wildColorPending = null;
+        let wildCardPending = null;   // the wild card waiting for its colour (the card itself, not its place in the hand)
+        let gameNo = 1;               // host: goes up on Play Again, so the other phone knows to deal itself a new hand
+        let seenGameNo = null;        // joiner: the last game number the host sent
+        let resultRecorded = false;   // a finished game is counted once on this phone
+        let resultText = '';
         let rouletteTarget = null;
         let otherHand = [];        // local play: the hand of the player who is NOT up (pass the phone)
         let handHidden = false;    // local play: cards stay covered until the next player taps
@@ -181,16 +206,18 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
+                        render(); // the host's cards and the deck come alive now there's someone to play
                     }
                 };
                 NetworkManager.onMoveReceived = (action) => { 
+                    if (!action) return;
                     if (action.type === 'SWAP_RESPONSE') {
                         myHand = action.hand;
                         broadcast();
                         render();
                     } else if (action.type === 'ROULETTE_COLOR') {
-                        executeAction(action, true);
-                    } else if (currentPlayer === "O") {
+                        if (rouletteTarget === 'pending' && colors.includes(action.color)) executeAction(action, true);
+                    } else if (currentPlayer === "O" && validMove(action)) {
                         executeAction(action, true); 
                     }
                 };
@@ -203,6 +230,11 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
+                    // The host pressed Play Again: this phone deals itself a fresh hand too
+                    if (state.gameNo !== undefined) {
+                        if (seenGameNo !== null && state.gameNo !== seenGameNo) newHandForNewGame();
+                        seenGameNo = state.gameNo;
+                    }
                     discard = state.discard;
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
@@ -210,7 +242,11 @@
                     drawStack = state.drawStack || 0;
                     direction = state.direction || 1;
                     rouletteTarget = state.rouletteTarget;
-                    if (!state.active && state.winner) showGameOver(state.winner);
+                    if (!state.active && state.winner) {
+                        showGameOver(state.winner, state.sub || '');
+                        if (myRole === 'player2' && state.winnerRole) recordResult(state.winnerRole); // counts the host's win as your loss too
+                    }
+                    if (state.active) document.getElementById('game-over-modal').style.display = 'none';
                     
                     if (myRole === 'player2') {
                         opponentHandCount = state.hostHandCount;
@@ -235,6 +271,7 @@
                     isSpectator = false;
                     myRole = 'player2';
                     document.getElementById('multiplayer-controls').style.display = 'none';
+                    render();
                 };
                 NetworkManager.init('client', hostPIN);
             }
@@ -243,12 +280,48 @@
         function broadcast(extra = {}) { 
             if (myRole === 'host') {
                 NetworkManager.broadcastState({ 
-                    discard, currentPlayer, player2ID, active, drawStack, direction, rouletteTarget,
+                    discard, currentPlayer, player2ID, active, drawStack, direction, rouletteTarget, gameNo,
                     hostHandCount: myHand.length,
                     p2HandCount: (gameType === 'cpu' ? cpuHand.length : opponentHandCount),
                     ...extra
                 }); 
             }
+        }
+
+        // Whose cards are these? The hand on THIS phone for that player, or null when the cards are on the other phone
+        // (then this phone only keeps count of them)
+        function handOf(who) {
+            if (gameType === 'cpu') return who === 'O' ? cpuHand : myHand;
+            if (gameType !== 'online') return myHand; // pass the phone: myHand is always the player who is up
+            if (myRole === 'host') return who === 'X' ? myHand : null;
+            if (myRole === 'player2') return who === 'O' ? myHand : null;
+            return null;
+        }
+
+        // Host: check Player 2's move against this phone's game, so a double tap or an old message can't put the two phones out of step
+        function validMove(action) {
+            if (!active) return false;
+            if (action.type === 'PLAY') return !!action.card && canPlay(action.card) && Number.isInteger(action.handCount);
+            if (action.type === 'DRAW_STACK') return drawStack > 0 && action.count === drawStack;
+            if (action.type === 'DRAW_UNTIL') return drawStack === 0 && !rouletteTarget && Array.isArray(action.cards) && action.cards.length > 0;
+            if (action.type === 'ROULETTE_RESULT') return colors.includes(rouletteTarget) && Array.isArray(action.cards);
+            return false;
+        }
+
+        // Joiner: the host started a new game, so deal this phone a new hand of 7
+        function newHandForNewGame() {
+            deck = buildDeck();
+            myHand = [];
+            for (let i = 0; i < 7; i++) myHand.push(drawFromDeck());
+            wildCardPending = null;
+            resultRecorded = false;
+            resultText = '';
+        }
+
+        // Is it this phone's turn?
+        function isMyTurnNow() {
+            return (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') ||
+                   (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
         }
 
         function buildDeck() {
@@ -303,7 +376,7 @@
 
         function render() {
             const discardEl = document.getElementById('discard-pile');
-            discardEl.className = discard.color;
+            discardEl.className = discard.color + (discard.value.length > 2 ? ' long' : '');
             discardEl.innerText = discard.value;
             
             discardEl.innerHTML = discard.value;
@@ -327,16 +400,23 @@
                 btn.onclick = () => { handHidden = false; render(); };
                 handEl.appendChild(btn);
             } else if (!isSpectator) {
+                const myTurn = canMove();
                 visibleHand.forEach((card, i) => {
                     const cardEl = document.createElement('div');
-                    cardEl.className = `card ${card.color}`;
+                    // Only cards you can play right now look bright; on the other player's turn every card is faded
+                    const playable = myTurn && canPlay(card);
+                    cardEl.className = `card ${card.color} ${card.value.length <= 2 ? 'big' : 'small'} ${playable ? 'playable' : 'off'}`;
                     cardEl.innerText = card.value;
-                    const playable = canPlay(card);
-                    cardEl.style.opacity = playable ? "1" : "0.5";
                     if (playable) cardEl.onclick = () => handlePlayCard(i);
                     handEl.appendChild(cardEl);
                 });
             }
+
+            // The deck fades when you can't draw, and shows how many cards a draw stack makes you take
+            const deckEl = document.getElementById('deck');
+            const canDraw = canMove() && !(gameType === 'local' && handHidden) && rouletteTarget !== 'pending';
+            deckEl.classList.toggle('off', !canDraw);
+            deckEl.innerText = drawStack > 0 ? `DRAW +${drawStack}` : 'DRAW';
 
             const names = getNames();
             const oppCount = gameType === 'local' ? otherHand.length : (gameType === 'cpu' ? cpuHand.length : opponentHandCount);
@@ -352,11 +432,12 @@
                 (gameType === 'local')                         // same phone: whoever played it picks
             );
 
-            if (amITheOnePicking) {
-                document.getElementById('color-picker-modal').style.display = 'grid';
-            } else {
-                document.getElementById('color-picker-modal').style.display = 'none';
-            }
+            const picker = document.getElementById('color-picker-modal');
+            picker.style.display = (amITheOnePicking || wildCardPending) ? 'flex' : 'none';
+            document.getElementById('color-picker-title').innerText =
+                (wildCardPending && wildCardPending.value === 'Wild Color Roulette') ? 'Pick a color: they draw until they get it'
+                : wildCardPending ? 'Pick a color' : 'Pick a color for them';
+            document.getElementById('color-cancel').style.display = wildCardPending ? '' : 'none';
 
             checkMercy();
             updateStatus();
@@ -369,7 +450,7 @@
             const hands = [];
             if (gameType === 'local') { hands.push([currentPlayer, myHand], [other, otherHand]); }
             else if (gameType === 'cpu') { hands.push(['X', myHand], ['O', cpuHand]); }
-            else if (myRole === 'host') hands.push(['X', myHand]);
+            else if (myRole === 'host') hands.push(['X', myHand], ['O', { length: opponentHandCount }]); // the host keeps count of Player 2's cards
             else if (myRole === 'player2') hands.push(['O', myHand]);
             const out = hands.find(([, h]) => h.length >= 25);
             if (!out) return;
@@ -378,7 +459,7 @@
             const names = getNames();
             showGameOver(winner === 'X' ? names.p1 : names.p2, "MERCY RULE!");
             recordResult(winner);
-            if (myRole === 'host') broadcast({ winner: winner === 'X' ? names.p1 : names.p2 });
+            if (myRole === 'host') broadcast({ winner: winner === 'X' ? names.p1 : names.p2, winnerRole: winner, sub: "MERCY RULE!" });
         }
 
         function canPlay(card) {
@@ -388,7 +469,7 @@
                 // Stack only with a draw card at least as big as the one on top
                 return drawValue(card) > 0 && drawValue(card) >= drawValue(discard);
             }
-            if (card.color === 'wild') return true;
+            if (card.color === 'wild' || wildValues.includes(card.value)) return true;
             if (card.color === discard.color || card.value === discard.value) return true;
             return false;
         }
@@ -396,15 +477,14 @@
         function updateStatus() {
             const info = document.getElementById('turn-info');
             const resetBtn = document.getElementById('reset-btn');
+            // Only the host can start a new online game; the other phone says so instead of doing nothing
+            const hostOnly = gameType === 'online' && myRole !== 'host';
+            GameKit.setControl(resetBtn, !hostOnly, 'Host can restart');
+            GameKit.setControl(document.getElementById('play-again-btn'), !hostOnly, 'Waiting for host…');
 
-            if (gameType === 'online') {
-                resetBtn.disabled = (myRole !== 'host');
-                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
-            } else {
-                resetBtn.disabled = !active;
-            }
-
-            if (!active) return;
+            info.classList.toggle('game-done', !active);
+            if (!active) { info.innerText = resultText; return; }
+            if (myRole === 'host' && !player2ID) { info.innerText = "Waiting for someone to join…"; return; }
 
             const lastPlayer = (currentPlayer === 'X') ? 'O' : 'X';
             const amITheOnePicking = (rouletteTarget === 'pending') && (
@@ -422,9 +502,11 @@
             } else if (rouletteTarget === 'pending') {
                 text = "Waiting for color pick...";
             } else if (rouletteTarget) {
-                const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O');
-                if (isMyTurn) text = `ROULETTE: Draw until ${rouletteTarget.toUpperCase()}!`;
-                else text = `ROULETTE: They are drawing until ${rouletteTarget.toUpperCase()}...`;
+                const who = currentPlayer === "X" ? names.p1 : names.p2;
+                if (isMyTurnNow()) text = gameType === 'local' ? `ROULETTE: ${who}, draw until ${rouletteTarget.toUpperCase()}!` : `ROULETTE: Draw until ${rouletteTarget.toUpperCase()}!`;
+                else text = `ROULETTE: ${who} draws until ${rouletteTarget.toUpperCase()}...`;
+            } else if (wildCardPending) {
+                text = "Pick a color for your wild card";
             }
 
             info.innerText = text;
@@ -432,6 +514,7 @@
 
         function handlePlayCard(i, fromCpu = false) {
             if (!fromCpu && !canMove()) return;
+            if (!fromCpu && wildCardPending) return; // finish picking the colour (or Cancel) first
             const currentHand = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
             const card = currentHand[i];
 
@@ -439,8 +522,8 @@
 
             if (card.color === 'wild') {
                 if (fromCpu) { card.color = colors[Math.floor(Math.random() * colors.length)]; playValidatedCard(i); return; }
-                wildColorPending = i;
-                document.getElementById('color-picker-modal').style.display = 'grid';
+                wildCardPending = card;
+                render(); // opens the colour picker
                 return;
             }
 
@@ -457,12 +540,14 @@
                 (gameType === 'local' && lastPlayer === (currentPlayer === 'X' ? 'O' : 'X')) // Local turn already swapped
             );
 
-            if (wildColorPending !== null) {
-                const currentHand = myHand;
-                const card = currentHand[wildColorPending];
+            if (wildCardPending) {
+                // Find the card itself again: the picked colour always goes on the wild card that was tapped
+                const card = wildCardPending;
+                wildCardPending = null;
+                const i = myHand.indexOf(card);
+                if (i === -1 || !canMove() || !canPlay(card)) { render(); return; }
                 card.color = color;
-                playValidatedCard(wildColorPending);
-                wildColorPending = null;
+                playValidatedCard(i);
             } else if (rouletteTarget === 'pending') {
                 rouletteTarget = color;
                 if (typeof AudioEngine !== 'undefined') AudioEngine.playClick();
@@ -473,8 +558,14 @@
                     NetworkManager.sendMove({ type: 'ROULETTE_COLOR', color });
                 }
                 render();
-                if (gameType === 'cpu' && currentPlayer === 'O') setTimeout(() => cpuMove(), 1000);
+                if (gameType === 'cpu' && currentPlayer === 'O') GameKit.later(() => cpuMove(), 1000);
             }
+        }
+
+        // Changed your mind about the wild card: close the picker, the card stays in your hand
+        function cancelWildColor() {
+            wildCardPending = null;
+            render();
         }
 
         function playValidatedCard(i) {
@@ -564,12 +655,14 @@
             if (isSpectator || !active) return false;
             if (gameType === 'cpu' && currentPlayer === "O") return false;
             if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'host' && !player2ID) return false; // nobody to play against yet
             if (myRole === 'player2' && currentPlayer !== "O") return false;
             return true;
         }
 
         function executeAction(action, isLocal = true) {
             const playerBefore = currentPlayer;
+            const hand = handOf(playerBefore); // null when that player's cards are on the other phone
             if (action.type === 'ROULETTE_COLOR') {
                 rouletteTarget = action.color;
                 if (isLocal) broadcast();
@@ -579,7 +672,7 @@
             if (action.type === 'PLAY') {
                 const card = action.card;
                 discard = card;
-                if (!isLocal) opponentHandCount = action.handCount;
+                if (!hand) opponentHandCount = action.handCount;
 
                 drawStack += drawValue(card);
                 if (card.value === 'Wild Reverse Draw 4') direction *= -1; // 2 players: the other player still draws
@@ -593,17 +686,19 @@
                         } else if (gameType === 'online' && myRole === 'host') {
                             let oldHostHand = [...myHand];
                             myHand = []; 
+                            opponentHandCount = oldHostHand.length; // Player 2 now holds the host's old cards
                             broadcast({ type: 'SWAP_REQUEST', hand: oldHostHand });
                         }
                     }
                 }
 
                 let skip = false;
-                if (card.value === 'Skip' || (card.value === 'Reverse' && gameType !== 'local')) skip = true;
+                // With two players a Reverse works like a Skip, on one phone or two
+                if (card.value === 'Skip' || card.value === 'Reverse') skip = true;
                 if (card.value === 'Skip Everyone') skip = true;
                 if (card.value === 'Wild Color Roulette') {
-                    // The computer picks straight away; people pick on the colour screen
-                    rouletteTarget = (gameType === 'cpu' && currentPlayer === 'O') ? colors[Math.floor(Math.random() * colors.length)] : 'pending';
+                    // The colour picked for the card is the colour they draw to, so it's asked for only once
+                    rouletteTarget = colors.includes(card.color) ? card.color : 'pending';
                 }
 
                 if (action.handCount === 0 && active) {
@@ -612,7 +707,7 @@
                     const winnerName = currentPlayer === 'X' ? names.p1 : names.p2;
                     showGameOver(winnerName);
                     recordResult(currentPlayer);
-                    if (isLocal) broadcast({ winner: winnerName }); // tell the other phone
+                    if (isLocal) broadcast({ winner: winnerName, winnerRole: playerBefore }); // tell the other phone
                     return;
                 }
 
@@ -623,25 +718,23 @@
 
 
             } else if (action.type === 'DRAW_STACK') {
-                if (isLocal) {
-                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
-                    for(let i=0; i<action.count; i++) target.push(drawFromDeck());
+                // The cards go into the drawing player's own hand, on their own phone; the other phone only counts them
+                if (hand) {
+                    for(let i=0; i<action.count; i++) hand.push(drawFromDeck());
                 } else {
                     opponentHandCount += action.count;
                 }
                 drawStack = 0;
                 currentPlayer = (currentPlayer === "X") ? "O" : "X";
             } else if (action.type === 'DRAW_UNTIL') {
-                if (isLocal) {
-                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
-                    action.cards.forEach(c => target.push(c));
+                if (hand) {
+                    action.cards.forEach(c => hand.push(c));
                 } else {
                     opponentHandCount += action.cards.length;
                 }
             } else if (action.type === 'ROULETTE_RESULT') {
-                if (isLocal) {
-                    const target = (gameType === 'cpu' && currentPlayer === 'O') ? cpuHand : myHand;
-                    action.cards.forEach(c => target.push(c));
+                if (hand) {
+                    action.cards.forEach(c => hand.push(c));
                 } else {
                     opponentHandCount += action.cards.length;
                 }
@@ -659,7 +752,7 @@
                     broadcast();
                     render();
                     if (gameType === 'cpu' && currentPlayer === 'O') {
-                        setTimeout(() => cpuMove(), 1000);
+                        GameKit.later(() => cpuMove(), 1000);
                     }
                 } else {
                     render();
@@ -668,8 +761,7 @@
         }
 
         function cpuMove() {
-            if (!active) return;
-            if (currentPlayer !== 'O') return;
+            if (!active || gameType !== 'cpu' || currentPlayer !== 'O') return;
             if (rouletteTarget === 'pending') return; // waiting for the human to pick a colour
             let playableIdx = cpuHand.findIndex(card => canPlay(card));
 
@@ -681,7 +773,10 @@
         }
 
         function showGameOver(winner, sub = "") {
-            if (typeof AudioEngine !== 'undefined') AudioEngine.playWin();
+            if (typeof AudioEngine !== 'undefined' && !resultText) AudioEngine.playWin();
+            resultText = `${winner} wins!` + (sub ? ' (Mercy rule)' : '');
+            wildCardPending = null;
+            document.getElementById('color-picker-modal').style.display = 'none';
             document.getElementById('winner-text').innerText = winner + " WINS!";
             if(sub) document.getElementById('winner-text').innerHTML += `<div style="font-size:0.5em; color:white;">${sub}</div>`;
             document.getElementById('game-over-modal').style.display = 'flex';
@@ -689,6 +784,8 @@
         }
 
         function recordResult(winner) {
+            if (resultRecorded) return; // one game, one result
+            resultRecorded = true;
             const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
             if (gameType === 'online') {
                 const iWon = (myRole === 'host' && winner === 'X') || (myRole === 'player2' && winner === 'O');
@@ -700,6 +797,9 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            GameKit.cancelAll(); // the computer's waiting move from the last game never lands in this one
+            wildCardPending = null; resultRecorded = false; resultText = '';
+            gameNo++;
             document.getElementById('game-over-modal').style.display = 'none';
             initGame();
             startingPlayer = startingPlayer === "X" ? "O" : "X";
@@ -707,7 +807,7 @@
             active = true;
             if (myRole === 'host') broadcast();
             render();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
+            if (gameType === 'cpu' && currentPlayer === "O") GameKit.later(cpuMove, 1000);
         }
     </script>
 </body>
