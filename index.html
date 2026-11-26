@@ -88,7 +88,7 @@
                     </div>
                 </div>
                 <p style="font-size: 0.75em; opacity: 0.7; margin: 0 0 10px;">Tim or Cassie approves new players. Messages are family-only, and they can read them to keep everyone safe. <a href="privacy.html" style="color: gold;">Privacy</a></p>
-                <button onclick="submitSignup()" class="modal-btn" style="width: 100%;">Submit Request</button>
+                <button id="signup-submit" onclick="submitSignup()" class="modal-btn" style="width: 100%;">Submit Request</button>
                 <button onclick="closeSignup()" class="modal-btn" style="background:none; width: 100%;">Cancel</button>
             </div>
         </div>
@@ -98,7 +98,7 @@
                 <div id="join-step-1">
                     <h3>Join with Table PIN</h3>
                     <p style="font-size: 0.8em; opacity: 0.7; margin-bottom: 20px;">We'll find the game for you!</p>
-                    <input type="number" id="join-table-pin" pattern="[0-9]*" placeholder="0000" style="font-size: 2.5em; width: 80%; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 15px; border: none; margin-bottom: 20px; background: #333; color: white;">
+                    <input type="text" id="join-table-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="0000" oninput="cleanPinInput(this)" onkeydown="if (event.key === 'Enter') performAutoJoin()" style="font-size: 2.5em; width: 80%; text-align: center; letter-spacing: 10px; padding: 15px; border-radius: 15px; border: none; margin-bottom: 20px; background: #333; color: white;">
                     <div id="join-status" style="margin-bottom: 20px; color: gold; font-weight: bold; min-height: 1.2em;"></div>
                     <button id="join-btn-final" onclick="performAutoJoin()" class="modal-btn">Join Table</button>
                     <button onclick="closeJoinModal()" class="modal-btn" style="background:none;">Cancel</button>

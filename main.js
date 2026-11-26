@@ -181,6 +181,9 @@ async function showCloudStats() {
 
 /* --- Sign Up Logic --- */
 function openSignup() {
+    document.getElementById('signup-status').innerText = '';
+    const btn = document.getElementById('signup-submit');
+    btn.disabled = false; btn.innerText = 'Submit Request';
     document.getElementById('signup-modal').style.display = 'flex';
 }
 
@@ -199,8 +202,9 @@ async function submitSignup() {
     const color2 = document.getElementById('signup-color-2').value;
     const color3 = document.getElementById('signup-color-3').value;
 
+    // Messages show inside the form, right under the boxes, instead of a pop-up
     if (!name || !animal || !game) {
-        alert("Please fill out all fields!");
+        status.innerText = "Fill in your name, favorite animal and favorite game.";
         return;
     }
 
@@ -234,8 +238,11 @@ async function submitSignup() {
     });
     localStorage.setItem('webbs_pending', JSON.stringify(pending));
 
-    alert("Request sent to Tim!");
-    closeSignup();
+    // The family server couldn't be reached, so the request is only on this phone: say so, then close
+    status.innerText = "Saved on this phone. Tim can approve it here.";
+    const btn = document.getElementById('signup-submit');
+    btn.disabled = true; btn.innerText = 'Saved';
+    setTimeout(closeSignup, 3000);
 }
 
 /* --- Navigation --- */
@@ -244,7 +251,15 @@ function showGameSelection(mode) {
 }
 
 function joinTablePrompt() {
+    document.getElementById('join-status').innerText = '';
+    document.getElementById('join-btn-final').disabled = false;
     document.getElementById('join-game-modal').style.display = 'flex';
+}
+
+// The PIN box takes digits only, 4 at most (a number box showed arrows and let any length through)
+function cleanPinInput(input) {
+    const digits = input.value.replace(/\D/g, '').slice(0, 4);
+    if (input.value !== digits) input.value = digits;
 }
 
 function closeJoinModal() {
@@ -252,14 +267,13 @@ function closeJoinModal() {
 }
 
 function performAutoJoin() {
-    const pin = document.getElementById('join-table-pin').value;
-    if (pin.length !== 4) {
-        alert("Enter a 4-digit Table PIN");
-        return;
-    }
-
+    const pin = document.getElementById('join-table-pin').value.replace(/\D/g, '');
     const statusEl = document.getElementById('join-status');
     const joinBtn = document.getElementById('join-btn-final');
+    if (pin.length !== 4) {
+        statusEl.innerText = "Type the 4-digit PIN from the host's screen.";
+        return;
+    }
     
     statusEl.innerText = "Connecting to table...";
     joinBtn.disabled = true;
@@ -286,7 +300,7 @@ function performAutoJoin() {
             }
         }, 6000);
     } else {
-        alert("Network module not loaded. Please refresh.");
+        statusEl.innerText = "Couldn't reach the game network. Refresh the page and try again.";
         joinBtn.disabled = false;
     }
 }

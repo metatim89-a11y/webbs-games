@@ -600,6 +600,50 @@ test('uno online', async () => {
 });
 
 // =====================================================================
+// Lobby (the front page): join box and sign-up messages. Nothing is sent anywhere.
+// =====================================================================
+async function openLobby() {
+  let html = readFileSync(path.join(root, 'index.html'), 'utf8');
+  html = html.replace(/<script src="https?:[^"]*"><\/script>/g, '');
+  html = html.replace(/<script src="([\w-]+\.js)(\?v=[^"]*)?"><\/script>/g,
+    (m, file) => `<script>${readFileSync(path.join(root, file), 'utf8')}</script>`);
+  const errors = [], alerts = [];
+  const vc = new VirtualConsole();
+  vc.on('jsdomError', e => errors.push(String(e && (e.detail || e.message || e))));
+  const dom = new JSDOM(html, {
+    url: 'https://wubs.test/webbs-games/index.html', runScripts: 'dangerously', pretendToBeVisual: true, virtualConsole: vc,
+    beforeParse(w) {
+      w.alert = msg => alerts.push(String(msg));
+      w.Peer = FakePeer;
+      w.scrollTo = () => {};
+      Object.defineProperty(w.HTMLElement.prototype, 'innerText', {
+        configurable: true, get() { return this.textContent; }, set(v) { this.textContent = v; }
+      });
+    }
+  });
+  const w = dom.window;
+  await new Promise(r => w.document.readyState === 'complete' ? r() : w.addEventListener('load', r));
+  await tick(5);
+  const p = { w, errors, alerts, $: sel => w.document.querySelector(sel), run: code => w.eval(code),
+    text: sel => (w.document.querySelector(sel)?.textContent || '').trim() };
+  opened.push(p);
+  return p;
+}
+const typeInto = (p, sel, value) => { const el = p.$(sel); el.value = value; el.dispatchEvent(new p.w.Event('input', { bubbles: true })); return el.value; };
+test('lobby join box and sign-up messages', async () => {
+  const p = await openLobby();
+  p.run('joinTablePrompt()');
+  check(typeInto(p, '#join-table-pin', 'a1b2c3d') === '123', 'Lobby: the Table PIN box keeps only digits', p.$('#join-table-pin').value);
+  check(typeInto(p, '#join-table-pin', '123456') === '1234', 'Lobby: ...and stops at 4 digits', p.$('#join-table-pin').value);
+  typeInto(p, '#join-table-pin', '12');
+  p.run('performAutoJoin()');
+  check(p.alerts.length === 0 && p.text('#join-status') === "Type the 4-digit PIN from the host's screen.", 'Lobby: a short PIN gets a message in the box, not a pop-up', p.alerts.join(' | ') || p.text('#join-status'));
+  p.run('openSignup()');
+  await p.run('submitSignup()');
+  check(p.alerts.length === 0 && p.text('#signup-status') === 'Fill in your name, favorite animal and favorite game.', 'Lobby: an empty Request Profile form says what\'s missing in the form, not a pop-up', p.alerts.join(' | ') || p.text('#signup-status'));
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
