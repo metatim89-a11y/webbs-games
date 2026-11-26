@@ -20,8 +20,9 @@
             <strong>Rules:</strong>
             <ul>
                 <li>Take at least one item per turn.</li>
-                <li>Only take from ONE column per turn.</li>
-                <li>You can take any amount from that column.</li>
+                <li>Only take from ONE row per turn.</li>
+                <li>You can take any amount from that row.</li>
+                <li>Tap a piece to pick it and every piece to its right, then tap Take.</li>
             </ul>
         </div>
     </div>
@@ -29,7 +30,7 @@
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
-            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" id="play-again-btn" onclick="resetGame()">Play Again</button>
             <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
         </div>
     </div>
@@ -118,10 +119,12 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
+                        updateStatus();
                     }
                 };
                 NetworkManager.onMoveReceived = (move) => {
-                    if (currentPlayer === "O") executeMove(move.row, move.count, true);
+                    const ok = move && piles[move.row] >= move.count && move.count >= 1;
+                    if (active && currentPlayer === "O" && ok) executeMove(move.row, move.count, true);
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -132,6 +135,7 @@
             } else {
                 isSpectator = true;
                 NetworkManager.onStateUpdate = (state) => {
+                    const wasActive = active;
                     piles = state.piles;
                     currentPlayer = state.currentPlayer;
                     player2ID = state.player2ID;
@@ -144,6 +148,11 @@
                     if (!active) {
                         const winner = state.winner || (currentPlayer === "X" ? "PLAYER 1" : "PLAYER 2");
                         showGameOver(winner);
+                        // The joiner's own stats: whoever took the last piece is still the current player
+                        if (wasActive && myRole === 'player2') {
+                            const sessionPlayer = sessionStorage.getItem('webbs_active_player') || playerID;
+                            ProfileManager.recordResult('357', sessionPlayer, 'host', currentPlayer === 'O' ? 'win' : 'loss');
+                        }
                     }
                     render();
                 };
@@ -192,14 +201,22 @@
             const resetBtn = document.getElementById('reset-btn');
             const endTurnBtn = document.getElementById('end-turn-btn');
 
-            if (gameType === 'online') {
-                resetBtn.disabled = (myRole !== 'host');
-                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
-            } else {
-                resetBtn.disabled = !active;
-            }
+            // Only the host can start a new online game; the other phone says so instead of doing nothing
+            const hostOnly = gameType === 'online' && myRole !== 'host';
+            GameKit.setControl(resetBtn, !hostOnly, 'Host can restart');
+            GameKit.setControl(document.getElementById('play-again-btn'), !hostOnly, 'Waiting for host…');
 
-            if (!active) return;
+            info.classList.toggle('game-done', !active);
+            if (!active) {
+                info.innerText = resultText;
+                GameKit.setControl(endTurnBtn, false, 'Game over');
+                return;
+            }
+            if (myRole === 'host' && !player2ID) {
+                info.innerText = "Waiting for someone to join…";
+                GameKit.setControl(endTurnBtn, false, 'Wait for a player');
+                return;
+            }
             
             const names = getNames();
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
@@ -210,8 +227,10 @@
             
             info.innerText = text;
 
-            // Also disable end turn button if not your turn
-            endTurnBtn.disabled = selectedCount === 0 || !active || isSpectator || !isMyTurn;
+            // The Take button says how many you're taking, or why it can't be used yet
+            endTurnBtn.dataset.label = selectedCount ? `Take ${selectedCount}` : 'Take Selected';
+            const reason = (isSpectator || !isMyTurn) ? 'Wait for your turn' : 'Tap pieces first';
+            GameKit.setControl(endTurnBtn, selectedCount > 0 && !isSpectator && isMyTurn, reason);
         }
 
         function selectPiece(row, index) {
@@ -234,7 +253,7 @@
             
             // Validate turn roles
             if (gameType === 'cpu' && currentPlayer === "O") return false;
-            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'host' && (!player2ID || currentPlayer !== "X")) return false;
             if (myRole === 'player2' && currentPlayer !== "O") return false;
 
             return true;
@@ -259,7 +278,7 @@
             if (!checkGameOver()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
                 if (gameType === 'cpu' && currentPlayer === "O" && isLocal) {
-                    setTimeout(cpuMove, 800);
+                    GameKit.later(cpuMove, 800);
                 }
             }
             if (isLocal) broadcast();
@@ -267,7 +286,7 @@
         }
 
         function cpuMove() {
-            if (!active) return;
+            if (!active || gameType !== 'cpu' || currentPlayer !== "O") return; // only ever on the computer's own turn
             let rowsWithItems = piles.map((p, i) => p > 0 ? i : -1).filter(i => i !== -1);
             if (rowsWithItems.length === 0) return;
             // Classic Nim strategy: leave the piles with a "nim-sum" (XOR) of 0.
@@ -304,7 +323,9 @@
             return false;
         }
 
+        let resultText = '';
         function showGameOver(winner) {
+            resultText = winner + " wins!";
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
             updateStatus();
@@ -312,6 +333,7 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            GameKit.cancelAll(); // the last game's computer move never lands on the new board
 
             document.getElementById('game-over-modal').style.display = 'none';
             piles = [3, 5, 7];
@@ -321,7 +343,7 @@
             currentPlayer = startingPlayer;
             if (myRole === 'host') broadcast();
             render();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 800);
+            if (gameType === 'cpu' && currentPlayer === "O") GameKit.later(cpuMove, 800);
         }
     </script>
 </body>

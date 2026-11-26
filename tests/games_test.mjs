@@ -189,6 +189,60 @@ test('tic-tac-toe online', async () => {
 });
 
 // =====================================================================
+// 357 (Nim)
+// =====================================================================
+const pieces = (g, row) => g.$$(`#row-${row} .nim-piece`);
+test('357 vs computer', async () => {
+  const g = await openGame('357', 'type=cpu');
+  check(g.$$('.nim-piece').length === 15 && pieces(g, 2).length === 7, '357: the board starts with rows of 3, 5 and 7');
+  check(g.$('#end-turn-btn').disabled && g.text('#end-turn-btn') === 'Tap pieces first', '357: Take is greyed out and says to tap pieces first', g.text('#end-turn-btn'));
+  g.click(pieces(g, 2)[4]); // the 5th of 7: takes it and the two to its right
+  check(g.get('selectedCount') === 3 && g.text('#end-turn-btn') === 'Take 3', '357: tapping a piece picks it and the ones to its right, and Take says how many', g.text('#end-turn-btn'));
+  g.click('#end-turn-btn');
+  check(g.get('piles.join()') === '3,5,4', '357: Take removes them from that row only', g.get('piles.join()'));
+  check(g.text('#end-turn-btn') === 'Wait for your turn', "357: during the computer's turn Take says to wait", g.text('#end-turn-btn'));
+  g.click(pieces(g, 0)[0]);
+  check(g.get('selectedCount') === 0, "357: you can't pick pieces during the computer's turn");
+  // Reset while the computer is thinking: its move must not land on the new board
+  g.click('#reset-btn');
+  await tick(60);
+  // The computer starts this game (starts take turns), so it makes exactly one move and then it's your turn
+  const changedRows = g.get('piles.filter((p, i) => p !== [3, 5, 7][i]).length');
+  check(changedRows === 1 && g.get('currentPlayer') === 'X', "357: Reset while the computer thinks, and it makes only its own one move in the new game", g.get('piles.join()') + ' turn ' + g.get('currentPlayer'));
+  // Play to the end: take a whole row each turn
+  for (let i = 0; i < 30 && g.get('active'); i++) {
+    await until(() => !g.get('active') || g.get('currentPlayer') === 'X');
+    if (!g.get('active')) break;
+    const row = g.get('piles.findIndex(p => p > 0)');
+    g.click(pieces(g, row)[0]);
+    g.click('#end-turn-btn');
+    await tick(5);
+  }
+  check(g.modalOpen() && /wins!/.test(g.text('#turn-info')), '357: taking the last piece ends the game, and the turn line shows the winner', g.text('#turn-info'));
+});
+
+test('357 online', async () => {
+  const { host, guest } = await onlineTable('357');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  check(guest.$('#reset-btn').disabled && guest.text('#reset-btn') === 'Host can restart', "357 online: the joiner's Reset says only the host can restart");
+  const turn = async (p, row, idx) => {
+    await until(() => p.get('canMove()'));
+    p.click(pieces(p, row)[idx]);
+    p.click('#end-turn-btn');
+    await tick(20);
+  };
+  await turn(host, 2, 0);    // host takes the 7-row
+  await until(() => guest.get('piles.join()') === '3,5,0');
+  check(guest.get('piles.join()') === '3,5,0', "357 online: the host's move shows on the joiner's phone");
+  await turn(guest, 1, 0);   // joiner takes the 5-row
+  await until(() => host.get('piles.join()') === '3,0,0');
+  check(host.get('piles.join()') === '3,0,0', "357 online: the joiner's move shows on the host's phone");
+  await turn(host, 0, 0);    // host takes the last row and wins
+  await until(() => guest.modalOpen());
+  check(guest.modalOpen() && /Tim wins!/.test(guest.text('#turn-info')), '357 online: both phones show who won', guest.text('#turn-info'));
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
