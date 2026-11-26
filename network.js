@@ -122,7 +122,9 @@ const NetworkManager = {
     handleIncomingConnection(conn) {
         console.log("New peer connecting:", conn.peer);
         this.connections.push(conn);
-        
+
+        conn.on('open', () => this.updateChatState());
+
         conn.on('data', (data) => {
             this.handleMessage(data, conn);
         });
@@ -130,6 +132,14 @@ const NetworkManager = {
         conn.on('close', () => {
             this.connections = this.connections.filter(c => c !== conn);
             console.log("Peer disconnected:", conn.peer);
+            this.updateChatState();
+        });
+    },
+
+    // Host: pass a message on to every joined phone, except the one it came from
+    relay(msg, except = null) {
+        this.connections.forEach(conn => {
+            if (conn !== except && conn.open) conn.send(msg);
         });
     },
 
@@ -138,34 +148,46 @@ const NetworkManager = {
         this.lastStateSeq++;
         const hostPlayer = new URLSearchParams(window.location.search).get('player') || 'guest';
         const msg = { type: 'STATE_UPDATE', payload: state, seq: this.lastStateSeq, hostPlayer };
-        this.connections.forEach(conn => {
-            if (conn.open) conn.send(msg);
-        });
+        this.relay(msg);
     },
 
     broadcastAnimation(animData) {
         const msg = { type: 'ANIMATION', payload: animData, timestamp: Date.now() };
         if (this.role === 'host') {
-            this.connections.forEach(conn => {
-                if (conn.open) conn.send(msg);
-            });
+            this.relay(msg);
         } else if (this.conn && this.conn.open) {
             this.conn.send(msg);
         }
     },
 
+    // --- Table chat ---
+    // Can a message reach anyone right now?
+    chatReady() {
+        if (this.role === 'host') return this.connections.some(conn => conn.open);
+        return !!(this.conn && this.conn.open);
+    },
+
+    myPlayerID() {
+        return sessionStorage.getItem('webbs_active_player') || new URLSearchParams(window.location.search).get('player') || 'guest';
+    },
+
+    // The name other players see: the family account's name, else the profile name
+    myName(id) {
+        const me = window.WebbsCloud && WebbsCloud.me;
+        if (me && me.id === id && me.name) return me.name;
+        return typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(id) : id;
+    },
+
+    // Returns false when it couldn't send, so the words stay in the box
     sendChatMessage(text) {
-        const sender = sessionStorage.getItem('webbs_active_player') || 'guest';
-        const msg = { type: 'CHAT', payload: { text, sender } };
-        if (this.role === 'host') {
-            this.handleMessage(msg); // Local display
-            this.connections.forEach(conn => {
-                if (conn.open) conn.send(msg);
-            });
-        } else if (this.conn && this.conn.open) {
-            this.handleMessage(msg); // Local display for client
-            this.conn.send(msg);
-        }
+        text = String(text || '').trim().slice(0, WebbsChat.MAX);
+        if (!text || !this.chatReady()) return false;
+        const sender = this.myPlayerID();
+        const msg = { type: 'CHAT', payload: { text, sender, name: this.myName(sender) } };
+        this.renderChatMessage(msg.payload, true);
+        if (this.role === 'host') this.relay(msg); // straight to every joined phone, once
+        else this.conn.send(msg);                  // the host passes it on to the others
+        return true;
     },
 
     // --- Client Logic ---
@@ -189,6 +211,7 @@ const NetworkManager = {
         this.conn.on('open', () => {
             clearTimeout(timeout);
             console.log("Connected to host!");
+            this.updateChatState();
             setTimeout(() => this.requestJoin(), 500); 
         });
 
@@ -283,12 +306,7 @@ const NetworkManager = {
                 break;
             case 'ANIMATION':
                 if (this.onAnimationTrigger) this.onAnimationTrigger(data.payload);
-                if (this.role === 'host') {
-                    // Relay animation to other clients
-                    this.connections.forEach(conn => {
-                        if (conn !== senderConn && conn.open) conn.send(data);
-                    });
-                }
+                if (this.role === 'host') this.relay(data, senderConn); // pass it on to the other players
                 break;
             case 'MOVE':
                 if (this.onMoveReceived) this.onMoveReceived(data.payload, senderConn);
@@ -304,65 +322,95 @@ const NetworkManager = {
             case 'CHAT':
                 this.renderChatMessage(data.payload);
                 if (this.onChatMessage) this.onChatMessage(data.payload);
-                if (this.role === 'host') {
-                    this.connections.forEach(conn => {
-                        if (conn !== senderConn && conn.open) conn.send(data);
-                    });
-                }
+                if (this.role === 'host') this.relay(data, senderConn); // pass it on to the other players
                 break;
         }
     },
 
+    // The chat starts as a small "💬 Chat" button so it never covers the game,
+    // and opens into a panel when tapped. A red badge counts messages that came in while closed.
     setupChatUI() {
         if (document.getElementById('network-chat')) return;
-        
+
         const chat = document.createElement('div');
         chat.id = 'network-chat';
-        chat.style.cssText = `
-            position: fixed; bottom: 20px; left: 20px; width: 200px; 
-            background: rgba(0,0,0,0.7); border: 1px solid var(--primary-color);
-            border-radius: 10px; z-index: 4500; display: flex; flex-direction: column;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5); font-size: 0.8em;
-        `;
-        
         chat.innerHTML = `
-            <div id="chat-messages" style="height: 100px; overflow-y: auto; padding: 10px; color: white;"></div>
-            <div style="display: flex; border-top: 1px solid rgba(255,255,255,0.1);">
-                <input type="text" id="chat-input" placeholder="Chat..." style="flex: 1; background: none; border: none; color: white; padding: 8px; outline: none;">
-                <button id="chat-send" style="background: none; border: none; color: gold; padding: 8px; cursor: pointer;">↵</button>
+            <button type="button" id="chat-toggle" class="chat-toggle" aria-expanded="false" aria-controls="chat-panel">💬 Chat<span id="chat-unread" class="chat-unread" hidden></span></button>
+            <div id="chat-panel" class="chat-panel" hidden>
+                <div class="chat-panel-head">
+                    <span>Table chat</span>
+                    <button type="button" id="chat-close" class="chat-close" aria-label="Hide chat">✕</button>
+                </div>
+                <div id="chat-messages" class="chat-messages" aria-live="polite"></div>
+                <div class="chat-form">
+                    <input type="text" id="chat-input" class="chat-input" autocomplete="off" aria-label="Chat message">
+                    <button type="button" id="chat-send" class="chat-send">Send</button>
+                </div>
             </div>
         `;
-        
         document.body.appendChild(chat);
-        
-        const input = document.getElementById('chat-input');
-        const send = document.getElementById('chat-send');
-        
-        const doSend = () => {
-            const text = input.value.trim();
-            if (text) {
-                this.sendChatMessage(text);
-                input.value = '';
-            }
+        document.body.classList.add('has-table-chat'); // room at the bottom so the button never hides a game button
+
+        document.getElementById('chat-messages').appendChild(WebbsChat.empty('Messages here go to everyone at this table.'));
+        WebbsChat.bindInput(document.getElementById('chat-input'), document.getElementById('chat-send'), text => this.sendChatMessage(text));
+        document.getElementById('chat-toggle').onclick = () => this.openChat(true);
+        document.getElementById('chat-close').onclick = () => {
+            this.openChat(false);
+            document.getElementById('chat-toggle').focus(); // keyboard and screen-reader users land back on the button
         };
-        
-        send.onclick = doSend;
-        input.onkeypress = (e) => { if (e.key === 'Enter') doSend(); };
+
+        let wasOpen = false;
+        try { wasOpen = sessionStorage.getItem('webbs_chat_open') === '1'; } catch (e) {}
+        this.openChat(wasOpen);
+        this.updateChatState();
     },
 
-    renderChatMessage(data) {
+    openChat(open) {
+        const panel = document.getElementById('chat-panel');
+        const toggle = document.getElementById('chat-toggle');
+        if (!panel || !toggle) return;
+        panel.hidden = !open;
+        toggle.hidden = open;
+        toggle.setAttribute('aria-expanded', String(open));
+        document.body.classList.toggle('table-chat-open', open);
+        try { sessionStorage.setItem('webbs_chat_open', open ? '1' : '0'); } catch (e) {}
+        if (open) {
+            this.setUnread(0);
+            const box = document.getElementById('chat-messages');
+            if (box) box.scrollTop = box.scrollHeight;
+        }
+    },
+
+    setUnread(count) {
+        this.unread = count;
+        const badge = document.getElementById('chat-unread');
+        const toggle = document.getElementById('chat-toggle');
+        if (!badge || !toggle) return;
+        badge.hidden = count === 0;
+        badge.textContent = count > 9 ? '9+' : String(count);
+        toggle.classList.toggle('has-unread', count > 0);
+        toggle.setAttribute('aria-label', count ? `Chat, ${count} new` : 'Chat');
+    },
+
+    // Greyed out with the reason until a message can actually reach someone
+    updateChatState() {
+        const input = document.getElementById('chat-input');
+        if (!input) return;
+        const reason = this.role === 'host' ? 'Waiting for someone to join…' : 'Connecting to the table…';
+        WebbsChat.setEnabled(input, document.getElementById('chat-send'), this.chatReady(), reason, 'Say something…');
+    },
+
+    renderChatMessage(data, mine = false) {
         this.setupChatUI();
-        const container = document.getElementById('chat-messages');
-        if (!container) return;
-        
-        const msg = document.createElement('div');
-        msg.style.marginBottom = '4px';
-        const who = document.createElement('strong');
-        who.style.color = 'gold';
-        who.textContent = String(data.sender || 'guest').toUpperCase() + ': ';
-        msg.appendChild(who);
-        msg.appendChild(document.createTextNode(String(data.text || '').slice(0, 300)));
-        container.appendChild(msg);
-        container.scrollTop = container.scrollHeight;
+        const box = document.getElementById('chat-messages');
+        if (!box || !data) return;
+        const hint = box.querySelector('.chat-empty');
+        if (hint) hint.remove();
+        const name = data.name || (typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(String(data.sender || 'guest')) : data.sender);
+        box.appendChild(WebbsChat.line({ name, text: data.text, when: Date.now(), mine }));
+        while (box.children.length > 50) box.firstChild.remove(); // keep the box light in long games
+        box.scrollTop = box.scrollHeight;
+        const panel = document.getElementById('chat-panel');
+        if (!mine && panel && panel.hidden) this.setUnread((this.unread || 0) + 1);
     }
 };

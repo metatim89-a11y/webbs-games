@@ -12,7 +12,7 @@ window.onload = () => {
     }
     showJoinBanner();
     const msgInput = document.getElementById('msg-input');
-    if (msgInput) msgInput.addEventListener('keydown', e => { if (e.key === 'Enter') postMessage(); });
+    if (msgInput) WebbsChat.bindInput(msgInput, document.getElementById('msg-send'), sendFamilyChat);
 
     // Check if we have a persisted session
     const persistedPlayer = sessionStorage.getItem('webbs_active_player');
@@ -297,34 +297,55 @@ async function logout() {
     location.reload();
 }
 
-/* --- Messaging --- */
-function postMessage() {
-    const input = document.getElementById('msg-input');
-    const text = input.value.trim();
-    if (!text) return;
+/* --- Family Chat --- */
+// Called with the trimmed text by WebbsChat.bindInput (Enter or the Send button)
+function sendFamilyChat(text) {
+    showFamilyChatError('');
 
     // Approved family: the chat is shared by every phone
     if (document.body.classList.contains('cloud-chat')) {
-        input.value = "";
-        FamilyUI.postBoard(text).catch(() => { input.value = text; });
-        return;
+        FamilyUI.postBoard(text).catch(() => {
+            const input = document.getElementById('msg-input');
+            if (input && !input.value) input.value = text; // give the words back so nothing is lost
+            showFamilyChatError("That message didn't send. Check your signal and try again.");
+        });
+        return true;
     }
 
-    messages.push({ sender: activePlayer, body: text, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) });
+    // Everyone else: the chat is kept on this phone only
+    messages.push({ sender: activePlayer, body: text, ts: Date.now() });
     if (messages.length > 20) messages.shift();
     localStorage.setItem('webbs_messages', JSON.stringify(messages));
-    input.value = "";
     renderMessages();
+    return true;
+}
+
+function showFamilyChatError(text) {
+    const box = document.getElementById('family-chat-error');
+    if (box) box.textContent = text;
+}
+
+// Says plainly when Family Chat only lives on this phone, and why
+function familyChatNote() {
+    const me = window.WebbsCloud && WebbsCloud.me;
+    if (activePlayer === 'guest') return 'Guest messages stay on this phone. Pick your profile to chat with the family.';
+    if (me && me.id === activePlayer && !me.approved) return 'Your messages stay on this phone until your profile is approved.';
+    return 'Messages here stay on this phone for now.';
 }
 
 function renderMessages() {
     const container = document.getElementById('messages');
     if (!container) return;
     if (document.body.classList.contains('cloud-chat')) return; // FamilyUI shows the shared chat
-    container.innerHTML = messages.map(m => `
-        <div style="margin-bottom: 8px; font-size: 0.9em;">
-            <strong style="color: gold;">${escapeHTML(String(m.sender).toUpperCase())}:</strong> ${escapeHTML(m.body)}
-        </div>
-    `).join('');
+    const note = document.getElementById('family-chat-note');
+    if (note) note.textContent = familyChatNote();
+    container.innerHTML = '';
+    messages.forEach(m => container.appendChild(WebbsChat.line({
+        name: ProfileManager.resolveName(String(m.sender || 'guest')),
+        text: m.body,
+        when: m.ts || m.timestamp, // older saved messages kept a ready-made time
+        mine: m.sender === activePlayer
+    })));
+    if (!messages.length) container.appendChild(WebbsChat.empty('No messages yet. Say hello! 👋'));
     container.scrollTop = container.scrollHeight;
 }

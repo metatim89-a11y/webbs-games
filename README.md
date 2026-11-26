@@ -40,6 +40,9 @@ Headless Chromium, real network, no extra packages. Serve the site first:
   family chat, lobby, invite and join (16 steps, test accounts removed afterwards)
 - `node tests/pin_test.mjs <tmpdir>`: make a PIN, wrong PIN, log in from another phone
 - `node tests/invite_test.mjs <tmpdir>`: invite link joins an online Sorry table, 6 turns in sync
+- `node tests/chat_test.mjs`: game table chat with a host and two joiners on a pretend network
+  (each message arrives once, greyed out with a reason until someone joins, 300-letter limit).
+  Needs no browser or server.
 - `tests/bot.js`, `unobot.js`, `anybot.js`: auto-play bots that play whole games (see the test commands in git history)
 
 Parked ideas: [LATER.md](LATER.md)

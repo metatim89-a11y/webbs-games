@@ -397,9 +397,52 @@ body.cloud-admin .admin-only { display: block !important; }
 .live-dot { width: 10px; height: 10px; border-radius: 50%; background: #2ecc71; box-shadow: 0 0 0 0 rgba(46,204,113,0.7); animation: livePulse 1.6s infinite; }
 @keyframes livePulse { 0% { box-shadow: 0 0 0 0 rgba(46,204,113,0.7); } 70% { box-shadow: 0 0 0 8px rgba(46,204,113,0); } 100% { box-shadow: 0 0 0 0 rgba(46,204,113,0); } }
 
-.board-line { margin-bottom: 8px; font-size: 0.9em; animation: slideDown 0.25s ease; }
-.board-who { color: gold; }
-.board-time { font-size: 0.7em; opacity: 0.45; }
+/* Chat message lines: the same look in Family Chat and in every game's table chat (chat.js) */
+.chat-line {
+    margin-bottom: 8px; font-size: 0.9em; line-height: 1.35; animation: slideDown 0.25s ease;
+    overflow-wrap: break-word; overflow-wrap: anywhere; /* long words and links wrap instead of sliding off */
+}
+.chat-who { color: gold; }
+.chat-time { font-size: 0.75em; opacity: 0.5; white-space: nowrap; }
+.chat-empty { opacity: 0.55; font-style: italic; font-size: 0.9em; }
+.chat-note { font-size: 0.8em; opacity: 0.7; margin: -8px 0 8px; }
+body.cloud-chat .chat-note { display: none; } /* the shared family chat needs no "this phone only" note */
+.chat-error { color: #ff8a80; font-size: 0.85em; margin-top: 6px; min-height: 1.1em; }
+#messages { overflow-x: hidden; }
+#msg-input { font-size: 16px; } /* 16px or more stops iPhones zooming in when you tap the box */
+
+/* Table chat inside online games (network.js) */
+#network-chat { position: fixed; left: 12px; bottom: 12px; z-index: 4500; font-size: 14px; }
+.chat-toggle {
+    position: relative; background: rgba(0,0,0,0.78); color: #fff; border: 1px solid var(--primary-color);
+    border-radius: 999px; padding: 10px 16px; font-size: 15px; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+.chat-toggle.has-unread { animation: chatNudge 1.2s ease-in-out 3; }
+@keyframes chatNudge { 0%, 100% { transform: none; } 50% { transform: scale(1.08); } }
+.chat-unread {
+    position: absolute; top: -7px; right: -7px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box;
+    border-radius: 10px; background: #e74c3c; color: #fff; font-size: 12px; font-weight: bold; line-height: 20px; text-align: center;
+}
+.chat-panel {
+    width: min(300px, calc(100vw - 24px)); background: rgba(0,0,0,0.85); border: 1px solid var(--primary-color);
+    border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+    animation: slideUp 0.2s ease;
+}
+@keyframes slideUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+.chat-toggle[hidden], .chat-panel[hidden], .chat-unread[hidden] { display: none; }
+.chat-panel-head {
+    display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 4px 12px;
+    color: gold; font-weight: bold; font-size: 13px; border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+.chat-close { background: none; border: none; color: #fff; font-size: 16px; min-width: 36px; min-height: 36px; cursor: pointer; opacity: 0.8; }
+.chat-messages { height: 140px; overflow-y: auto; overflow-x: hidden; padding: 8px 12px; color: #fff; text-align: left; }
+.chat-form { display: flex; border-top: 1px solid rgba(255,255,255,0.1); }
+.chat-input { flex: 1; min-width: 0; background: none; border: none; color: #fff; padding: 10px 12px; font-size: 16px; outline: none; }
+.chat-input::placeholder { color: rgba(255,255,255,0.55); }
+.chat-send { flex: none; background: none; border: none; color: gold; font-weight: bold; font-size: 15px; padding: 0 14px; cursor: pointer; }
+.chat-send:disabled { opacity: 0.35; cursor: default; }
+body.has-table-chat { padding-bottom: 80px; }   /* scroll room so the chat button never sits on a game button */
+body.table-chat-open { padding-bottom: 290px; } /* and room for the open panel */
 
 .invite-family { margin-top: 12px; }
 .invite-family-label { font-size: 0.75em; color: gold; opacity: 0.8; margin-bottom: 6px; text-transform: uppercase; }

@@ -15,15 +15,9 @@ const FamilyUI = (() => {
 
     const $ = id => document.getElementById(id);
     const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
-    const nameOf = id => (family.find(p => p.id === id) || {}).name || (window.ProfileManager ? ProfileManager.resolveName(id) : id);
+    const nameOf = id => (family.find(p => p.id === id) || {}).name || (typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(id) : id);
 
-    function timeLabel(ts) {
-        if (!ts) return '';
-        const d = new Date(ts), today = new Date();
-        const t = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-        if (d.toDateString() === today.toDateString()) return t;
-        return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + t;
-    }
+    const timeLabel = ts => WebbsChat.timeLabel(ts); // shared with the game chats (chat.js)
 
     function stopAll() {
         offs.forEach(f => { try { f(); } catch (e) {} });
@@ -41,6 +35,7 @@ const FamilyUI = (() => {
         $('pending-note').style.display = signedInHere && !me.approved && !me.admin ? 'block' : 'none';
         $('messages-btn').style.display = signedInHere && me.approved ? 'inline-block' : 'none';
         document.body.classList.toggle('cloud-chat', !!(signedInHere && me.approved));
+        if (typeof renderMessages === 'function') renderMessages(); // Family Chat note: shared, or this phone only
         if (signedInHere && $('active-player-name')) $('active-player-name').innerText = `Welcome, ${me.name.toUpperCase()}!`;
         if (!signedInHere || !me.approved) {
             renderInvites([]);
@@ -147,14 +142,9 @@ const FamilyUI = (() => {
         const box = $('messages');
         if (!box) return;
         box.innerHTML = '';
-        msgs.forEach(m => {
-            const line = el('div', 'board-line');
-            const who = el('strong', 'board-who', nameOf(m.from) + ': ');
-            line.appendChild(who);
-            line.appendChild(document.createTextNode(m.text));
-            line.appendChild(el('span', 'board-time', ' ' + timeLabel(m.ts)));
-            box.appendChild(line);
-        });
+        const me = WebbsCloud.me;
+        msgs.forEach(m => box.appendChild(WebbsChat.line({ name: nameOf(m.from), text: m.text, when: m.ts, mine: !!me && m.from === me.id })));
+        if (!msgs.length) box.appendChild(WebbsChat.empty('No messages yet. Say hello to the family! 👋'));
         box.scrollTop = box.scrollHeight;
     }
 

@@ -64,7 +64,7 @@ try {
   await a.eval(`FamilyUI.closeMessages(); true`); await b.eval(`FamilyUI.closeMessages(); true`);
 
   // Family chat
-  await a.eval(`document.getElementById('msg-input').value = 'Game night at 7!'; postMessage(); true`);
+  await a.eval(`document.getElementById('msg-input').value = 'Game night at 7!'; document.getElementById('msg-send').click(); true`);
   await b.waitFor(`document.getElementById('messages').textContent.includes('Game night at 7!')`, 10000, 'board');
   step('family chat reaches the other phone', true);
 

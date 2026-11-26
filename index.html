@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Wubs Games | Lobby</title>
-    <link rel="stylesheet" href="style.css?v=1.4.10">
+    <link rel="stylesheet" href="style.css?v=1.4.11">
 </head>
 <body class="theme-guest">
-    <div id="version-tag">v1.4.10</div>
+    <div id="version-tag">v1.4.11</div>
     
     <div id="lobby-container">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
@@ -59,11 +59,13 @@
             <!-- Message Board -->
             <div id="message-board-container" style="margin-top: 30px;">
                 <h3>Family Chat</h3>
-                <div id="messages" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 10px; text-align: left;"></div>
+                <div id="family-chat-note" class="chat-note"></div>
+                <div id="messages" aria-live="polite" style="height: 150px; overflow-y: auto; background: rgba(0,0,0,0.2); margin-bottom: 10px; padding: 10px; border-radius: 10px; text-align: left;"></div>
                 <div style="display: flex; gap: 8px;">
-                    <input type="text" id="msg-input" placeholder="Say hello..." style="flex: 1; padding: 12px; border-radius: 12px; border: none; background: rgba(255,255,255,0.1); color: white;">
-                    <button onclick="postMessage()" style="padding: 0 20px; border-radius: 12px; background: var(--primary-color); color: white; border: none;">Send</button>
+                    <input type="text" id="msg-input" placeholder="Say hello..." aria-label="Family Chat message" autocomplete="off" style="flex: 1; min-width: 0; padding: 12px; border-radius: 12px; border: none; background: rgba(255,255,255,0.1); color: white;">
+                    <button type="button" id="msg-send" style="padding: 0 20px; border-radius: 12px; background: var(--primary-color); color: white; border: none;">Send</button>
                 </div>
+                <div id="family-chat-error" class="chat-error" role="status"></div>
             </div>
         </div>
 
@@ -161,13 +163,14 @@
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
-    <script src="network.js?v=1.4.10"></script>
-    <script src="profile.js?v=1.4.10"></script>
-    <script src="audio.js?v=1.4.10"></script>
-    <script src="admin.js?v=1.4.10"></script>
-    <script src="auth.js?v=1.4.10"></script>
-    <script src="cloud.js?v=1.4.10"></script>
-    <script src="family.js?v=1.4.10"></script>
-    <script src="main.js?v=1.4.10"></script>
+    <script src="chat.js?v=1.4.11"></script>
+    <script src="network.js?v=1.4.11"></script>
+    <script src="profile.js?v=1.4.11"></script>
+    <script src="audio.js?v=1.4.11"></script>
+    <script src="admin.js?v=1.4.11"></script>
+    <script src="auth.js?v=1.4.11"></script>
+    <script src="cloud.js?v=1.4.11"></script>
+    <script src="family.js?v=1.4.11"></script>
+    <script src="main.js?v=1.4.11"></script>
 </body>
 </html>
