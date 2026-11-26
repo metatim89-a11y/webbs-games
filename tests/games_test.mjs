@@ -411,6 +411,80 @@ test('chutes and ladders online', async () => {
 });
 
 // =====================================================================
+// Sorry
+// =====================================================================
+// Every roll is a 1 (Math.random 0.1), so a pawn can always leave Start and moves are predictable
+const rollOnes = g => g.run('Math.random = () => 0.1;');
+const sorryIdle = g => !g.get('isMoving') && !g.get('isRolling');
+test('sorry vs computer', async () => {
+  const g = await openGame('sorry', 'type=cpu');
+  rollOnes(g);
+  check(!g.$('#dice-container').classList.contains('disabled') && g.text('#dice-label') === 'Guest: tap to roll', 'Sorry: on your turn the dice is bright and says tap to roll', g.text('#dice-label'));
+  g.click('#dice-container');
+  await until(() => g.get('currentRoll') === 1);
+  check(g.text('#game-info') === 'You rolled a 1! Tap a glowing pawn to move it.', 'Sorry: after your roll it says what to do next', g.text('#game-info'));
+  check(g.$('#pawn-p1-0').classList.contains('selectable') && g.text('#dice-label') === 'Tap a glowing pawn', 'Sorry: ...and your pawns that can move glow');
+  g.click('#pawn-p1-0');
+  await until(() => g.get('currentPlayer') === 'O' && sorryIdle(g));
+  check(g.get('p1Pawns[0]') === 2, 'Sorry: a 1 takes your pawn out of Start', g.get('p1Pawns[0]'));
+  check(g.$('#dice-container').classList.contains('disabled') && g.text('#dice-label') === "Computer's turn", "Sorry: on the computer's turn the dice greys out and says whose turn it is (it looked tappable before)", g.text('#dice-label'));
+  await until(() => g.text('#game-info').startsWith('Computer rolled'), 3000);
+  check(g.text('#game-info') === 'Computer rolled a 1.', "Sorry: the computer's roll says who rolled (it used to tell you to pick a pawn)", g.text('#game-info'));
+  await until(() => g.get('currentPlayer') === 'X' && sorryIdle(g), 3000);
+  check(g.get('p2Pawns[0]') === 28 && g.get('p1Pawns[0]') === 2, 'Sorry: the computer moves its own pawn on its turn');
+
+  // Reset while your pawn is still moving
+  g.click('#dice-container');
+  await until(() => g.get('currentRoll') === 1);
+  g.click('#pawn-p1-0');
+  check(g.get('isMoving'), 'Sorry: (your pawn is on its way)');
+  g.click('#reset-btn');
+  check(g.get('p1Pawns.every(p => p === -1) && p2Pawns.every(p => p === -1)') && !g.get('isMoving'), 'Sorry: Reset in the middle of a move starts a new game (it used to do nothing)', `${g.get('p1Pawns')} / ${g.get('p2Pawns')}`);
+  await until(() => g.get('currentPlayer') === 'X' && sorryIdle(g), 3000);
+  await tick(30);
+  check(g.get('p1Pawns.every(p => p === -1)') && g.get('p2Pawns[0]') === 28, 'Sorry: the half-done move never lands on the new board, and the computer only takes its own turn', `${g.get('p1Pawns')} / ${g.get('p2Pawns')}`);
+
+  // Finishing the last pawn wins
+  g.run('p1Pawns = [106, 106, 106, 105]; render();');
+  g.click('#dice-container');
+  await until(() => g.get('currentRoll') === 1);
+  g.click('#pawn-p1-3');
+  await until(() => !g.get('active'), 3000);
+  check(g.modalOpen() && g.text('#turn-info') === 'Guest wins!', 'Sorry: getting all four pawns home wins, and the turn line says so', g.text('#turn-info'));
+  check(g.$('#dice-container').classList.contains('disabled'), 'Sorry: ...and the dice greys out until Play Again');
+});
+
+test('sorry online', async () => {
+  const host = await openGame('sorry', 'type=online&role=host', 'tim');
+  await until(() => host.get('NetworkManager.roomID') && host.get('NetworkManager.peer'));
+  rollOnes(host);
+  host.click('#dice-container');
+  await tick(20);
+  check(host.get('currentRoll') === null && host.text('#dice-label') === 'Waiting for a player', 'Sorry online: the host can\'t roll before anyone joins (it could, and the game ran with nobody there)', host.text('#dice-label'));
+  const guest = await openGame('sorry', `type=online&role=client&host=${host.get('NetworkManager.roomID')}`, 'ariel');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  await tick(20);
+  rollOnes(guest);
+  check(guest.text('#reset-btn') === 'Host can restart', "Sorry online: the joiner's Reset says only the host can restart (it did nothing before)", guest.text('#reset-btn'));
+  check(guest.$('#dice-container').classList.contains('disabled') && guest.text('#dice-label') === "Tim's turn", "Sorry online: the joiner's dice is grey on the host's turn", guest.text('#dice-label'));
+  host.click('#dice-container');
+  await until(() => host.get('currentRoll') === 1 && guest.get('currentRoll') === 1);
+  check(guest.text('#game-info') === 'Tim rolled a 1.', "Sorry online: the joiner sees who rolled", guest.text('#game-info'));
+  host.click('#pawn-p1-0');
+  await until(() => guest.get('currentPlayer') === 'O' && sorryIdle(guest) && host.get('currentPlayer') === 'O', 3000);
+  check(guest.get('p1Pawns[0]') === 2, "Sorry online: the host's move shows on the joiner's phone");
+  // A made-up roll from the joining phone is ignored
+  guest.run("NetworkManager.sendMove({ type: 'ROLL', roll: 9 })");
+  await tick(30);
+  check(host.get('currentRoll') === null, 'Sorry online: the host ignores a roll that isn\'t 1 to 6', host.get('currentRoll'));
+  guest.click('#dice-container');
+  await until(() => guest.get('currentRoll') === 1 && host.get('currentRoll') === 1, 3000);
+  guest.click('#pawn-p2-0');
+  await until(() => host.get('currentPlayer') === 'X' && sorryIdle(host) && sorryIdle(guest), 3000);
+  check(host.get('p2Pawns[0]') === 28 && guest.get('p2Pawns[0]') === 28, "Sorry online: the joiner's move shows on both phones");
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
