@@ -40,7 +40,7 @@ const WubsHelp = (() => {
             icon: '🌐', title: 'Hosting an online game', group: 'help',
             steps: [
                 'Tap 🌐 Host a table in the Game Lobby (or 🎲 Play a game), pick a game, then pick 🌐 Online player.',
-                'Choose 🎲 Family lobby so the family sees your table, or ✉️ Invite only.',
+                'Choose 🎲 Game Lobby so your table shows there for anyone to join, or ✉️ Invite only.',
                 'Tap Host. You get a 4-digit table PIN at the top.',
                 'Share it: say the PIN out loud, tap 📨 Send invite link, or tap a family name to invite them in the app.',
                 'When they join, it is your turn first. Have fun!',
@@ -53,7 +53,7 @@ const WubsHelp = (() => {
             icon: '🔑', title: 'Joining a game', group: 'help',
             steps: [
                 'Someone invited you? Tap Join on the invite at the top of the lobby.',
-                'See a table in the 🎲 Game Lobby? Tap its Join button.',
+                'See a table in the 🎮 Game Lobby? Tap it to sit down.',
                 'Got a PIN? Tap 🔑 Join with PIN, type the 4 numbers and tap Join Table.',
                 'Wait a moment while your phone finds the table. The game opens by itself.',
             ],
@@ -63,13 +63,14 @@ const WubsHelp = (() => {
         lobby: {
             icon: '🎲', title: 'The Game Lobby', group: 'help',
             steps: [
-                'The Game Lobby shows family tables waiting for someone to play.',
+                'The Game Lobby shows tables waiting for someone to play.',
                 'Invites sent to you show at the top. Tap Join or Not now.',
-                'Tap Join on a table to sit down and play.',
+                'Tap a table to sit down and play.',
                 'A table leaves the lobby as soon as someone joins it.',
             ],
-            tips: ['You see the lobby when you are signed in with your family profile and Tim or Cassie has approved it.',
-                'Guests can still join with a PIN or an invite link.'],
+            tips: ['Everyone sees the tables, guests too. Only approved family can list one; guests host invite-only tables.',
+                'Invites need your family profile, approved by Tim or Cassie.',
+                "Have a PIN but don't see the table? Tap 🔑 Join with PIN."],
         },
         chat: {
             icon: '💬', title: 'Chatting', group: 'help',
@@ -173,8 +174,8 @@ const WubsHelp = (() => {
     const TOUR = [
         { icon: '👋', title: 'Welcome to Wubs Games!', text: "Here's a quick look around. It takes 30 seconds." },
         { icon: '🎲', title: 'Play a game', spot: '#play-btn', text: "Pick a game, then choose who's playing: the computer, someone next to you, or someone online." },
-        { icon: '🎮', title: 'Game Lobby', spot: '#game-lobby', text: 'Family tables waiting for a player show here, with invites sent to you. Tap Join to sit down.' },
-        { icon: '🌐', title: 'Host a table', spot: '#host-btn', text: 'Start an online game and get a PIN. The family sees your table in the Game Lobby.' },
+        { icon: '🎮', title: 'Game Lobby', spot: '#game-lobby', text: 'Tables waiting for a player show here, with invites sent to you. Tap a table to sit down.' },
+        { icon: '🌐', title: 'Host a table', spot: '#host-btn', text: 'Start an online game and get a PIN. Your table shows in the Game Lobby.' },
         { icon: '🔑', title: 'Join with PIN', spot: '#join-pin-btn', text: 'Someone gave you a 4-digit PIN? Tap here and type it.' },
         { icon: '💬', title: 'Family Chat', spot: '#message-board-container', text: 'Say hi to the family. Quick messages send in one tap.' },
         { icon: '❓', title: 'Help any time', spot: '#help-btn', text: 'Tap ❓ for help, and Rules inside any game to learn how to play it.' },

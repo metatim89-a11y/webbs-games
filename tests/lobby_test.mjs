@@ -71,9 +71,11 @@ class FakePeer extends Emitter {
 }
 
 // ---- Pretend family server (the parts of Firebase the site uses) ----
-const world = { data: {}, listeners: [] };
+// oldRules: the family server still has the rules from before Nov 26, when only approved family could read open tables
+const world = { data: {}, listeners: [], oldRules: false };
 function resetWorld() {
   world.listeners = [];
+  world.oldRules = false;
   world.data = {
     uids: { 'u-tim': 'tim', 'u-ariel': 'ariel', 'u-zed': 'zed' },
     players: {
@@ -111,7 +113,8 @@ function snap(p) {
     ref: ref(p),
   };
 }
-function ref(p) {
+const approvedUid = uid => !!(uid && (world.data.admins || {})[uid] || (read(`players/${read(`uids/${uid}`)}`) || {}).approved);
+function ref(p, who = () => null) {
   p = parts(p).join('/');
   const r = {
     key: parts(p).at(-1) || null,
@@ -119,9 +122,12 @@ function ref(p) {
     set: async v => write(p, v),
     update: async v => { for (const [k, x] of Object.entries(v)) write(p + '/' + k, x); },
     remove: async () => write(p, null),
-    push(v) { const key = 'k' + String(++pushCount).padStart(5, '0'); const child = ref(p + '/' + key); if (v !== undefined) write(p + '/' + key, v); return Object.assign(Promise.resolve(child), child); },
-    child: k => ref(p + '/' + k),
-    on(ev, fn) { const l = { path: p, fn }; world.listeners.push(l); setTimeout(() => world.listeners.includes(l) && fn(snap(p)), 1); return fn; },
+    push(v) { const key = 'k' + String(++pushCount).padStart(5, '0'); const child = ref(p + '/' + key, who); if (v !== undefined) write(p + '/' + key, v); return Object.assign(Promise.resolve(child), child); },
+    child: k => ref(p + '/' + k, who),
+    on(ev, fn, onErr) {
+      if (world.oldRules && p === 'tables' && !approvedUid(who())) { setTimeout(() => onErr && onErr({ code: 'PERMISSION_DENIED' }), 1); return fn; }
+      const l = { path: p, fn }; world.listeners.push(l); setTimeout(() => world.listeners.includes(l) && fn(snap(p)), 1); return fn;
+    },
     off(ev, fn) { world.listeners = world.listeners.filter(l => !(l.path === p && (!fn || l.fn === fn))); },
     onDisconnect: () => ({ remove() {}, set() {} }),
     limitToLast: () => r, orderByChild: () => r, orderByKey: () => r,
@@ -140,7 +146,7 @@ function fakeFirebase(uid) {
     apps: [],
     initializeApp() { fb.apps.push({}); },
     auth: Object.assign(() => auth, { Auth: { Persistence: { SESSION: 'session' } } }),
-    database: Object.assign(() => ({ ref }), { ServerValue: { get TIMESTAMP() { return Date.now(); } } }),
+    database: Object.assign(() => ({ ref: p => ref(p, () => auth.currentUser && auth.currentUser.uid) }), { ServerValue: { get TIMESTAMP() { return Date.now(); } } }),
   };
   return fb;
 }
@@ -370,6 +376,56 @@ test('guest host: invite only, no family server', async () => {
   noErrors(host, 'guest host');
 });
 
+test('guests see open tables and tap one to join', async () => {
+  resetWorld();
+  const host = await openPage('uno-no-mercy', 'player=tim&type=online&role=host', 'tim', { uid: 'u-tim' });
+  await until(() => read('tables') && Object.keys(read('tables')).length);
+  const pin = host.get('NetworkManager.roomID');
+
+  const guest = await openPage('lobby', '', 'guest', { uid: null });
+  await until(() => guest.$('#open-tables .table-row'));
+  check(guest.text('#open-tables').includes('Uno No Mercy') && guest.text('#open-tables').includes('Tim is waiting'), "Guest's Game Lobby shows Tim's open table", guest.text('#open-tables'));
+  check(guest.text('#lobby-note') === '', 'Guest: no note when the tables show', guest.text('#lobby-note'));
+  const row = guest.$('#open-tables .table-row');
+  check(row.tagName === 'BUTTON' && row.getAttribute('aria-label') === 'Join Tim at Uno No Mercy', 'The whole table row is one button, read out as "Join Tim at Uno No Mercy"', row.tagName + ' ' + row.getAttribute('aria-label'));
+  guest.click(row.querySelector('.table-game'));
+  await until(() => guest.went.length);
+  check((guest.went[0] || '').endsWith(`games/uno-no-mercy/index.html?player=guest&type=online&role=client&host=${pin}`), 'Guest taps the table (not the Join word): it opens the game at that table', guest.went[0]);
+
+  // The Join word on the row still works, and so does typing a PIN
+  const again = await openPage('lobby', '', 'guest', { uid: null });
+  await until(() => again.$('#open-tables .table-join'));
+  again.click('#open-tables .table-join');
+  await until(() => again.went.length);
+  check((again.went[0] || '').endsWith(`host=${pin}`), 'Tapping Join on the row still joins', again.went[0]);
+  const typed = await openPage('lobby', '', 'guest', { uid: null });
+  typed.click('#join-pin-btn');
+  typed.$('#join-table-pin').value = pin;
+  typed.click('#join-btn-final');
+  await until(() => typed.went.length);
+  check((typed.went[0] || '').endsWith(`host=${pin}`), 'Join with PIN still works for a PIN typed by hand', typed.went[0]);
+
+  // Waiting for approval: the tables show too
+  const zed = await openPage('lobby', '', 'zed', { uid: 'u-zed', local: { webbs_my_accounts: JSON.stringify([{ id: 'zed', name: 'Zed' }]) } });
+  await until(() => zed.$('#open-tables .table-row'));
+  check(zed.text('#open-tables').includes('Uno No Mercy'), 'A profile still waiting for approval sees the open tables');
+  noErrors(guest, 'guest lobby with tables');
+  noErrors(zed, 'pending lobby with tables');
+});
+
+test('family server still on the old rules', async () => {
+  resetWorld();
+  world.oldRules = true;
+  write('tables/2468', { game: 'Sorry!', host: 'tim', ts: Date.now() });
+  const guest = await openPage('lobby', '', 'guest', { uid: null });
+  await until(() => guest.text('#lobby-note') && !guest.text('#lobby-note').includes('Checking'));
+  check(!guest.shown('#open-tables') && guest.text('#lobby-note').includes('Guests can join with a PIN'), 'Old rules: a guest gets the note on joining with a PIN, no broken list', guest.text('#lobby-note'));
+  const ariel = await openPage('lobby', '', 'ariel', { uid: 'u-ariel' });
+  await until(() => ariel.$('#open-tables .table-row'));
+  check(ariel.text('#open-tables').includes('Sorry!'), 'Old rules: approved family still see the tables');
+  noErrors(guest, 'old rules guest');
+});
+
 // =====================================================================
 // The lobby
 // =====================================================================
@@ -381,7 +437,8 @@ test('lobby layout and notes', async () => {
   check(guest.text('#active-player-name') === 'Hi, Guest!' && guest.shown('#logout-btn'), 'Lobby: Hi, Guest! with Switch player in the welcome card');
   check(guest.shown('#play-btn') && guest.shown('#game-lobby') && guest.shown('#host-btn') && guest.shown('#join-pin-btn'),
     'Lobby: Play a game, the Game Lobby, Host a table and Join with PIN all show');
-  check(guest.text('#lobby-note').includes('Pick your family profile'), "Guest: the Game Lobby says how to see who's waiting", guest.text('#lobby-note'));
+  await until(() => guest.shown('#open-tables'));
+  check(guest.text('#open-tables').includes('No one is waiting') && guest.text('#lobby-note') === '', 'Guest, nobody hosting: the Game Lobby says no one is waiting', guest.text('#open-tables'));
   guest.click('#play-btn');
   check((guest.went.at(-1) || '').endsWith('games.html?player=guest&mode=local'), 'Play a game opens the games list');
   guest.click('#host-btn');
@@ -393,8 +450,8 @@ test('lobby layout and notes', async () => {
   check(offline.text('#lobby-note').includes("Can't reach the family server"), 'No family server: the Game Lobby says so', offline.text('#lobby-note'));
 
   const zed = await openPage('lobby', '', 'zed', { uid: 'u-zed', local: { webbs_my_accounts: JSON.stringify([{ id: 'zed', name: 'Zed' }]) } });
-  await until(() => zed.text('#lobby-note').includes('approves'));
-  check(zed.text('#lobby-note').includes('approves your profile'), 'Waiting for approval: the Game Lobby says so', zed.text('#lobby-note'));
+  await until(() => zed.shown('#pending-note') && zed.shown('#open-tables'));
+  check(zed.shown('#pending-note') && zed.text('#open-tables').includes('No one is waiting'), 'Waiting for approval: the approval note shows, and so does the Game Lobby', zed.text('#pending-note'));
 
   const ariel = await openPage('lobby', '', 'ariel', { uid: 'u-ariel' });
   await until(() => ariel.shown('#open-tables'));

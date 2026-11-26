@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Wubs Games preview</title>
+<!-- Preview only: opens a real page of the site with a pretend family server (tests/preview/fake-firebase.js).
+     ?page=index.html (or games.html, games/sorry/index.html) &as=tim|sam|kit|guest|none, plus any of the page's own settings. -->
+<script>
+(async () => {
+  const q = new URLSearchParams(location.search);
+  const page = q.get('page') || 'index.html';
+  const as = q.get('as') || 'none';
+  if (as === 'none') sessionStorage.removeItem('webbs_active_player'); else sessionStorage.setItem('webbs_active_player', as);
+  if (q.get('fresh') === '1') localStorage.clear();
+  localStorage.setItem('webbs_tour_done', '1');
+  const base = new URL('../../' + page, location.href);
+  let html = await (await fetch(base.href + '?nocache=' + Date.now())).text();
+  html = html.replace(/<script src="https:\/\/www\.gstatic\.com[^"]*"><\/script>/g, '');
+  html = html.replace(/<head>/, `<head><base href="${new URL('.', base).href}"><script src="${new URL('fake-firebase.js', location.href).href}"><\/script>`);
+  document.open(); document.write(html); document.close();
+})();
+</script>

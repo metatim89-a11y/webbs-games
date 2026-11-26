@@ -74,7 +74,10 @@ try:
 
     check('A opens a table', db('PUT', 'tables/1234', A, {'game': 'sorry', 'host': 'zzta', 'ts': 1}), True)
     check('B takes over A\'s table', db('PUT', 'tables/1234', B, {'game': 'uno', 'host': 'zztb', 'ts': 1}), False)
-    check('stranger sees open tables', db('GET', 'tables', C), False)
+    check('stranger sees open tables', db('GET', 'tables', C), True)
+    check('guest (not signed in) sees open tables', db('GET', 'tables', None), True)
+    check('stranger opens a table', db('PUT', 'tables/4321', C, {'game': 'sorry', 'host': 'zztc', 'ts': 1}), False)
+    check('guest (not signed in) opens a table', db('PUT', 'tables/4321', None, {'game': 'sorry', 'host': 'guest', 'ts': 1}), False)
     check('B sees open tables', db('GET', 'tables', B), True)
     check('A closes its table', db('DELETE', 'tables/1234', A), True)
 

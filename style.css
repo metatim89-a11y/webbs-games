@@ -408,6 +408,9 @@ body.cloud-admin .admin-only { display: block !important; }
 .open-tables { margin: 0; }
 .section-title { margin: 0 0 8px; font-size: 1em; opacity: 0.85; }
 .table-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 10px 2px; border-bottom: 1px solid rgba(255,255,255,0.08); animation: slideDown 0.3s ease; }
+button.table-row { width: 100%; background: none; border: none; border-bottom: 1px solid rgba(255,255,255,0.08); border-radius: 10px; color: inherit; font: inherit; cursor: pointer; min-height: 56px; padding: 10px 6px; }
+button.table-row:hover, button.table-row:focus-visible { background: rgba(255,255,255,0.06); }
+button.table-row:active { background: rgba(255,215,0,0.12); }
 .table-info { display: flex; align-items: center; gap: 10px; text-align: left; min-width: 0; }
 .table-text { min-width: 0; }
 .table-game { font-weight: bold; }

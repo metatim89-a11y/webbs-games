@@ -5,7 +5,7 @@
  *   cpu     the computer
  *   local   someone else taking turns on this phone
  *   online  someone on their own phone, who joins with the table PIN
- * An online table is either listed in the family Game Lobby (anyone in the family can join)
+ * An online table is either listed in the Game Lobby (anyone who opens the site can see and join it)
  * or invite only (only people you give the PIN or link to can join).
  *
  *   SeatPicker.GAMES                    the games: id, title, seats
@@ -80,7 +80,7 @@ const SeatPicker = (() => {
         return typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(id) : id;
     }
 
-    // Can this player list a table in the family Game Lobby? (needs an approved family profile)
+    // Can this player list a table in the Game Lobby? (needs an approved family profile)
     // Answers 'yes', 'no' (with why) or 'checking' while the family server is still loading.
     let familyState = { state: 'checking', why: '' };
     function checkFamily(onDone) {
@@ -134,7 +134,7 @@ const SeatPicker = (() => {
         document.body.appendChild(modal);
 
         CHOICES.forEach(c => $('seat-two').appendChild(option(c.icon, c.label, c.desc, { choice: c.id })));
-        $('seat-list').appendChild(option('🎲', 'Family lobby', 'Anyone in the family can join', { listed: '1' }));
+        $('seat-list').appendChild(option('🎲', 'Game Lobby', 'Anyone who opens Wubs Games sees it', { listed: '1' }));
         $('seat-list').appendChild(option('✉️', 'Invite only', 'Only people you send the PIN or link', { listed: '0' }));
 
         $('seat-two').addEventListener('click', e => {
@@ -337,7 +337,7 @@ const SeatPicker = (() => {
         if (!status || !cpu) return;
         const listed = pageChoice().listed;
         if (!listed) status.textContent = '✉️ Invite only: share the PIN or send an invite.';
-        else if (familyState.state === 'yes') status.textContent = '🎲 Showing in the family Game Lobby until someone joins.';
+        else if (familyState.state === 'yes') status.textContent = '🎲 Showing in the Game Lobby until someone joins.';
         else if (familyState.state === 'checking') status.textContent = 'Checking your family profile…';
         else status.textContent = '✉️ Only people you give the PIN or link can join.';
         const joined = someoneJoined();

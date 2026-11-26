@@ -40,12 +40,10 @@ const FamilyUI = (() => {
         if (signedInHere && typeof setWelcome === 'function') setWelcome(me.name);
         if (!signedInHere || !me.approved) {
             renderInvites([]);
-            $('open-tables').style.display = 'none';
             $('admin-approvals').style.display = 'none';
-            explainLobby(signedInHere);
+            watchOpenTables(() => explainLobby(signedInHere));
             return;
         }
-        lobbyNote('');
 
         offs.push(WebbsCloud.watchPlayers(players => {
             if (me.admin) renderApprovals(players.filter(p => !p.approved));
@@ -61,7 +59,7 @@ const FamilyUI = (() => {
             if (typeof renderPlayerSelect === 'function') renderPlayerSelect();
         }));
         offs.push(WebbsCloud.watchInvites(renderInvites));
-        offs.push(WebbsCloud.watchTables(renderTables));
+        watchOpenTables(() => lobbyNote(LOBBY.cant));
         offs.push(WebbsCloud.watchBoard(renderBoard));
     }
 
@@ -74,6 +72,17 @@ const FamilyUI = (() => {
         pending: "You'll see who's waiting once Tim or Cassie approves your profile.",
         cant: "Can't see who's waiting right now. You can still join with a PIN.",
     };
+
+    // Everyone sees the open tables, guests too. If they can't be read, onCantSee says why.
+    function watchOpenTables(onCantSee) {
+        $('open-tables').style.display = 'none';
+        if (!window.WebbsCloud || !WebbsCloud.available) return onCantSee();
+        lobbyNote(LOBBY.checking);
+        offs.push(WebbsCloud.watchTables(list => { lobbyNote(''); renderTables(list); }, () => {
+            $('open-tables').style.display = 'none';
+            onCantSee();
+        }));
+    }
 
     function lobbyNote(text) {
         const note = $('lobby-note');
@@ -123,11 +132,13 @@ const FamilyUI = (() => {
         box.innerHTML = '';
         box.style.display = 'block';
         if (!list.length) {
-            box.appendChild(el('p', 'lobby-empty', 'No one is waiting right now. Tap Host a table and the family sees yours here.'));
+            box.appendChild(el('p', 'lobby-empty', 'No one is waiting right now. Tap Host a table and yours shows here.'));
             return;
         }
         list.forEach(t => {
-            const row = el('div', 'table-row');
+            // The whole row is one button: tap anywhere on it to sit down at that table
+            const row = el('button', 'table-row');
+            row.type = 'button';
             const info = el('div', 'table-info');
             info.appendChild(el('span', 'live-dot'));
             const text = el('div', 'table-text');
@@ -136,9 +147,10 @@ const FamilyUI = (() => {
             if (t.ts) host.appendChild(el('span', 'table-time', ` · since ${timeLabel(t.ts)}`));
             text.appendChild(host);
             info.appendChild(text);
-            const join = el('button', 'modal-btn table-join', 'Join');
-            join.setAttribute('aria-label', `Join ${nameOf(t.host)} at ${t.game}`);
-            join.onclick = () => joinPin(t.pin);
+            const join = el('span', 'modal-btn table-join', 'Join');
+            join.setAttribute('aria-hidden', 'true');
+            row.setAttribute('aria-label', `Join ${nameOf(t.host)} at ${t.game}`);
+            row.onclick = () => joinPin(t.pin);
             row.append(info, join);
             box.appendChild(row);
         });
@@ -167,7 +179,7 @@ const FamilyUI = (() => {
             row.append(info, yes);
             box.appendChild(row);
         });
-        box.appendChild(el('div', 'approval-note', 'Approved people can message family, see the lobby and get invites. Deny or pause anyone from the ⚙️ gear.'));
+        box.appendChild(el('div', 'approval-note', 'Approved people can message family, list tables in the Game Lobby and get invites. Deny or pause anyone from the ⚙️ gear.'));
     }
 
     // ---------- Family chat (shared board) ----------

@@ -28,7 +28,7 @@ const NetworkManager = {
         this.role = role;
         this.roomID = roomID || this.generateShortID();
         this.lastStateSeq = 0;
-        // Host: show this table in the family Game Lobby, unless it was started as invite only (&list=0)
+        // Host: show this table in the Game Lobby, unless it was started as invite only (&list=0)
         this.listed = new URLSearchParams(window.location.search).get('list') !== '0';
 
         // PeerJS comes from the internet. If it didn't load, say so (vs-computer games still work without it)
