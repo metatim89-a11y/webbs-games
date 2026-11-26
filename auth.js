@@ -73,12 +73,16 @@ function clearPin() {
 
 function togglePinVisibility() {
     pinVisible = !pinVisible;
-    const btn = document.querySelector('#pin-overlay button[onclick="togglePinVisibility()"]');
-    if (btn) {
-        btn.style.background = pinVisible ? "gold" : "none";
-        btn.style.color = pinVisible ? "black" : "gold";
-    }
+    showPinButton();
     updatePinDisplay();
+}
+
+// The Show PIN button says what a tap does next, and lights up while the PIN shows
+function showPinButton() {
+    const btn = document.querySelector('#pin-overlay .pin-show');
+    if (!btn) return;
+    btn.classList.toggle('on', pinVisible);
+    btn.textContent = pinVisible ? 'Hide PIN' : 'Show PIN';
 }
 
 function updatePinDisplay() {
@@ -93,11 +97,8 @@ function closePinOverlay() {
     currentPinInput = "";
     firstNewPin = "";
     pinBusy = false;
-    const btn = document.querySelector('#pin-overlay button[onclick="togglePinVisibility()"]');
-    if (btn) {
-        btn.style.background = "none";
-        btn.style.color = "gold";
-    }
+    pinVisible = false;
+    showPinButton();
 }
 
 async function submitPin() {

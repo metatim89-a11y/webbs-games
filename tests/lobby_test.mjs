@@ -329,7 +329,9 @@ test('host a family lobby table', async () => {
   // Tim invites Ariel in the app
   [...host.$$('#invite-family .invite-chip')].find(b => b.textContent === 'Ariel').click();
   await until(() => lobby.$('#invite-inbox .invite-card'));
-  check(lobby.text('#invite-inbox').includes('Tim invited you to play Tic-Tac-Toe'), "Ariel's lobby: Tim invited you to play Tic-Tac-Toe", lobby.text('#invite-inbox'));
+  check(lobby.text('#invite-inbox').includes('Tic-Tac-Toe') && lobby.text('#invite-inbox').includes('Tim invited you'), "Ariel's lobby: Tic-Tac-Toe · Tim invited you", lobby.text('#invite-inbox'));
+  check(lobby.$('#invite-inbox .invite-card').classList.contains('table-row') && lobby.$('#invite-inbox .invite-join') && lobby.$('#invite-inbox .invite-dismiss'),
+    'The invite is the same row as an open table, with Join and Not now');
   lobby.click('#invite-inbox .invite-dismiss');
   await until(() => !lobby.$('#invite-inbox .invite-card'));
   check(!lobby.$('#invite-inbox .invite-card') && !read('invites/ariel'), 'Not now clears the invite');
@@ -389,6 +391,7 @@ test('guests see open tables and tap one to join', async () => {
   const row = guest.$('#open-tables .table-row');
   check(row.tagName === 'BUTTON' && row.getAttribute('aria-label') === 'Join Tim at Uno No Mercy', 'The whole table row is one button, read out as "Join Tim at Uno No Mercy"', row.tagName + ' ' + row.getAttribute('aria-label'));
   guest.click(row.querySelector('.table-game'));
+  check(guest.text('#join-title') === "Joining Tim's table" && guest.text('#join-hint') === `Uno No Mercy · PIN ${pin}`, 'The join box says whose table it is, the game and the PIN', guest.text('#join-title') + ' | ' + guest.text('#join-hint'));
   await until(() => guest.went.length);
   check((guest.went[0] || '').endsWith(`games/uno-no-mercy/index.html?player=guest&type=online&role=client&host=${pin}`), 'Guest taps the table (not the Join word): it opens the game at that table', guest.went[0]);
 
@@ -404,6 +407,24 @@ test('guests see open tables and tap one to join', async () => {
   typed.click('#join-btn-final');
   await until(() => typed.went.length);
   check((typed.went[0] || '').endsWith(`host=${pin}`), 'Join with PIN still works for a PIN typed by hand', typed.went[0]);
+
+  // Cancel means cancel, even when the table answers a moment later
+  const cancel = await openPage('lobby', '', 'guest', { uid: null });
+  await until(() => cancel.$('#open-tables .table-row'));
+  cancel.click('#open-tables .table-row');
+  cancel.get('closeJoinModal()');
+  await tick(60);
+  check(!cancel.went.length, 'Cancel right after tapping a table: the game does not open anyway', cancel.went.join());
+
+  // A table that's gone: a plain message and Try again
+  write('tables/9999', { game: 'Sorry!', host: 'ariel', ts: Date.now() });
+  const gone = await openPage('lobby', '', 'guest', { uid: null });
+  await until(() => gone.$$('#open-tables .table-row').length === 2);
+  gone.click(gone.$$('#open-tables .table-row').find(r => r.textContent.includes('Sorry!')));
+  await until(() => !gone.text('#join-status').includes('Finding'), 5000);
+  check(gone.text('#join-status') === 'No table is open with PIN 9999 right now. Check the PIN, or the host may have left.' && gone.text('#join-btn-final') === 'Try again' && !gone.$('#join-btn-final').disabled,
+    'A table whose host left: says so plainly, and Join becomes Try again', gone.text('#join-status'));
+  write('tables/9999', null);
 
   // Waiting for approval: the tables show too
   const zed = await openPage('lobby', '', 'zed', { uid: 'u-zed', local: { webbs_my_accounts: JSON.stringify([{ id: 'zed', name: 'Zed' }]) } });
@@ -460,6 +481,21 @@ test('lobby layout and notes', async () => {
   check(ariel.$$('.player-card').length === 0 || ariel.$$('button.player-card').length === ariel.$$('.player-card').length, 'Player cards are real buttons');
   noErrors(guest, 'guest lobby');
   noErrors(ariel, 'family lobby');
+});
+
+test('PIN pad', async () => {
+  resetWorld();
+  const p = await openPage('lobby', '', null, { uid: null });
+  p.get("initLogin('ariel')");
+  await until(() => p.$('#pin-overlay').style.display === 'flex');
+  check(p.$$('#pin-overlay .pin-pad button').length === 12 && p.$$('#pin-overlay .pin-pad button[style]').length === 0, 'The PIN pad has 12 keys, all styled the same way');
+  p.click('#pin-overlay .pin-pad button');
+  p.click('#pin-overlay .pin-show');
+  check(p.text('#pin-display') === '1---' && p.text('#pin-overlay .pin-show') === 'Hide PIN' && p.$('#pin-overlay .pin-show').classList.contains('on'), 'Show PIN shows the digits and turns into Hide PIN', p.text('#pin-display'));
+  p.get('closePinOverlay()');
+  p.get("initLogin('ariel')");
+  check(p.text('#pin-display') === '----' && p.text('#pin-overlay .pin-show') === 'Show PIN', 'Opening it again starts hidden and empty');
+  noErrors(p, 'PIN pad');
 });
 
 test('player select uses buttons', async () => {
