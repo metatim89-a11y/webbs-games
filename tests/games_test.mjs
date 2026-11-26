@@ -38,8 +38,9 @@ class Emitter {
   on(ev, fn) { (this.handlers[ev] ||= []).push(fn); }
   emit(ev, ...a) { (this.handlers[ev] || []).forEach(fn => fn(...a)); }
 }
+const conns = [];
 class FakeConn extends Emitter {
-  constructor(peerId) { super(); this.peer = peerId; this.open = false; this.other = null; }
+  constructor(peerId) { super(); this.peer = peerId; this.open = false; this.other = null; conns.push(this); }
   send(data) {
     if (!this.open) throw new Error('send on a closed connection');
     const copy = structuredClone(data), other = this.other;
@@ -659,6 +660,10 @@ for (const t of tests) {
   console.log(`\n--- ${t.name} ---`);
   try { await t.fn(); }
   catch (e) { check(false, `${t.name} ran to the end`, e.stack || String(e)); }
+  // Hang up every pretend connection first, so no message arrives at a page after it's closed
+  conns.forEach(c => { c.open = false; });
+  conns.length = 0;
+  peers.clear();
   for (const p of opened) {
     check(p.errors.length === 0, `${t.name}: no script errors on the page`, p.errors.slice(0, 3).join(' | '));
     p.w.close();
