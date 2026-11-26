@@ -8,7 +8,7 @@
     <style>
         #board-wrapper { 
             position: relative; box-sizing: border-box; margin: 20px auto;
-            width: min(400px, calc(100vw - 30px)); height: min(400px, calc(100vw - 30px)); 
+            width: min(400px, calc(100vw - 32px)); height: min(400px, calc(100vw - 32px)); /* the page's own width, so it never sticks out */
             background: #222; border: 8px solid #333; border-radius: 15px;
             box-shadow: 0 10px 30px rgba(0,0,0,0.5);
             overflow: visible;
@@ -16,7 +16,7 @@
         @media (max-width: 500px) {
             h1 { font-size: 1.5em; margin: 10px 0; }
             #dice-container { width: 50px; height: 50px; font-size: 1.8em; }
-            .sq { font-size: 6px; }
+            .sq { font-size: 7px; }
             .pawn { width: 18px; height: 18px; }
         }
         #board {
@@ -102,6 +102,8 @@
                 <li>Spin to move.</li>
                 <li>Ladders (Green) take you UP.</li>
                 <li>Chutes (Red) send you DOWN.</li>
+                <li>You need the exact number to land on 100.</li>
+                <li>Watch out for hidden squares: a swap, back 5, forward 5, or a shortcut to a ladder!</li>
             </ul>
         </div>
     </div>
@@ -109,7 +111,7 @@
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
-            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" id="play-again-btn" onclick="resetGame()">Play Again</button>
             <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
         </div>
     </div>
@@ -240,14 +242,10 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
+                        updateStatus();
                     }
                 };
-                NetworkManager.onMoveReceived = (roll) => { 
-                    if (currentPlayer === "O") {
-                        NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
-                        executeRoll(roll, true); 
-                    }
-                };
+                NetworkManager.onMoveReceived = (roll) => receiveRoll(roll);
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
                     document.getElementById('network-status').innerText = `PIN: ${NetworkManager.roomID}`;
@@ -289,6 +287,14 @@
         }
 
         function broadcast() { if (myRole === 'host') NetworkManager.broadcastState({ p1Pos, p2Pos, currentPlayer, player2ID, active, hiddenSpecials }); }
+
+        // Host: Player 2 spun. If this phone is still moving a pawn, wait for it to finish first.
+        function receiveRoll(roll) {
+            if (rollingNow) { GameKit.later(() => receiveRoll(roll), 100); return; }
+            if (!active || currentPlayer !== "O" || !(roll >= 1 && roll <= 6)) return;
+            NetworkManager.broadcastAnimation({ type: 'ROLL', roll });
+            executeRoll(roll, true);
+        }
 
         function initBoard() {
             const boardEl = document.getElementById('board');
@@ -376,7 +382,7 @@
             pawn.style.height = (sqRect.height * 0.4) + 'px';
         }
 
-        const sleep = ms => new Promise(res => setTimeout(res, ms));
+        const sleep = ms => GameKit.sleep(ms); // Reset cancels these, so a half-done move stops instead of landing on the new board
 
         function spawnParticles(x, y, color) {
             const wrapper = document.getElementById('board-wrapper');
@@ -408,7 +414,7 @@
         function canMove() {
             if (isSpectator || !active) return false;
             if (gameType === 'cpu' && currentPlayer === "O") return false;
-            if (myRole === 'host' && currentPlayer !== "X") return false;
+            if (myRole === 'host' && (!player2ID || currentPlayer !== "X")) return false;
             if (myRole === 'player2' && currentPlayer !== "O") return false;
             return true;
         }
@@ -432,6 +438,7 @@
                 const rollBtn = document.getElementById('roll-btn');
                 if (rollBtn) rollBtn.disabled = true;
 
+                document.getElementById('game-info').innerText = ''; // clear "Spin to start!" or the last message
                 dice.classList.add('rolling');
                 if (window.AudioManager) AudioManager.play('roll');
                 for(let i=0; i<12; i++) {
@@ -444,6 +451,12 @@
                 let pId = currentPlayer === "X" ? 'p1' : 'p2';
                 let current = (currentPlayer === "X") ? p1Pos : p2Pos;
                 
+                if (current + roll > 100) {
+                    // Too far: the pawn stays put. Say so, so it doesn't look like nothing happened.
+                    const info = document.getElementById('game-info');
+                    if (info) info.innerText = `Need exactly ${100 - current} to reach 100`;
+                    await sleep(900);
+                }
                 if (current + roll <= 100) {
                     for(let i=0; i<roll; i++) {
                         current++;
@@ -550,7 +563,7 @@
                     currentPlayer = (currentPlayer === "X") ? "O" : "X";
                     if (isLocal) broadcast();
                     updateStatus();
-                    if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) setTimeout(() => cpuMove(), 800);
+                    if (gameType === 'cpu' && currentPlayer === 'O' && isLocal) GameKit.later(cpuMove, 800);
                 }
             } catch (err) {
                 console.error(err);
@@ -558,9 +571,12 @@
             }
         }
 
-        function cpuMove() { if (active) handleRoll(true); }
+        // Only ever spins on the computer's own turn (never yours, even right after a Reset)
+        function cpuMove() { if (active && gameType === 'cpu' && currentPlayer === "O" && !rollingNow) handleRoll(true); }
 
+        let resultText = '';
         function showGameOver(winner) {
+            resultText = winner + " wins!";
             document.getElementById('winner-text').innerText = winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
             updateStatus();
@@ -570,26 +586,45 @@
             const info = document.getElementById('turn-info');
             const rollBtn = document.getElementById('roll-btn');
             const names = getNames();
-            if (!active) { if (rollBtn) rollBtn.disabled = true; return; }
+
+            // Only the host can start a new online game; the other phone says so instead of doing nothing
+            const hostOnly = gameType === 'online' && myRole !== 'host';
+            GameKit.setControl(document.getElementById('reset-btn'), !hostOnly, 'Host can restart');
+            GameKit.setControl(document.getElementById('play-again-btn'), !hostOnly, 'Waiting for host…');
+
+            info.classList.toggle('game-done', !active);
+            if (!active) { info.innerText = resultText; GameKit.setControl(rollBtn, false, 'Game over'); return; }
+            if (myRole === 'host' && !player2ID) {
+                info.innerText = "Waiting for someone to join…";
+                GameKit.setControl(rollBtn, false, 'Wait for a player');
+                return;
+            }
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             const isMyTurn = (myRole === 'host' && currentPlayer === 'X') || (myRole === 'player2' && currentPlayer === 'O') || (myRole === 'local' && (gameType !== 'cpu' || currentPlayer === 'X'));
             if (isMyTurn && myRole !== 'local') text = "YOUR TURN"; // local play shows names, like Tic-Tac-Toe
             info.innerText = text;
-            if (rollBtn) rollBtn.disabled = !isMyTurn || isSpectator;
+            GameKit.setControl(rollBtn, isMyTurn && !isSpectator, 'Wait for your turn');
         }
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            // Stop a spin or pawn move that's still going, and the computer's next spin, so neither lands on the new game
+            GameKit.cancelAll();
+            rollingNow = false; pendingState = null;
+            const dice = document.getElementById('dice-container');
+            dice.classList.remove('rolling'); dice.innerText = '?';
+            document.getElementById('board-wrapper').classList.remove('shake');
+            document.getElementById('game-info').innerText = 'Spin to start!';
+
             document.getElementById('game-over-modal').style.display = 'none';
             initHiddenSpecials();
-            if (rollingNow) return;
             p1Pos = 0; p2Pos = 0; active = true;
             startingPlayer = startingPlayer === "X" ? "O" : "X";
             currentPlayer = startingPlayer;
             movePawn('p1', 0); movePawn('p2', 0);
             if (myRole === 'host') broadcast();
             updateStatus();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 1000);
+            if (gameType === 'cpu' && currentPlayer === "O") GameKit.later(cpuMove, 1000);
         }
     </script>
 </body>

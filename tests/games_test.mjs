@@ -358,6 +358,59 @@ test('black hole online', async () => {
 });
 
 // =====================================================================
+// Chutes & Ladders
+// =====================================================================
+// Every spin is a 4 (Math.random 0.5) and there are no hidden squares, so moves are predictable
+const fixDice = g => g.run('Math.random = () => 0.5; hiddenSpecials = {};');
+test('chutes and ladders vs computer', async () => {
+  const g = await openGame('chutes-and-ladders', 'type=cpu');
+  check(g.get('typeof (window.AudioManager && window.AudioManager.play)') === 'function', 'Chutes & Ladders: the game sounds exist now (they were silent)');
+  fixDice(g);
+  g.click('#roll-btn');
+  await until(() => g.get('currentPlayer') === 'O');
+  check(g.get('p1Pos') === 14, 'Chutes & Ladders: a 4 from the start lands on 4 and climbs the ladder to 14', g.get('p1Pos'));
+  check(g.$('#roll-btn').disabled && g.text('#roll-btn') === 'Wait for your turn', "Chutes & Ladders: SPIN says to wait during the computer's turn", g.text('#roll-btn'));
+  await until(() => g.get('currentPlayer') === 'X' && !g.get('rollingNow'), 5000);
+  check(g.get('p2Pos') === 14, 'Chutes & Ladders: the computer spins on its own turn', g.get('p2Pos'));
+
+  // Reset in the middle of a spin
+  g.click('#roll-btn');
+  await tick(10);
+  g.click('#reset-btn');
+  check(g.get('p1Pos') === 0 && g.get('p2Pos') === 0 && !g.get('rollingNow'), 'Chutes & Ladders: Reset during a spin really starts a new game (it used to do nothing)', `${g.get('p1Pos')} / ${g.get('p2Pos')}`);
+  await until(() => g.get('currentPlayer') === 'X' && !g.get('rollingNow'), 5000);
+  await tick(50);
+  check(g.get('p1Pos') === 0 && g.get('p2Pos') === 14, "Chutes & Ladders: after Reset the computer only takes its own spin, never yours", `${g.get('p1Pos')} / ${g.get('p2Pos')}`);
+
+  // Needing an exact roll, then winning
+  g.run('p1Pos = 98; movePawn("p1", 98);');
+  g.click('#roll-btn');
+  await until(() => g.text('#game-info').startsWith('Need'));
+  check(g.text('#game-info') === 'Need exactly 2 to reach 100', 'Chutes & Ladders: too big a roll near 100 says what number is needed', g.text('#game-info'));
+  await until(() => g.get('currentPlayer') === 'X' && !g.get('rollingNow'), 5000);
+  check(g.get('p1Pos') === 98, 'Chutes & Ladders: ...and the pawn stays put');
+  g.run('p1Pos = 96;');
+  g.click('#roll-btn');
+  await until(() => !g.get('active'), 5000);
+  check(g.modalOpen() && g.text('#turn-info') === 'Guest wins!', 'Chutes & Ladders: landing on 100 wins, and the turn line says so', g.text('#turn-info'));
+});
+
+test('chutes and ladders online', async () => {
+  const { host, guest } = await onlineTable('chutes-and-ladders');
+  check(host.text('#roll-btn') === 'Wait for a player' || host.get('player2ID'), 'Chutes & Ladders online: the host waits for a player');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  fixDice(host); fixDice(guest);
+  check(guest.text('#reset-btn') === 'Host can restart', "Chutes & Ladders online: the joiner's Reset says only the host can restart (it did nothing before)");
+  await until(() => host.get('canMove()'));
+  host.click('#roll-btn');
+  await until(() => guest.get('p1Pos') === 14 && guest.get('currentPlayer') === 'O' && !guest.get('rollingNow'), 5000);
+  check(guest.get('p1Pos') === 14, "Chutes & Ladders online: the host's spin moves their pawn on the joiner's phone too");
+  guest.click('#roll-btn');
+  await until(() => host.get('p2Pos') === 14 && host.get('currentPlayer') === 'X' && !host.get('rollingNow'), 5000);
+  check(host.get('p2Pos') === 14 && guest.get('p2Pos') === 14, "Chutes & Ladders online: the joiner's spin shows on both phones");
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
