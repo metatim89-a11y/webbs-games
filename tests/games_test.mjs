@@ -243,6 +243,59 @@ test('357 online', async () => {
 });
 
 // =====================================================================
+// Mancala
+// =====================================================================
+const stones = g => g.get('board.reduce((a, b) => a + b, 0)');
+test('mancala vs computer', async () => {
+  const g = await openGame('mancala', 'type=cpu');
+  check(/Guest: bottom row, store on the right/.test(g.text('#label-bottom')) && /Computer: top row/.test(g.text('#label-top')),
+    'Mancala: labels say whose row and store is whose', g.text('#label-bottom') + ' / ' + g.text('#label-top'));
+  g.click('#pit-2'); // 4 stones: 3, 4, 5 and the last one in your store
+  await until(() => !g.get('sowingNow'));
+  check(g.get('board.slice(0, 7).join()') === '4,4,0,5,5,5,1' && g.get('currentPlayer') === 0,
+    'Mancala: last stone in your own store gives you another turn', g.get('board.join()'));
+  g.click('#pit-12');
+  check(g.get('sowingNow') === 0 && g.get('board[12]') === 4, "Mancala: you can't pick the computer's pits");
+  g.click('#pit-0'); // lands in pit 4, turn passes to the computer
+  await until(() => g.get('currentPlayer') === 1 && !g.get('sowingNow'));
+  check(g.$('#pit-0').classList.contains('disabled') && g.$('#pit-3').classList.contains('disabled'), "Mancala: on the computer's turn your pits look faded");
+  await until(() => g.get('currentPlayer') === 0 && !g.get('sowingNow'), 5000);
+  check(stones(g) === 48, 'Mancala: the computer takes its turn and no stones appear or vanish', stones(g));
+
+  // Reset in the middle of dropping stones: nothing from the old move lands on the new board
+  g.click('#pit-5');
+  await tick(3);
+  g.click('#reset-btn');
+  await tick(150);
+  await until(() => !g.get('sowingNow'), 5000);
+  check(stones(g) === 48, 'Mancala: Reset in the middle of a move gives a clean board (still 48 stones)', `${stones(g)} stones: ${g.get('board.join()')}`);
+
+  // A capture that ends the game: one stone into the empty pit 1 takes the 5 opposite it
+  await until(() => g.get('currentPlayer') === 0 && !g.get('sowingNow'), 5000);
+  g.run('board = [1,0,0,0,0,0,0, 0,0,0,0,5,2,0]; render();');
+  g.click('#pit-0');
+  await until(() => !g.get('active'));
+  check(g.get('board[6]') === 6 && g.get('board[13]') === 2, 'Mancala: landing in your empty pit captures the stones opposite', g.get('board.join()'));
+  check(g.modalOpen() && g.text('#turn-info') === 'Guest wins, 6 to 2', 'Mancala: when a side is empty the game ends and shows the score', g.text('#turn-info'));
+});
+
+test('mancala online', async () => {
+  const { host, guest } = await onlineTable('mancala');
+  check(host.text('#turn-info') === 'Waiting for someone to join…' || host.get('player2ID'), 'Mancala online: the host waits for a player');
+  await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+  check(guest.text('#reset-btn') === 'Host can restart', "Mancala online: the joiner's Reset says only the host can restart");
+  const settled = () => !host.get('sowingNow') && !guest.get('sowingNow') && host.get('board.join()') === guest.get('board.join()');
+  host.click('#pit-2');               // extra turn
+  await until(settled, 5000);
+  host.click('#pit-0');               // now Player 2's turn
+  await until(() => settled() && guest.get('currentPlayer') === 1, 5000);
+  check(guest.get('currentPlayer') === 1 && guest.text('#turn-info') === 'YOUR TURN', "Mancala online: after the host's turn it's the joiner's turn");
+  guest.click('#pit-9');
+  await until(() => settled() && host.get('currentPlayer') === 0, 5000);
+  check(settled() && stones(host) === 48, 'Mancala online: both phones show the same board after each move', host.get('board.join()') + ' | ' + guest.get('board.join()'));
+});
+
+// =====================================================================
 for (const t of tests) {
   if (only && !t.name.includes(only)) continue;
   console.log(`\n--- ${t.name} ---`);
