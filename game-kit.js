@@ -6,6 +6,7 @@
  *   GameKit.cancelAll()      cancel every waiting timer (called by Reset / Play Again),
  *                            so the computer never takes a turn in the next game
  *                            and a half-finished animation never moves pieces on a fresh board
+ *   GameKit.shuffle(list)    a fair shuffle (every order equally likely)
  *   GameKit.setControl(btn, enabled, reason)
  *                            grey a button out and put the reason on the button itself,
  *                            instead of hiding it or letting a tap do nothing
@@ -41,5 +42,15 @@ const GameKit = (() => {
         btn.classList.toggle('kit-off', !enabled);
     }
 
-    return { later, sleep, cancelAll, setControl };
+    // A fair shuffle (Fisher-Yates): every order is equally likely.
+    // list.sort(() => Math.random() - 0.5) is not fair: cards stay near where they started, so they come out in clumps.
+    function shuffle(list) {
+        for (let i = list.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [list[i], list[j]] = [list[j], list[i]];
+        }
+        return list;
+    }
+
+    return { later, sleep, cancelAll, setControl, shuffle };
 })();

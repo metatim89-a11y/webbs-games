@@ -348,7 +348,7 @@
             wildValues.forEach(v => {
                 for(let i=0; i<4; i++) { d.push({color:'wild', value:v}); }
             });
-            return d.sort(() => Math.random() - 0.5);
+            return GameKit.shuffle(d); // fair shuffle, so colours don't come out in clumps
         }
 
         // How many cards a draw card makes you take: "Draw 6", "Wild Draw 10"... (0 for others)

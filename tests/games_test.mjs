@@ -532,10 +532,17 @@ test('uno vs computer', async () => {
   // Color Roulette: one colour pick, then the computer draws until it gets that colour
   tapCard(g, 'Wild Color Roulette');
   check(g.text('#color-picker-title') === 'Pick a color: they draw until they get it', 'Uno: Color Roulette says what the colour is for');
+  // Top of the deck: blue, red, then green (a random deck could make the computer draw 25 and end it by the mercy rule)
+  g.run(`deck.push(${JSON.stringify(C('green', '4'))}, ${JSON.stringify(C('red', '2'))}, ${JSON.stringify(C('blue', '8'))});`);
   g.click('.color-opt.color-green');
   check(!pickerOpen(g) && g.get('rouletteTarget') === 'green' && g.get('discard.color') === 'green', 'Uno: Color Roulette asks for a colour once (it asked twice)', `${pickerOpen(g)} / ${g.get('rouletteTarget')}`);
   await until(() => g.get('currentPlayer') === 'X' && !g.get('rouletteTarget'), 3000);
-  check(g.get('cpuHand[cpuHand.length - 1].color') === 'green', '...and the computer draws until it gets that colour');
+  check(g.get('cpuHand.length') === 5 && g.get('cpuHand[cpuHand.length - 1].color') === 'green', '...and the computer draws until it gets that colour (3 cards here)', g.get('cpuHand.length'));
+
+  // The deck is shuffled fairly: 7 coloured cards off the top were only one or two colours in about 1 in 4 deals (fair: about 1 in 25)
+  const lopsided = g.get(`(() => { let n = 0; for (let t = 0; t < 3000; t++) { const d = buildDeck().filter(c => c.color !== 'wild').slice(-7);
+    if (new Set(d.map(c => c.color)).size <= 2) n++; } return n / 3000; })()`);
+  check(lopsided < 0.06, 'Uno: the deck shuffle is fair, so opening hands mix the colours', `${(lopsided * 100).toFixed(1)}% one- or two-colour hands`);
 
   // The deck shows how many cards a draw stack makes you take
   g.run('drawStack = 4; render();');
