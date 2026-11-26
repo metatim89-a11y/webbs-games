@@ -129,3 +129,50 @@ window.AudioManager = {
         }
     }
 };
+
+// Sound on/off switch: one 🔊 / 🔇 button next to ← Back in every game (and at the top of the lobby).
+// The choice is kept on this phone, so it stays the same from game to game.
+const SoundSwitch = {
+    KEY: 'webbs_sound_off',
+
+    isOn() {
+        try { return localStorage.getItem(this.KEY) !== '1'; } catch (e) { return true; }
+    },
+
+    set(on) {
+        try { on ? localStorage.removeItem(this.KEY) : localStorage.setItem(this.KEY, '1'); } catch (e) {}
+        AudioEngine.enabled = on;
+        this.paint();
+        if (on) AudioEngine.playClick(); // a little click so you hear it's back on
+    },
+
+    paint() {
+        const btn = document.getElementById('sound-btn');
+        if (!btn) return;
+        const on = AudioEngine.enabled;
+        btn.textContent = on ? '🔊' : '🔇';
+        btn.title = on ? 'Sound is on (tap to turn it off)' : 'Sound is off (tap to turn it on)';
+        btn.setAttribute('aria-label', on ? 'Sound on' : 'Sound off');
+        btn.setAttribute('aria-pressed', String(!on));
+    },
+
+    mount() {
+        if (document.getElementById('sound-btn')) return;
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.id = 'sound-btn';
+        btn.className = 'sound-btn';
+        btn.dataset.noSound = 'true';
+        btn.onclick = () => this.set(!AudioEngine.enabled);
+        const back = document.querySelector('.back-btn');
+        const gear = document.getElementById('admin-gear');
+        if (back) back.insertAdjacentElement('afterend', btn);       // game pages
+        else if (gear) gear.insertAdjacentElement('beforebegin', btn); // lobby header
+        else return;
+        this.paint();
+    }
+};
+
+AudioEngine.enabled = SoundSwitch.isOn();
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => SoundSwitch.mount());
+else SoundSwitch.mount();

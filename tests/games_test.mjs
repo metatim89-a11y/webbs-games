@@ -100,6 +100,7 @@ async function openGame(game, query, player = 'guest', opts = {}) {
         configurable: true, get() { return this.textContent; }, set(v) { this.textContent = v; }
       });
       w.sessionStorage.setItem('webbs_active_player', player);
+      if (opts.soundOff) w.localStorage.setItem('webbs_sound_off', '1');
     }
   });
   const w = dom.window;
@@ -645,6 +646,8 @@ async function openLobby() {
 const typeInto = (p, sel, value) => { const el = p.$(sel); el.value = value; el.dispatchEvent(new p.w.Event('input', { bubbles: true })); return el.value; };
 test('lobby join box and sign-up messages', async () => {
   const p = await openLobby();
+  const snd = p.$('#sound-btn');
+  check(snd && snd.parentElement === p.$('#admin-gear').parentElement && snd.textContent === '🔊', 'Lobby: the sound switch is at the top too');
   p.run('joinTablePrompt()');
   check(typeInto(p, '#join-table-pin', 'a1b2c3d') === '123', 'Lobby: the Table PIN box keeps only digits', p.$('#join-table-pin').value);
   check(typeInto(p, '#join-table-pin', '123456') === '1234', 'Lobby: ...and stops at 4 digits', p.$('#join-table-pin').value);
@@ -685,6 +688,23 @@ for (const [game, title] of Object.entries(TITLES)) {
         "Uno No Mercy: a new player at the table gets a fresh deal, and the host's count of their cards matches",
         `${host.get('opponentHandCount')} vs ${back.get('myHand.length')}`);
     }
+  });
+}
+
+// Every game: one sound on/off switch beside ← Back, remembered on this phone
+for (const [game, title] of Object.entries(TITLES)) {
+  test(`${game} sound switch`, async () => {
+    const g = await openGame(game, 'type=cpu');
+    const btn = g.$('#sound-btn');
+    check(btn && btn.previousElementSibling === g.$('.back-btn') && btn.textContent === '🔊',
+      `${title}: a sound switch sits beside ← Back (there was no way to turn sound off)`);
+    g.click('#sound-btn');
+    check(g.get('AudioEngine.enabled') === false && g.w.localStorage.getItem('webbs_sound_off') === '1' && btn.textContent === '🔇' && btn.getAttribute('aria-label') === 'Sound off',
+      `${title}: tapping it turns sound off and shows 🔇`);
+    g.click('#sound-btn');
+    check(g.get('AudioEngine.enabled') === true && g.w.localStorage.getItem('webbs_sound_off') === null, `${title}: tapping again turns sound back on`);
+    const q = await openGame(game, 'type=cpu', 'guest', { soundOff: true });
+    check(q.get('AudioEngine.enabled') === false && q.text('#sound-btn') === '🔇', `${title}: sound stays off on the next game`);
   });
 }
 
