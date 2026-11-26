@@ -6,10 +6,10 @@
     <title>Tic-Tac-Toe | Webbs Games</title>
     <link rel="stylesheet" href="../../style.css?v=1.4.11">
     <style>
-        .grid { display: grid; grid-template-columns: repeat(3, 100px); gap: 10px; margin: 20px auto; width: fit-content; }
+        .grid { --cell: min(100px, 26vw); display: grid; grid-template-columns: repeat(3, var(--cell)); gap: 10px; margin: 20px auto; width: fit-content; }
         .cell { 
-            width: 100px; height: 100px; background: rgba(255,255,255,0.1); border: 2px solid var(--primary-color); 
-            display: flex; justify-content: center; align-items: center; font-size: 3em; cursor: pointer; 
+            box-sizing: border-box; width: var(--cell); height: var(--cell); background: rgba(255,255,255,0.1); border: 2px solid var(--primary-color); 
+            display: flex; justify-content: center; align-items: center; font-size: calc(var(--cell) * 0.48); cursor: pointer; 
             transition: background 0.3s;
         }
         .cell:hover { background: rgba(255,255,255,0.2); }
@@ -42,7 +42,7 @@
     <div id="game-over-modal" class="game-over-modal">
         <div class="modal-content">
             <div class="winner-announcement" id="winner-text">PLAYER 1 WINS!</div>
-            <button class="modal-btn" onclick="resetGame()">Play Again</button>
+            <button class="modal-btn" id="play-again-btn" onclick="resetGame()">Play Again</button>
             <button class="modal-btn" onclick="location.href='../../index.html'">Main Menu</button>
         </div>
     </div>
@@ -54,7 +54,7 @@
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button onclick="location.href='../../index.html'">← Back</button>
+            <button class="back-btn" onclick="location.href='../../index.html'">← Back</button>
             <div id="network-status" style="font-size: 0.9em; color: gold;"></div>
         </div>
 
@@ -89,6 +89,7 @@
     <script src="../../network.js?v=1.4.11"></script>
     <script src="../../profile.js?v=1.4.11"></script>
     <script src="../../audio.js?v=1.4.11"></script>
+    <script src="../../game-kit.js?v=1.4.11"></script>
     <script>
         let board = ["","","","","","","","",""], currentPlayer = "X", active = true;
         let myRole = 'local';
@@ -130,10 +131,11 @@
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
                         broadcast();
+                        updateStatus();
                     }
                 };
                 NetworkManager.onMoveReceived = (idx) => {
-                    if (currentPlayer === "O") executeMove(idx, true);
+                    if (active && currentPlayer === "O" && board[idx] === "") executeMove(idx, true);
                 };
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -188,8 +190,8 @@
             // In CPU mode, block human if it's O's turn (CPU)
             if (gameType === 'cpu' && currentPlayer === "O") return false;
             
-            // In Online mode, block if it's not our turn
-            if (myRole === 'host' && currentPlayer !== "X") return false;
+            // In Online mode, block if it's not our turn (or nobody has joined yet)
+            if (myRole === 'host' && (!player2ID || currentPlayer !== "X")) return false;
             if (myRole === 'player2' && currentPlayer !== "O") return false;
             
             return true;
@@ -202,7 +204,7 @@
             if (!checkWin()) {
                 currentPlayer = currentPlayer === "X" ? "O" : "X";
                 if (gameType === 'cpu' && currentPlayer === "O" && isLocal) {
-                    setTimeout(cpuMove, 800);
+                    GameKit.later(cpuMove, 800);
                 }
             }
             if (isLocal) broadcast();
@@ -210,7 +212,7 @@
         }
 
         function cpuMove() {
-            if (!active) return;
+            if (!active || gameType !== 'cpu' || currentPlayer !== "O") return; // only ever on the computer's own turn
             const available = board.map((v, i) => v === "" ? i : -1).filter(i => i !== -1);
             if (available.length === 0) return;
             const lines = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
@@ -246,15 +248,14 @@
             const info = document.getElementById('turn-info');
             const resetBtn = document.getElementById('reset-btn');
             
-            // Update Reset Button visibility/state
-            if (gameType === 'online') {
-                resetBtn.disabled = (myRole !== 'host');
-                resetBtn.style.opacity = (myRole === 'host') ? "1" : "0.5";
-            } else {
-                resetBtn.disabled = !active;
-            }
+            // Only the host can start a new online game; the other phone says so instead of doing nothing
+            const hostOnly = gameType === 'online' && myRole !== 'host';
+            GameKit.setControl(resetBtn, !hostOnly, 'Host can restart');
+            GameKit.setControl(document.getElementById('play-again-btn'), !hostOnly, 'Waiting for host…');
 
-            if (!active) return;
+            info.classList.toggle('game-done', !active);
+            if (!active) { info.innerText = resultText; return; }
+            if (myRole === 'host' && !player2ID) { info.innerText = "Waiting for someone to join…"; return; }
             
             const names = getNames();
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
@@ -295,7 +296,9 @@
             return false;
         }
 
+        let resultText = '';
         function showGameOver(winner) {
+            resultText = winner === "DRAW" ? "It's a draw!" : winner + " wins!";
             document.getElementById('winner-text').innerText = winner === "DRAW" ? "IT'S A DRAW!" : winner + " WINS!";
             document.getElementById('game-over-modal').style.display = 'flex';
             updateStatus();
@@ -303,6 +306,7 @@
 
         function resetGame() {
             if (gameType === 'online' && myRole !== 'host') return;
+            GameKit.cancelAll(); // the last game's computer move never lands on the new board
             
             document.getElementById('game-over-modal').style.display = 'none';
             board = ["","","","","","","","",""];
@@ -311,7 +315,7 @@
             currentPlayer = startingPlayer;
             if (myRole === 'host') broadcast();
             render();
-            if (gameType === 'cpu' && currentPlayer === "O") setTimeout(cpuMove, 800);
+            if (gameType === 'cpu' && currentPlayer === "O") GameKit.later(cpuMove, 800);
         }
     </script>
 </body>
