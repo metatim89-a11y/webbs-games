@@ -134,6 +134,14 @@
                         updateStatus();
                     }
                 };
+                // Player 2's phone left (closed the page, lost signal): open the seat so they can sit back down with the PIN
+                NetworkManager.onPlayerLeft = (id) => {
+                    if (id !== player2ID) return false;
+                    player2ID = null;
+                    broadcast();
+                    updateStatus();
+                    return true;
+                };
                 NetworkManager.onMoveReceived = (idx) => {
                     if (active && currentPlayer === "O" && board[idx] === "") executeMove(idx, true);
                 };
@@ -255,7 +263,7 @@
 
             info.classList.toggle('game-done', !active);
             if (!active) { info.innerText = resultText; return; }
-            if (myRole === 'host' && !player2ID) { info.innerText = "Waiting for someone to join…"; return; }
+            if (myRole === 'host' && !player2ID) { info.innerText = NetworkManager.waitingText(); return; }
             
             const names = getNames();
             let text = currentPlayer === "X" ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;

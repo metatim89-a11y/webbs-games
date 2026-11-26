@@ -78,6 +78,7 @@ function phone(playerId, extra = {}) {
   const shown = [];   // every chat line this phone's screen would show
   const states = [];  // every time the chat box was told to update its greyed-out state
   nm.setupChatUI = () => {};
+  nm.showNotice = () => {}; // the "lost connection" box is a screen thing too (tests/games_test.mjs checks it)
   nm.renderChatMessage = (data, mine = false) => shown.push({ text: data.text, name: data.name || data.sender, mine });
   nm.updateChatState = () => states.push(typeof nm.chatReady === 'function' ? nm.chatReady() : null);
   return { nm, shown, states, ctx };

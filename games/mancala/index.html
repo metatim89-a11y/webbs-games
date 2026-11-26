@@ -172,6 +172,14 @@
                         render();
                     }
                 };
+                // Player 2's phone left (closed the page, lost signal): open the seat so they can sit back down with the PIN
+                NetworkManager.onPlayerLeft = (id) => {
+                    if (id !== player2ID) return false;
+                    player2ID = null;
+                    broadcast();
+                    render();
+                    return true;
+                };
                 NetworkManager.onMoveReceived = (pit) => receiveMove(pit);
                 NetworkManager.init('host');
                 NetworkManager.peer.on('open', (id) => {
@@ -254,7 +262,7 @@
 
             turnInfo.classList.toggle('game-done', !active);
             if (!active) { turnInfo.innerText = resultText; return; }
-            if (myRole === 'host' && !player2ID) { turnInfo.innerText = "Waiting for someone to join…"; return; }
+            if (myRole === 'host' && !player2ID) { turnInfo.innerText = NetworkManager.waitingText(); return; }
 
             let text = currentPlayer === 0 ? `${names.p1}'s Turn` : `${names.p2}'s Turn`;
             

@@ -62,6 +62,8 @@ class FakePeer extends Emitter {
     const host = peers.get(id);
     const mine = new FakeConn(id), theirs = new FakeConn(this.id);
     mine.other = theirs; theirs.other = mine;
+    // Like PeerJS: nobody has that id, so this peer reports 'peer-unavailable'
+    if (!host) { setTimeout(() => this.emit('error', { type: 'peer-unavailable', message: 'Could not connect to peer ' + id }), 2); return mine; }
     setTimeout(() => {
       host.emit('connection', theirs);
       setTimeout(() => { mine.open = theirs.open = true; theirs.emit('open'); mine.emit('open'); }, 2);
@@ -72,7 +74,7 @@ class FakePeer extends Emitter {
 
 // ---- One pretend phone showing one game page ----
 const opened = [];
-async function openGame(game, query, player = 'guest') {
+async function openGame(game, query, player = 'guest', opts = {}) {
   let html = readFileSync(path.join(root, 'games', game, 'index.html'), 'utf8');
   // PeerJS and Firebase come from the internet; here the pretend PeerJS stands in and Firebase is simply missing
   html = html.replace(/<script src="https?:[^"]*"><\/script>/g, '');
@@ -91,7 +93,7 @@ async function openGame(game, query, player = 'guest') {
       w.alert = msg => alerts.push(String(msg));
       w.confirm = () => true;
       w.prompt = () => null;
-      w.Peer = FakePeer;
+      if (!opts.noPeer) w.Peer = FakePeer;
       w.scrollTo = () => {};
       // jsdom has no innerText; the games use it, so map it to textContent like a browser would for plain text
       Object.defineProperty(w.HTMLElement.prototype, 'innerText', {
@@ -652,6 +654,55 @@ test('lobby join box and sign-up messages', async () => {
   p.run('openSignup()');
   await p.run('submitSignup()');
   check(p.alerts.length === 0 && p.text('#signup-status') === 'Fill in your name, favorite animal and favorite game.', 'Lobby: an empty Request Profile form says what\'s missing in the form, not a pop-up', p.alerts.join(' | ') || p.text('#signup-status'));
+});
+
+// =====================================================================
+// Every game: a phone leaves an online table (closed the page, lost signal, phone slept)
+// =====================================================================
+const TITLES = { 'tic-tac-toe': 'Tic-Tac-Toe', '357': '357', 'mancala': 'Mancala', 'black-hole': 'Black Hole',
+  'chutes-and-ladders': 'Chutes & Ladders', 'sorry': 'Sorry', 'uno-no-mercy': 'Uno No Mercy' };
+for (const [game, title] of Object.entries(TITLES)) {
+  test(`${game} player leaves`, async () => {
+    const { host, guest } = await onlineTable(game);
+    await until(() => guest.get('myRole') === 'player2' && host.get('player2ID'));
+    const pin = host.get('NetworkManager.roomID');
+    guest.run('NetworkManager.conn.close()');
+    await until(() => /left/.test(host.text('#turn-info')));
+    check(new RegExp(`left\\. They can rejoin with PIN ${pin}`).test(host.text('#turn-info')),
+      `${title}: when Player 2's phone leaves, the host's phone says so and how to get back in (it kept waiting for their turn)`, host.text('#turn-info'));
+    await until(() => guest.$('#net-notice'));
+    check(/Lost connection/.test(guest.text('#net-notice')) && guest.alerts.length === 0,
+      `${title}: the phone that lost the link says so on the page, not in a pop-up`, guest.alerts.join(' | '));
+    const back = await openGame(game, `type=online&role=client&host=${pin}`, 'cassie');
+    await until(() => back.get('myRole') === 'player2' && host.get('player2ID') === 'cassie', 4000);
+    check(back.get('myRole') === 'player2' && host.get('player2ID') === 'cassie',
+      `${title}: someone can take the empty seat with the same PIN`);
+    await until(() => !/left/.test(host.text('#turn-info')));
+    check(!/left|Waiting for someone/.test(host.text('#turn-info')), `${title}: the host's turn line is back to normal`, host.text('#turn-info'));
+    if (game === 'uno-no-mercy') {
+      await until(() => host.get('opponentHandCount') === 7 && back.get('myHand.length') === 7);
+      check(host.get('opponentHandCount') === 7 && back.get('myHand.length') === 7,
+        "Uno No Mercy: a new player at the table gets a fresh deal, and the host's count of their cards matches",
+        `${host.get('opponentHandCount')} vs ${back.get('myHand.length')}`);
+    }
+  });
+}
+
+test('online play without the network script', async () => {
+  const g = await openGame('tic-tac-toe', 'type=online&role=host', 'tim', { noPeer: true });
+  await until(() => g.$('#net-notice'));
+  check(/Couldn't load online play/.test(g.text('#net-notice')), 'Online table: when the online-play script fails to load, the page says so (it showed nothing)', g.errors.join(' | '));
+  g.errors.length = 0;
+  const c = await openGame('tic-tac-toe', 'type=cpu', 'guest', { noPeer: true });
+  c.click(c.$$('.cell')[4]);
+  check(c.get('board[4]') === 'X', "Vs computer: still plays when the online-play script didn't load");
+});
+
+test('joining a PIN nobody is hosting', async () => {
+  const g = await openGame('tic-tac-toe', 'type=online&role=client&host=4321', 'ariel');
+  await until(() => g.$('#net-notice'), 3000);
+  check(/No table with PIN 4321/.test(g.text('#net-notice')) && g.alerts.length === 0,
+    'Joining: a PIN nobody is hosting says so right away on the page (it waited 15 seconds, then a pop-up)', g.alerts.join(' | ') || g.text('#net-notice'));
 });
 
 // =====================================================================

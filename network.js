@@ -16,15 +16,25 @@ const NetworkManager = {
     onChatMessage: null,
     onJoinAccepted: null,
     onAnimationTrigger: null,
-    
+    onPlayerLeft: null, // game: (playerID) => true when that player's seat is now empty
+
     lastStateSeq: 0,
     hostPlayerID: null,
+    leftName: null,  // Host: name of the last player whose phone left the table
+    peerOpen: false,
     prefix: "webbs-", // Isolate our games from other PeerJS users
 
     init(role, roomID = null) {
         this.role = role;
         this.roomID = roomID || this.generateShortID();
         this.lastStateSeq = 0;
+
+        // PeerJS comes from the internet. If it didn't load, say so (vs-computer games still work without it)
+        if (typeof Peer === 'undefined') {
+            this.peer = { on() {}, connect() {} };
+            this.showNotice("Couldn't load online play. Check your internet, then reload the page.");
+            return;
+        }
         
         // Track the current game if we are in a game folder
         const path = window.location.pathname;
@@ -46,6 +56,7 @@ const NetworkManager = {
         this.peer = new Peer(finalID, config);
 
         this.peer.on('open', (id) => {
+            this.peerOpen = true;
             console.log(`My peer ID is: ${id}`);
             if (role === 'client' && this.roomID) {
                 this.connectToHost(this.roomID);
@@ -64,16 +75,63 @@ const NetworkManager = {
             }
         });
 
-        this.peer.on('error', (err) => {
-            console.error('PeerJS Error:', err);
-            if (err.type === 'unavailable-id' && role === 'host') {
-                alert("This Table PIN is already in use. Please try again.");
-            } else if (err.type === 'peer-dotnet-found' || err.type === 'browser-incompatible') {
-                alert("Your browser doesn't support the networking features needed for multiplayer.");
-            } else if (err.type === 'network') {
-                console.warn("Signaling server connection lost.");
-            }
-        });
+        this.peer.on('error', (err) => this.handlePeerError(err));
+    },
+
+    // Every PeerJS problem becomes one plain sentence on the page, never a pop-up.
+    // On the lobby page, only a browser that can't play online is mentioned (the join box has its own messages).
+    handlePeerError(err) {
+        const type = err && err.type;
+        console.warn('PeerJS:', type, err && err.message);
+        if (type === 'browser-incompatible') {
+            this.showNotice("This browser can't play online games. Try Chrome or Safari, or play against the computer.");
+            return;
+        }
+        if (!this.currentGame) return;
+        if (type === 'unavailable-id' && this.role === 'host') {
+            this.showNotice("That table PIN is already being used. Go back and start a new table.");
+        } else if (type === 'peer-unavailable' && this.role === 'client' && !(this.conn && this.conn.open)) {
+            this.showNotice(`No table with PIN ${this.roomID} is open right now. Check the PIN on the host's screen.`);
+        } else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(type) && !this.peerOpen) {
+            this.showNotice("Couldn't reach the game network. Check your internet and try again.");
+        }
+    },
+
+    // A small box over the page with one sentence and a way back to the games list
+    showNotice(text) {
+        let box = document.getElementById('net-notice');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'net-notice';
+            box.className = 'net-notice';
+            box.setAttribute('role', 'alert');
+            box.innerHTML = '<div class="net-notice-box"><p class="net-notice-text"></p><button type="button" class="modal-btn net-notice-btn"></button></div>';
+            document.body.appendChild(box);
+        }
+        clearTimeout(this.connectTimer);
+        box.querySelector('.net-notice-text').textContent = text;
+        const btn = box.querySelector('.net-notice-btn');
+        const onGamePage = window.location.pathname.includes('/games/');
+        btn.textContent = onGamePage ? 'Back to games' : 'OK';
+        btn.onclick = () => {
+            if (onGamePage) window.location.href = window.location.href.split('/games/')[0] + '/index.html';
+            else box.remove();
+        };
+    },
+
+    // Host: a phone left the table (closed the page, lost signal, phone went to sleep)
+    playerLeft(conn) {
+        const id = conn.playerID;
+        if (!id || this.connections.some(c => c.open && c.playerID === id)) return; // still here on another link
+        const before = this.leftName;
+        this.leftName = typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(id) : id;
+        if (!(this.onPlayerLeft && this.onPlayerLeft(id))) { this.leftName = before; return; } // a watcher left, not a player
+        if (window.WebbsCloud && this.currentGame) WebbsCloud.publishTable(this.roomID, this.gameTitle()); // seat is open again
+    },
+
+    // Host's turn line while the second seat is empty
+    waitingText() {
+        return this.leftName ? `${this.leftName} left. They can rejoin with PIN ${this.roomID}.` : 'Waiting for someone to join…';
     },
 
     // Link that drops the other person straight into this table: .../index.html?join=PIN
@@ -133,6 +191,7 @@ const NetworkManager = {
             this.connections = this.connections.filter(c => c !== conn);
             console.log("Peer disconnected:", conn.peer);
             this.updateChatState();
+            this.playerLeft(conn);
         });
     },
 
@@ -196,11 +255,10 @@ const NetworkManager = {
         console.log("Connecting to host:", hostID);
         
         // Timeout for connection
-        const timeout = setTimeout(() => {
+        const timeout = this.connectTimer = setTimeout(() => {
             if (!this.conn || !this.conn.open) {
-                console.error("Connection attempt timed out.");
-                alert("Could not connect to the host. Please check the PIN and try again.");
-                window.location.href = "../../index.html";
+                console.warn("Connection attempt timed out.");
+                this.showNotice(`Couldn't reach the table with PIN ${hostPIN}. Check the PIN and your internet, then try again.`);
             }
         }, 15000);
 
@@ -219,16 +277,16 @@ const NetworkManager = {
             this.handleMessage(data);
         });
 
+        // The host closed the game, or this phone lost signal: say so on the page and offer the way back
         this.conn.on('close', () => {
-            alert("Lost connection to Host.");
-            window.location.href = "../../index.html";
+            const host = this.hostPlayerID && typeof ProfileManager !== 'undefined' ? ProfileManager.resolveName(this.hostPlayerID) : 'the host';
+            this.showNotice(`Lost connection to ${host}. This game has ended on this phone.`);
         });
-        
+
         this.conn.on('error', (err) => {
-            console.error("Data connection error:", err);
+            console.warn("Data connection error:", err);
             clearTimeout(timeout);
-            alert("Connection error occurred. Returning to menu.");
-            window.location.href = "../../index.html";
+            this.showNotice("Something went wrong with the connection. Go back and join the table again.");
         });
     },
 
@@ -312,6 +370,7 @@ const NetworkManager = {
                 if (this.onMoveReceived) this.onMoveReceived(data.payload, senderConn);
                 break;
             case 'REQUEST_JOIN':
+                if (senderConn) senderConn.playerID = data.playerID; // so we know who left if this link closes
                 if (this.onPlayerJoined) this.onPlayerJoined(data.playerID, senderConn);
                 if (window.WebbsCloud) WebbsCloud.closeTable(this.roomID); // table is full now
                 break;

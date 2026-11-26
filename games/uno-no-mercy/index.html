@@ -162,6 +162,7 @@
         let startingPlayer = "X";
         let wildCardPending = null;   // the wild card waiting for its colour (the card itself, not its place in the hand)
         let gameNo = 1;               // host: goes up on Play Again, so the other phone knows to deal itself a new hand
+        let seatWasLeft = false;      // host: Player 2's phone left, so the next player gets a fresh deal
         let seenGameNo = null;        // joiner: the last game number the host sent
         let resultRecorded = false;   // a finished game is counted once on this phone
         let resultText = '';
@@ -205,9 +206,19 @@
                     if (!player2ID) {
                         player2ID = id;
                         conn.send({ type: 'JOIN_ACCEPTED' });
+                        // The last player's cards left with their phone, so a new player starts a fresh deal
+                        if (seatWasLeft) { seatWasLeft = false; resetGame(); }
                         broadcast();
                         render(); // the host's cards and the deck come alive now there's someone to play
                     }
+                };
+                // Player 2's phone left (closed the page, lost signal): open the seat so they can sit back down with the PIN
+                NetworkManager.onPlayerLeft = (id) => {
+                    if (id !== player2ID) return false;
+                    player2ID = null; seatWasLeft = true;
+                    broadcast();
+                    render();
+                    return true;
                 };
                 NetworkManager.onMoveReceived = (action) => { 
                     if (!action) return;
@@ -484,7 +495,7 @@
 
             info.classList.toggle('game-done', !active);
             if (!active) { info.innerText = resultText; return; }
-            if (myRole === 'host' && !player2ID) { info.innerText = "Waiting for someone to join…"; return; }
+            if (myRole === 'host' && !player2ID) { info.innerText = NetworkManager.waitingText(); return; }
 
             const lastPlayer = (currentPlayer === 'X') ? 'O' : 'X';
             const amITheOnePicking = (rouletteTarget === 'pending') && (
