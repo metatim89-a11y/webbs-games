@@ -470,6 +470,8 @@ test('help and tour', async () => {
   const topics = p.$$('#help-body .help-topic').map(b => b.dataset.topic);
   check(GAMES.every(g => topics.includes(g)) && ['players', 'host', 'join', 'lobby', 'chat'].every(t => topics.includes(t)),
     '❓ Help lists every game and how players, hosting, joining, the Game Lobby and chat work', topics.join(','));
+  check(JSON.stringify(topics.filter(t => GAMES.includes(t))) === JSON.stringify(GAMES), 'Help lists the games in the same order as the games list', topics.join(','));
+  check(Object.keys(p.get('WubsHelp.TOPICS')).every(id => topics.includes(id)), 'Help leaves no topic out of the list');
   for (const t of ['players', 'host', 'join', 'lobby', 'chat', ...GAMES]) {
     p.click(`#help-body [data-topic="${t}"]`);
     if (p.$$('#help-body .help-steps li').length < 3) check(false, `Help: ${t} has steps`);

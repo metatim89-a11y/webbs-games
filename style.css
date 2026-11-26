@@ -771,6 +771,7 @@ button.player-card { font: inherit; color: inherit; width: 100%; box-sizing: bor
     background: rgba(10,10,10,0.96); border: 2px solid var(--gold); color: #fff; box-shadow: 0 10px 30px rgba(0,0,0,0.7);
     animation: slideUp 0.25s ease;
 }
+.help-tour.at-top { bottom: auto; top: 16px; }
 .help-tour-icon { font-size: 1.6em; }
 .help-tour-title { font-weight: bold; font-size: 1.1em; color: var(--gold); margin: 2px 0 4px; }
 .help-tour-text { margin: 0 0 12px; line-height: 1.4; }

@@ -165,6 +165,11 @@ const WubsHelp = (() => {
     };
 
     // The lobby tour: each step points at one part of the main menu
+    // The order the Help list shows topics in. JavaScript always lists a number-like key such as '357'
+    // first, so the list follows this order (the same as the games list) instead of the object's.
+    const ORDER = ['start', 'players', 'host', 'join', 'lobby', 'chat',
+        'tic-tac-toe', '357', 'mancala', 'black-hole', 'chutes-and-ladders', 'sorry', 'uno-no-mercy'];
+
     const TOUR = [
         { icon: '👋', title: 'Welcome to Wubs Games!', text: "Here's a quick look around. It takes 30 seconds." },
         { icon: '🎲', title: 'Play a game', spot: '#play-btn', text: "Pick a game, then choose who's playing: the computer, someone next to you, or someone online." },
@@ -271,7 +276,7 @@ const WubsHelp = (() => {
         groups.forEach(([group, label]) => {
             body.appendChild(el('h3', 'help-group', label));
             const list = el('div', 'help-topics');
-            Object.entries(TOPICS).filter(([, t]) => t.group === group).forEach(([id, t]) => {
+            ORDER.filter(id => TOPICS[id] && TOPICS[id].group === group).map(id => [id, TOPICS[id]]).forEach(([id, t]) => {
                 const b = el('button', 'help-topic');
                 b.type = 'button';
                 b.dataset.topic = id;
@@ -362,7 +367,21 @@ const WubsHelp = (() => {
             spot.classList.add('help-spot');
             try { spot.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
         }
+        placeTour(card, spot);
+        setTimeout(() => placeTour(card, spot), 450); // again once the smooth scroll has settled
         try { next.focus(); } catch (e) {}
+    }
+
+    // The tour card sits at the bottom, unless that would cover the part it is pointing at:
+    // then it moves to the top (Family Chat's quick messages are near the bottom of the lobby)
+    function placeTour(card, spot) {
+        if (!card.isConnected) return;
+        if (!spot) return card.classList.remove('at-top');
+        const r = spot.getBoundingClientRect();
+        const room = card.offsetHeight + 24;
+        const coverBottom = Math.max(0, r.bottom - (window.innerHeight - room));
+        const coverTop = Math.max(0, room - r.top);
+        card.classList.toggle('at-top', coverBottom > coverTop);
     }
 
     function visible(node) {
